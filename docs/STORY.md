@@ -11,3 +11,9 @@ Raw material for a longer YouTube edit. Newest at the bottom. Keep before/after 
 - Harbor and meadow first looked like camouflage because the pink flower noise covered too much. Raised the thresholds.
 - Water was too dark in the bay: absorption was too strong. Retuned.
 - Result: four locales, 19 tests passing, 1080p60 orbit clips per locale.
+
+## 2026-11-15 (later): terrain pass 2
+- Stopped a half-finished video batch rendered from the old terrain; kept the Meadow Cove clip as the BEFORE clip (docs/video/.../BEFORE-m1-...). Re-render all four locales after the terrain changes for an honest before/after.
+- Added knolls, a flat harbor plateau, bank smoothing, rock strata, lower snow line, thinner foam.
+- Side effect: highland rivers became almost invisible. Needs a ribbon pass next.
+- Edit tool: tools/edit.mjs builds title-card + clip cuts with ffmpeg (1080p60, no audio). First gotchas: fade durations need a leading zero (0.4 not .4), and a drive-letter colon in the drawtext fontfile path breaks the filtergraph, so the font is copied next to the tool.

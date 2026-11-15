@@ -1,22 +1,127 @@
 {
- "intro":"Building a cozy, seeded island world in the open. Newest entries first. Everything here is local; nothing has been published.",
- "entries":[
-  {"n":1,"date":"2026-11-15","slug":"first-island","milestone":"M1 terrain generator","title":"First islands: four locales, erosion, rivers, baked light",
-   "blogTitle":"We made our first islands",
-   "text":["First slice of the island world is running. A seed plus a locale preset produces the same island every time: radial falloff plus domain-warped noise, ridged mountains where the preset asks for them, then a droplet erosion pass and a thermal relax so slopes stop looking like raw noise.","Rivers follow the steepest way downhill and carve a bed; lakes get a flat water level below their rim. Beaches are flattened on purpose so there is room to build later, and steep rock gets cliff terraces. Colours come from a small list of zone rules per preset (height, slope, wetness, noise windows), not a biome simulation, so adding a meadow or snow patch later is one more row of data.","Light is baked into the vertex colours (sun shading, heightfield shadows, cavity darkening, soft banding) so the look stays flat and pastel. Water has a depth tint and animated shore foam. Terrain streams in 64 metre chunks with three levels of detail.","Four locales so far: Meadow Cove, Pine Highlands, Sandbar Archipelago and Harbor Town. 19 unit tests cover determinism and sea-level / land-ratio sanity."],
-   "blog":["Today we got the first real islands on screen. You give the generator a seed and a locale, and it hands back the same island every time, which is the property we need for sharing islands as links later.","The recipe is a mix of old tricks done carefully: a soft circular falloff with a wobbly coast, layered hills, ridged noise for mountains, and then rain. We drop tens of thousands of virtual raindrops that pick up and set down dirt, which is what turns blobby noise into valleys that look like water has been at them. Rivers are traced downhill and carved in, and lakes are scooped out with their own flat water level.","We kept the look flat and pastel on purpose. Instead of real lights, the sun, the shadows and the dark crevices are baked into the colour of each vertex, then nudged into soft bands so it feels like a toon print. The water gets a depth tint and a bright foam line where it meets the sand.","There are four locales for now: a gentle meadow with a cove, tall highlands with snow and lakes, a scatter of sandbar islands, and a flat harbor coast. No streets, houses or gameplay yet. Terrain first, then streets, then lots."],
-   "stills":[
-    {"file":"shots/2026-11-15/pineHighlands-oblique.png","caption":"Pine Highlands, oblique. Ridged mountains, erosion, rivers and a lake."},
-    {"file":"shots/2026-11-15/meadowCove-oblique.png","caption":"Meadow Cove, oblique."},
-    {"file":"shots/2026-11-15/sandbarArchipelago-top.png","caption":"Sandbar Archipelago, top-down."},
-    {"file":"shots/2026-11-15/harborTown-oblique.png","caption":"Harbor Town with its bay."},
-    {"file":"shots/2026-11-15/pineHighlands-shore.png","caption":"Low shoreline view looking inland at the highlands."},
-    {"file":"shots/2026-11-15/meadowCove-top.png","caption":"Meadow Cove, top-down."}
+ "intro": "Building a cozy, seeded island world in the open. Newest entries first. Everything here is local; nothing has been published.",
+ "entries": [
+  {
+   "n": 1,
+   "date": "2026-11-15",
+   "slug": "first-island",
+   "milestone": "M1 terrain generator",
+   "title": "First islands: four locales, erosion, rivers, baked light",
+   "blogTitle": "We made our first islands",
+   "text": [
+    "First slice of the island world is running. A seed plus a locale preset produces the same island every time: radial falloff plus domain-warped noise, ridged mountains where the preset asks for them, then a droplet erosion pass and a thermal relax so slopes stop looking like raw noise.",
+    "Rivers follow the steepest way downhill and carve a bed; lakes get a flat water level below their rim. Beaches are flattened on purpose so there is room to build later, and steep rock gets cliff terraces. Colours come from a small list of zone rules per preset (height, slope, wetness, noise windows), not a biome simulation, so adding a meadow or snow patch later is one more row of data.",
+    "Light is baked into the vertex colours (sun shading, heightfield shadows, cavity darkening, soft banding) so the look stays flat and pastel. Water has a depth tint and animated shore foam. Terrain streams in 64 metre chunks with three levels of detail.",
+    "Four locales so far: Meadow Cove, Pine Highlands, Sandbar Archipelago and Harbor Town. 19 unit tests cover determinism and sea-level / land-ratio sanity."
    ],
-   "videos":[
-    {"file":"video/2026-11-15/raw/pineHighlands-orbit-petalwood-1920x1080-60fps.mp4","caption":"Pine Highlands orbit, 1080p60 raw clip"}
+   "blog": [
+    "Today we got the first real islands on screen. You give the generator a seed and a locale, and it hands back the same island every time, which is the property we need for sharing islands as links later.",
+    "The recipe is a mix of old tricks done carefully: a soft circular falloff with a wobbly coast, layered hills, ridged noise for mountains, and then rain. We drop tens of thousands of virtual raindrops that pick up and set down dirt, which is what turns blobby noise into valleys that look like water has been at them. Rivers are traced downhill and carved in, and lakes are scooped out with their own flat water level.",
+    "We kept the look flat and pastel on purpose. Instead of real lights, the sun, the shadows and the dark crevices are baked into the colour of each vertex, then nudged into soft bands so it feels like a toon print. The water gets a depth tint and a bright foam line where it meets the sand.",
+    "There are four locales for now: a gentle meadow with a cove, tall highlands with snow and lakes, a scatter of sandbar islands, and a flat harbor coast. No streets, houses or gameplay yet. Terrain first, then streets, then lots."
    ],
-   "bad":["Rivers are thin and a bit stair-stepped from far away; lake rims can look like pits.","Meadow Cove is a big flat green plain; it needs landmarks and more varied relief.","Shore views are low drama: wide flat beach, soft hills, nothing to look at yet.","Highland rock reads as a flat purple with little texture; snow caps barely show.","Harbor Town has a bay but no real harbor shelf, quay or flat build plateau yet.","Zones look random: pink flower patches have no logic, colours are a bit saturated teal.","Water foam is a thick white band and water glints are faint.","No trees, rocks or props, so scale is hard to read.","Coast edge is slightly fuzzy where noise and warp fight each other.","Generation takes a couple of seconds in the browser (single thread)."],
-   "next":["Fix the weak spots above (river width, lake rims, rock texture, snow).","Then streets, then lots and massing."]}
+   "stills": [
+    {
+     "file": "shots/2026-11-15/pineHighlands-oblique.png",
+     "caption": "Pine Highlands, oblique. Ridged mountains, erosion, rivers and a lake."
+    },
+    {
+     "file": "shots/2026-11-15/meadowCove-oblique.png",
+     "caption": "Meadow Cove, oblique."
+    },
+    {
+     "file": "shots/2026-11-15/sandbarArchipelago-top.png",
+     "caption": "Sandbar Archipelago, top-down."
+    },
+    {
+     "file": "shots/2026-11-15/harborTown-oblique.png",
+     "caption": "Harbor Town with its bay."
+    },
+    {
+     "file": "shots/2026-11-15/pineHighlands-shore.png",
+     "caption": "Low shoreline view looking inland at the highlands."
+    },
+    {
+     "file": "shots/2026-11-15/meadowCove-top.png",
+     "caption": "Meadow Cove, top-down."
+    }
+   ],
+   "videos": [
+    {
+     "file": "video/2026-11-15/raw/pineHighlands-orbit-petalwood-1920x1080-60fps.mp4",
+     "caption": "Pine Highlands orbit, 1080p60 raw clip"
+    }
+   ],
+   "bad": [
+    "Rivers are thin and a bit stair-stepped from far away; lake rims can look like pits.",
+    "Meadow Cove is a big flat green plain; it needs landmarks and more varied relief.",
+    "Shore views are low drama: wide flat beach, soft hills, nothing to look at yet.",
+    "Highland rock reads as a flat purple with little texture; snow caps barely show.",
+    "Harbor Town has a bay but no real harbor shelf, quay or flat build plateau yet.",
+    "Zones look random: pink flower patches have no logic, colours are a bit saturated teal.",
+    "Water foam is a thick white band and water glints are faint.",
+    "No trees, rocks or props, so scale is hard to read.",
+    "Coast edge is slightly fuzzy where noise and warp fight each other.",
+    "Generation takes a couple of seconds in the browser (single thread)."
+   ],
+   "next": [
+    "Fix the weak spots above (river width, lake rims, rock texture, snow).",
+    "Then streets, then lots and massing."
+   ]
+  },
+  {
+   "n": 2,
+   "date": "2026-11-15",
+   "slug": "terrain-pass-2",
+   "milestone": "M2 terrain quality pass",
+   "title": "Terrain pass 2: landmarks, harbor shelf, rock strata, snow",
+   "blogTitle": "Making the islands less boring",
+   "text": [
+    "Second pass on terrain quality. Meadow Cove and Harbor Town now get a handful of knolls so the land has landmarks. Harbor Town has a flat plateau shelf (a future building plain) beside the bay. River banks are smoothed, lake rims blend into the land instead of dropping into pits, and rock picks up strata banding. Snow starts lower on the Highland peaks.",
+    "Water foam is thinner and the water mesh is finer, so rivers and shorelines read better at distance. Vertex colour gets small noise variation so large areas stop looking flat."
+   ],
+   "blog": [
+    "Our first islands worked but felt flat, so today was about giving the land something to look at.",
+    "Meadow Cove now has rounded knolls with rocky shoulders, Harbor Town got a flat shelf where a town could one day sit, and the mountain rock has layered banding like real cliffs. Lakes no longer sit in crater pits; their edges blend into the hills.",
+    "We also thinned the foam line so the shoreline looks like a drawing instead of a white smear. There is still a lot to fix, but the islands are starting to have personality."
+   ],
+   "stills": [
+    {
+     "file": "shots/2026-11-15/pineHighlands-oblique.png",
+     "caption": "Pine Highlands after pass 2: strata, snow peaks, lake blending."
+    },
+    {
+     "file": "shots/2026-11-15/meadowCove-oblique.png",
+     "caption": "Meadow Cove with knolls and rocky shoulders."
+    },
+    {
+     "file": "shots/2026-11-15/harborTown-oblique.png",
+     "caption": "Harbor Town with its flat shelf beside the bay."
+    }
+   ],
+   "videos": [
+    {
+     "file": "video/2026-11-15/raw/BEFORE-m1-meadowCove-orbit-petalwood-1920x1080-60fps.mp4",
+     "caption": "Before (M1): Meadow Cove orbit, 1080p60 raw"
+    },
+    {
+     "file": "video/2026-11-15/raw/meadowCove-orbit-petalwood-1920x1080-60fps.mp4",
+     "caption": "After (M2): Meadow Cove orbit, 1080p60 raw"
+    }
+   ],
+   "bad": [
+    "Highland rivers are now barely visible from far away; they need to read as ribbons.",
+    "Distant horizon shows pale stepped bands past the world edge in the highlands view (fog plus chunk edge).",
+    "Meadow Cove is still mostly one green; zones need more variety and the pink flower specks look like confetti.",
+    "Strata banding can read as stripes on large mountain faces.",
+    "Lakes are flat dark discs with no shore detail.",
+    "Shore views are still low drama and the beach is very wide and flat.",
+    "Everything is still teal-green; palette needs more colour range."
+   ],
+   "next": [
+    "Rivers as clear ribbons, wider and with banks.",
+    "Fix the horizon bands, widen colour range, then move on to streets."
+   ]
+  }
  ]
 }
