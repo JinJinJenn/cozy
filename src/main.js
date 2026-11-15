@@ -28,9 +28,9 @@ const waterMat=new THREE.ShaderMaterial({
       vec3 col=mix(uShallow,uDeep,t);
       float w1=sin(uTime*.9+vW.x*.12+vW.z*.07),w2=sin(uTime*1.3-vW.z*.15+vW.x*.05);
       float band=.55+.22*w1+.14*w2;
-      float foam=1.-smoothstep(band*.45,band,d);
+      float foam=1.-smoothstep(band*.2,band*.55,d);
       float line=smoothstep(.0,.12,d)*(1.-smoothstep(.12,.34,d)); // thin bright shoreline
-      col=mix(col,uFoam,clamp(foam*.75+line*.5,0.,1.));
+      col=mix(col,uFoam,clamp(foam*.7+line*.35,0.,1.));
       // soft stylised glints
       float g=sin(vW.x*.9+uTime*1.1)*sin(vW.z*.8-uTime*.9);
       col+=vec3(.06)*smoothstep(.82,1.,g)*(1.-t*.6);
@@ -92,7 +92,7 @@ function updateChunks(budget=6){
     if(cur) disposeChunk(cur);
     const t=buildTerrainChunk(island,w.cx,w.cz,w.res);
     const tm=makeMesh(t,false);group.add(tm);
-    const wd=buildWaterChunk(island,w.cx,w.cz,w.res>=33?49:w.res>=17?25:w.res>=9?13:7);
+    const wd=buildWaterChunk(island,w.cx,w.cz,w.res>=33?65:w.res>=17?49:w.res>=9?33:17);
     let wm=null;if(wd){wm=makeMesh(wd,true);group.add(wm);}
     chunkMap.set(k,{terrain:tm,water:wm,res:w.res});built++;
   }

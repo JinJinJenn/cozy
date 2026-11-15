@@ -43,6 +43,14 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
     }
   }
   const bays=preset.bays||[];
+  const knolls=[];
+  if(preset.knolls){
+    const kr=rng(key+':knolls'),K=preset.knolls;let t=0;
+    while(knolls.length<K.count&&t++<300){
+      const a=kr()*Math.PI*2,d=Math.sqrt(kr())*lobes[0].r*K.spread,r=K.r[0]+kr()*(K.r[1]-K.r[0]);
+      knolls.push({x:lobes[0].x+Math.cos(a)*d,z:lobes[0].z+Math.sin(a)*d,r,h:K.h[0]+kr()*(K.h[1]-K.h[0])});
+    }
+  }
   const W=preset.warp,B=preset.base,Hh=preset.hills,Mt=preset.mountains;
   const detailFreq=.03;
   const maskAt=(wx,wz)=>{
@@ -69,6 +77,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       const hills=nz.fbm(wx*Hh.freq+300,wz*Hh.freq+300,Hh.oct)*.5+.5;
       out+=(hills*hills*1.35)*amp*land;
       out+=nz.fbm(x*detailFreq+90,z*detailFreq+90,3)*Hh.detail*land;
+      for(const k of knolls){const q=Math.hypot(x-k.x,z-k.z)/k.r;if(q<2.2)out+=k.h*Math.exp(-q*q)*land;}
       if(Mt){
         let cmask=1;
         if(Mt.center) cmask=1-smooth(Mt.center.r*.35,Mt.center.r,Math.hypot(x-Mt.center.x,z-Mt.center.z));
@@ -107,16 +116,16 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       lakes.push({x,z,r,level,depth:L.depth,seed:lakeRng()*100});
     }
     for(const lk of lakes){
-      const reach=lk.r*1.5,i0=Math.floor(gi(lk.x-reach,0)[0]),i1=Math.ceil(gi(lk.x+reach,0)[0]),j0=Math.floor(gi(0,lk.z-reach)[1]),j1=Math.ceil(gi(0,lk.z+reach)[1]);
+      const reach=lk.r*2.2,i0=Math.floor(gi(lk.x-reach,0)[0]),i1=Math.ceil(gi(lk.x+reach,0)[0]),j0=Math.floor(gi(0,lk.z-reach)[1]),j1=Math.ceil(gi(0,lk.z+reach)[1]);
       for(let j=Math.max(0,j0);j<=Math.min(N-1,j1);j++)for(let i=Math.max(0,i0);i<=Math.min(N-1,i1);i++){
         const x=-half+i*cell,z=-half+j*cell,dx=x-lk.x,dz=z-lk.z,d=Math.hypot(dx,dz),a=Math.atan2(dz,dx);
         const rr=lk.r*(.78+.3*nz.noise(Math.cos(a)*1.3+lk.seed,Math.sin(a)*1.3+lk.seed));
         const t=d/rr;
-        if(t<1.35){
+        if(t<2){
           const floor=lk.level-lk.depth*(1-Math.min(1,t)**2.2);
-          const k=smooth(1.35,.82,t);
+          const k=smooth(2,.82,t);
           const target=t<1?floor:lerp(h[j*N+i],Math.min(h[j*N+i],lk.level+.3),k);
-          if(t<1) h[j*N+i]=Math.min(h[j*N+i],target); else h[j*N+i]=Math.min(h[j*N+i],lerp(h[j*N+i],lk.level+.15,k*.6));
+          if(t<1) h[j*N+i]=Math.min(h[j*N+i],target); else h[j*N+i]=Math.min(h[j*N+i],lerp(h[j*N+i],lk.level+.35,k*.7));
         }
         if(t<1.05) water[j*N+i]=Math.max(water[j*N+i],lk.level);
       }
@@ -179,6 +188,27 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
     }
   }
 
+  // plateaus (flat buildable shelves) and river-bank smoothing
+  for(const pl of preset.plateaus||[]){
+    for(let j=0;j<N;j++)for(let i=0;i<N;i++){
+      const x=-half+i*cell,z=-half+j*cell,d=Math.hypot((x-pl.x)/pl.rx,(z-pl.z)/pl.rz);
+      const w=1-smooth(1,1+pl.soft,d);
+      if(w>0&&h[j*N+i]>-1.5) h[j*N+i]=lerp(h[j*N+i],pl.level,w*(pl.amount??1));
+    }
+  }
+  for(let pass=0;pass<2;pass++){
+    const t=Float32Array.from(h);
+    for(let j=2;j<N-2;j++)for(let i=2;i<N-2;i++){
+      const k=j*N+i;let near=false;
+      for(let o=-2;o<=2&&!near;o+=2)for(let q=-2;q<=2;q+=2)if(water[k+o*N+q]>0){near=true;break;}
+      if(!near||water[k]>0&&h[k]<water[k]-.5) continue;
+      if(water[k]>0) continue;
+      const a=(h[k-1]+h[k+1]+h[k-N]+h[k+N]+h[k-N-1]+h[k-N+1]+h[k+N-1]+h[k+N+1])/8;
+      t[k]=Math.max(lerp(h[k],a,.55),(water[k+1]||water[k-1]||water[k+N]||water[k-N])?Math.max(water[k+1],water[k-1],water[k+N],water[k-N])+.05:-9);
+    }
+    h.set(t);
+  }
+
   // ---------------- 4. beach shaping ----------------
   const bt=preset.beach.top;
   for(let k=0;k<h.length;k++){
@@ -225,7 +255,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   };
   // zone painter
   const zones=preset.zones.map(zn=>({...zn,rgb:hex(zn.color),n:zn.noise?makeNoise(`${key}:zone:${zn.noise.seed||0}`):null}));
-  const base0=hex(preset.palette.shallow);
+  const nzS=makeNoise(key+':paint');
   const paint=(x,z,hh,s,wet)=>{
     let c=[...zones[0].rgb];
     for(const zn of zones){
@@ -235,6 +265,12 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       if(zn.strength!=null) wgt*=zn.strength;
       c[0]=lerp(c[0],zn.rgb[0],wgt);c[1]=lerp(c[1],zn.rgb[1],wgt);c[2]=lerp(c[2],zn.rgb[2],wgt);
     }
+    if(preset.strata&&s>preset.strata.slope){
+      const k=smooth(preset.strata.slope,preset.strata.slope+.3,s),band=Math.sin(hh*preset.strata.freq+nzS.fbm(x*.02,z*.02,2)*3);
+      const m=1+band*preset.strata.amp*k;c[0]*=m;c[1]*=m;c[2]*=m;
+    }
+    const jn=1+nzS.fbm(x*.09+5,z*.09+5,2)*(preset.jitter??.05);
+    c[0]*=jn;c[1]*=jn;c[2]*=jn;
     return c;
   };
   // stats
