@@ -1,0 +1,129 @@
+// Locale presets are plain data. Add a new island type by adding an object here.
+// All distances in metres, sea level is y=0. Colours are hex.
+//
+// zones: ordered paint rules, later rules paint over earlier ones. Each rule
+// blends its colour in with weight = product of its range windows:
+//   h:[min,max,soft]  height above sea       slope:[min,max,soft]  rise/run
+//   wet:[min,max,soft] closeness to river/lake water (0..1)
+//   noise:{scale,min,max,soft,seed} patchy mask from low-frequency noise
+// Missing windows count as 1. Add meadow/forest/rock patches later by adding rows.
+
+const SEABED=[
+  {name:'deep floor',color:'#8fb9b4',h:[-400,-6,4]},
+  {name:'shallow floor',color:'#e9dcb8',h:[-6,-.2,2]},
+];
+
+export const PRESETS={
+  meadowCove:{
+    label:'Meadow Cove',
+    blurb:'Gentle rolling hills ringed by a wide sandy beach, with a sheltered cove on the south shore.',
+    size:2048,grid:512,
+    lobes:[{x:0,z:0,r:760}],
+    bays:[{x:30,z:640,r:300,depth:1.1}],
+    warp:{freq:.0016,amp:230},
+    base:{shelfDepth:5,deepDepth:48,shelfWidth:.2,coastRise:1.4,inlandLift:16},
+    hills:{freq:.0042,amp:52,oct:5,detail:.8},
+    mountains:null,
+    erosion:{droplets:70000,thermal:6,talus:.9},
+    rivers:{count:3,depth:2.2,width:9,minH:14},
+    lakes:{count:2,r:[60,100],depth:3.2,maxH:34},
+    beach:{top:3.4,shelf:true},
+    terrace:null,
+    palette:{sky:'#ffe9f1',fog:'#f6e3ec',shallow:'#9fe3d4',deep:'#4aa5b8',foam:'#ffffff'},
+    zones:[
+      ...SEABED,
+      {name:'sand',color:'#f8e6c2',h:[-.3,2.0,.7]},
+      {name:'grass',color:'#a6dcae',h:[1.8,500,1.2],slope:[0,.62,.2]},
+      {name:'meadow flowers',color:'#f4b9cc',h:[4,60,2],slope:[0,.3,.1],noise:{scale:.045,min:.62,max:1,soft:.08,seed:3}},
+      {name:'forest floor',color:'#6fb99d',h:[7,500,2],slope:[0,.55,.2],noise:{scale:.011,min:.2,max:1,soft:.12,seed:9}},
+      {name:'wet bank',color:'#e8d5ac',wet:[.35,1,.4]},
+      {name:'rock',color:'#bcb2c4',slope:[.62,9,.18],h:[2,900,1]},
+    ],
+    camera:{dist:1400,elev:.62,az:.9},
+  },
+  pineHighlands:{
+    label:'Pine Highlands',
+    blurb:'Tall folded hills and a snow-capped spine, pine forest, lakes and rivers cutting to a rocky coast.',
+    size:2560,grid:640,
+    lobes:[{x:0,z:0,r:900}],
+    bays:[{x:-420,z:700,r:240,depth:.6}],
+    warp:{freq:.0013,amp:300},
+    base:{shelfDepth:4,deepDepth:60,shelfWidth:.12,coastRise:2.2,inlandLift:26},
+    hills:{freq:.0036,amp:44,oct:5,detail:1.2},
+    mountains:{freq:.0028,amp:230,oct:6,power:1.15,center:{x:-60,z:-120,r:760}},
+    erosion:{droplets:140000,thermal:12,talus:.75},
+    rivers:{count:6,depth:3,width:10,minH:60},
+    lakes:{count:3,r:[70,120],depth:4,maxH:140},
+    beach:{top:2.4,shelf:false},
+    terrace:{step:5.5,amount:.55,slopeMin:.65,hMin:24},
+    palette:{sky:'#eaf0ff',fog:'#dfe6f4',shallow:'#a4e6e0',deep:'#3f8fb1',foam:'#ffffff'},
+    zones:[
+      ...SEABED,
+      {name:'sand',color:'#f4e3c0',h:[-.3,1.8,.6],slope:[0,.7,.2]},
+      {name:'meadow',color:'#a8d9ae',h:[1.2,500,1],slope:[0,.7,.2]},
+      {name:'pine forest',color:'#5fae96',h:[8,170,10],slope:[0,.62,.15],noise:{scale:.009,min:-.05,max:1,soft:.14,seed:4}},
+      {name:'alpine meadow',color:'#cbe3bd',h:[150,230,25],slope:[0,.55,.2]},
+      {name:'wet bank',color:'#e8d9b4',wet:[.35,1,.4]},
+      {name:'rock',color:'#b3abc2',slope:[.7,9,.2],h:[3,900,1]},
+      {name:'high rock',color:'#9d96b3',h:[210,900,30],slope:[.25,9,.2]},
+      {name:'snow',color:'#fffafe',h:[255,900,18],slope:[0,1.1,.4]},
+    ],
+    camera:{dist:1900,elev:.5,az:.6},
+  },
+  sandbarArchipelago:{
+    label:'Sandbar Archipelago',
+    blurb:'A scatter of low sandy islands in warm shallow water. Wade, boat or just float between them.',
+    size:2048,grid:512,
+    lobes:[{x:0,z:0,r:330}],
+    scatter:{count:11,minR:90,maxR:230,spread:760,avoid:220},
+    warp:{freq:.0026,amp:140},
+    base:{shelfDepth:3.2,deepDepth:14,shelfWidth:.55,coastRise:.9,inlandLift:3.2},
+    hills:{freq:.006,amp:7,oct:4,detail:.5},
+    mountains:null,
+    erosion:{droplets:20000,thermal:3,talus:.8},
+    rivers:{count:0,depth:1,width:4,minH:5},
+    lakes:{count:0,r:[40,60],depth:1.5,maxH:8},
+    beach:{top:2.6,shelf:true},
+    terrace:null,
+    palette:{sky:'#fff0e4',fog:'#f9e8dc',shallow:'#8fe9dc',deep:'#38a7c0',foam:'#ffffff'},
+    zones:[
+      ...SEABED,
+      {name:'sand',color:'#fbe9c6',h:[-.3,2.8,.9]},
+      {name:'dune grass',color:'#b3dfa9',h:[2,60,1],slope:[0,.5,.2]},
+      {name:'flowers',color:'#f7bdd0',h:[3,60,1],slope:[0,.3,.1],noise:{scale:.05,min:.68,max:1,soft:.08,seed:5}},
+      {name:'palms and brush',color:'#78c3a0',h:[3.4,60,1],slope:[0,.5,.2],noise:{scale:.02,min:.35,max:1,soft:.12,seed:6}},
+      {name:'rock',color:'#c3b9c8',slope:[.7,9,.2],h:[1,900,1]},
+    ],
+    camera:{dist:1450,elev:.5,az:.4},
+  },
+  harborTown:{
+    label:'Harbor Town',
+    blurb:'A broad flat buildable coast wrapped around a sheltered harbor bay, hills rising behind.',
+    size:2048,grid:512,
+    lobes:[{x:0,z:-80,r:780}],
+    bays:[{x:0,z:420,r:330,depth:1.1}],
+    warp:{freq:.0018,amp:150},
+    base:{shelfDepth:7,deepDepth:20,shelfWidth:.3,coastRise:2.6,inlandLift:5},
+    hills:{freq:.0038,amp:20,oct:5,detail:.6,
+      inlandBias:{x:0,z:-1,from:.15,to:.7,amp:1.7}},
+    mountains:null,
+    erosion:{droplets:50000,thermal:6,talus:.9},
+    rivers:{count:2,depth:1.6,width:5,minH:12},
+    lakes:{count:1,r:[50,80],depth:2.6,maxH:30},
+    beach:{top:2.8,shelf:true},
+    terrace:{step:2.4,amount:.3,slopeMin:.5,hMin:6},
+    flatten:null, // hook for future lot/street flatten mask
+    palette:{sky:'#ffeadf',fog:'#f4e2d8',shallow:'#a0e4d6',deep:'#4296b0',foam:'#ffffff'},
+    zones:[
+      ...SEABED,
+      {name:'quay sand',color:'#efdcbc',h:[-.3,3.4,.8]},
+      {name:'lawn',color:'#aedcb0',h:[2.4,500,1.2],slope:[0,.55,.2]},
+      {name:'garden pink',color:'#f4bfd0',h:[3,40,1],slope:[0,.25,.1],noise:{scale:.04,min:.7,max:1,soft:.08,seed:7}},
+      {name:'woodland',color:'#6bb89c',h:[14,500,3],slope:[0,.6,.2],noise:{scale:.01,min:.15,max:1,soft:.12,seed:2}},
+      {name:'wet bank',color:'#e8d5ac',wet:[.35,1,.4]},
+      {name:'rock',color:'#bdb3c5',slope:[.6,9,.18],h:[3,900,1]},
+    ],
+    camera:{dist:1450,elev:.5,az:1.4},
+  },
+};
+export const PRESET_IDS=Object.keys(PRESETS);

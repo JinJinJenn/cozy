@@ -1,0 +1,20 @@
+{
+ "project":"cozy",
+ "note":"Per-milestone clips and stills. Raw clips are kept; edited cuts live in docs/video/YYYY-MM-DD/. Used to assemble a longer YouTube edit later.",
+ "milestones":[
+  {"id":"M1","date":"2026-11-15","title":"Terrain generator: four locales","commit":"see git log",
+   "stills":[
+    {"file":"docs/shots/2026-11-15/meadowCove-oblique.png","desc":"Meadow Cove oblique"},
+    {"file":"docs/shots/2026-11-15/pineHighlands-oblique.png","desc":"Pine Highlands oblique"},
+    {"file":"docs/shots/2026-11-15/sandbarArchipelago-top.png","desc":"Archipelago top-down"},
+    {"file":"docs/shots/2026-11-15/harborTown-oblique.png","desc":"Harbor Town oblique"}
+   ],
+   "clips":[
+    {"file":"docs/video/2026-11-15/raw/pineHighlands-orbit-petalwood-1920x1080-30fps.mp4","desc":"Pine Highlands orbit, 8 s, 1080p30 (first test render)"},
+    {"file":"docs/video/2026-11-15/raw/meadowCove-orbit-petalwood-1920x1080-60fps.mp4","desc":"Meadow Cove orbit, 10 s, 1080p60"},
+    {"file":"docs/video/2026-11-15/raw/pineHighlands-orbit-petalwood-1920x1080-60fps.mp4","desc":"Pine Highlands orbit, 10 s, 1080p60"},
+    {"file":"docs/video/2026-11-15/raw/sandbarArchipelago-orbit-petalwood-1920x1080-60fps.mp4","desc":"Sandbar Archipelago orbit, 10 s, 1080p60"},
+    {"file":"docs/video/2026-11-15/raw/harborTown-orbit-petalwood-1920x1080-60fps.mp4","desc":"Harbor Town orbit, 10 s, 1080p60"}
+   ]}
+ ]
+}
