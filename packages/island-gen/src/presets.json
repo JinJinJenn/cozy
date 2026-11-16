@@ -1,0 +1,848 @@
+{
+ "meadowCove": {
+  "label": "Meadow Cove",
+  "blurb": "Gentle rolling hills ringed by a wide sandy beach, with a sheltered cove on the south shore.",
+  "size": 2048,
+  "grid": 512,
+  "lobes": [
+   {
+    "x": 0,
+    "z": 0,
+    "r": 760
+   }
+  ],
+  "bays": [
+   {
+    "x": 30,
+    "z": 640,
+    "r": 300,
+    "depth": 1.1
+   }
+  ],
+  "warp": {
+   "freq": 0.0016,
+   "amp": 230
+  },
+  "base": {
+   "shelfDepth": 5,
+   "deepDepth": 48,
+   "shelfWidth": 0.2,
+   "coastRise": 1.4,
+   "inlandLift": 16
+  },
+  "hills": {
+   "freq": 0.0042,
+   "amp": 52,
+   "oct": 5,
+   "detail": 0.8
+  },
+  "knolls": {
+   "count": 7,
+   "r": [
+    90,
+    170
+   ],
+   "h": [
+    26,
+    52
+   ],
+   "spread": 0.7
+  },
+  "strata": {
+   "slope": 0.5,
+   "freq": 1.1,
+   "amp": 0.07
+  },
+  "mountains": null,
+  "erosion": {
+   "droplets": 30000,
+   "thermal": 4,
+   "talus": 0.9,
+   "stream": {
+    "iters": 10,
+    "K": 0.005,
+    "m": 0.5,
+    "diff": 0.3,
+    "uplift": 0.15
+   }
+  },
+  "rivers": {
+   "minArea": 380,
+   "depth": 0.8,
+   "width": 9
+  },
+  "lakes": {
+   "count": 2,
+   "r": [
+    60,
+    100
+   ],
+   "depth": 3.2,
+   "maxH": 34
+  },
+  "beach": {
+   "top": 3.4,
+   "shelf": true
+  },
+  "terrace": null,
+  "palette": {
+   "sky": "#ffe9f1",
+   "fog": "#f6e3ec",
+   "shallow": "#9fe3d4",
+   "deep": "#4aa5b8",
+   "foam": "#ffffff"
+  },
+  "zones": [
+   {
+    "name": "deep floor",
+    "color": "#8fb9b4",
+    "h": [
+     -400,
+     -6,
+     4
+    ]
+   },
+   {
+    "name": "shallow floor",
+    "color": "#e9dcb8",
+    "h": [
+     -6,
+     -0.2,
+     2
+    ]
+   },
+   {
+    "name": "sand",
+    "color": "#f8e6c2",
+    "h": [
+     -0.3,
+     2,
+     0.7
+    ]
+   },
+   {
+    "name": "grass",
+    "color": "#b4e1ae",
+    "h": [
+     1.8,
+     500,
+     1.2
+    ],
+    "slope": [
+     0,
+     0.62,
+     0.2
+    ]
+   },
+   {
+    "name": "meadow flowers",
+    "color": "#f4b9cc",
+    "h": [
+     4,
+     60,
+     2
+    ],
+    "slope": [
+     0,
+     0.3,
+     0.1
+    ],
+    "noise": {
+     "scale": 0.045,
+     "min": 0.62,
+     "max": 1,
+     "soft": 0.08,
+     "seed": 3
+    }
+   },
+   {
+    "name": "forest floor",
+    "color": "#6fb99d",
+    "h": [
+     7,
+     500,
+     2
+    ],
+    "slope": [
+     0,
+     0.55,
+     0.2
+    ],
+    "noise": {
+     "scale": 0.011,
+     "min": 0.2,
+     "max": 1,
+     "soft": 0.12,
+     "seed": 9
+    }
+   },
+   {
+    "name": "wet bank",
+    "color": "#b9c9a0",
+    "wet": [
+     0.35,
+     1,
+     0.4
+    ],
+    "strength": 0.6
+   },
+   {
+    "name": "rock",
+    "color": "#bcb2c4",
+    "slope": [
+     0.62,
+     9,
+     0.18
+    ],
+    "h": [
+     2,
+     900,
+     1
+    ]
+   }
+  ],
+  "camera": {
+   "dist": 1400,
+   "elev": 0.62,
+   "az": 0.9
+  }
+ },
+ "pineHighlands": {
+  "label": "Pine Highlands",
+  "blurb": "Tall folded hills and a snow-capped spine, pine forest, lakes and rivers cutting to a rocky coast.",
+  "size": 2560,
+  "grid": 640,
+  "lobes": [
+   {
+    "x": 0,
+    "z": 0,
+    "r": 900
+   }
+  ],
+  "bays": [
+   {
+    "x": -420,
+    "z": 700,
+    "r": 240,
+    "depth": 0.6
+   }
+  ],
+  "warp": {
+   "freq": 0.0013,
+   "amp": 300
+  },
+  "base": {
+   "shelfDepth": 4,
+   "deepDepth": 60,
+   "shelfWidth": 0.12,
+   "coastRise": 2.2,
+   "inlandLift": 26
+  },
+  "hills": {
+   "freq": 0.0036,
+   "amp": 44,
+   "oct": 5,
+   "detail": 1.2
+  },
+  "strata": {
+   "slope": 0.45,
+   "freq": 0.9,
+   "amp": 0.1
+  },
+  "mountains": {
+   "freq": 0.0028,
+   "amp": 230,
+   "oct": 6,
+   "power": 1.15,
+   "center": {
+    "x": -60,
+    "z": -120,
+    "r": 760
+   }
+  },
+  "erosion": {
+   "droplets": 50000,
+   "thermal": 8,
+   "talus": 0.75,
+   "stream": {
+    "iters": 14,
+    "K": 0.012,
+    "m": 0.55,
+    "diff": 0.2,
+    "uplift": 0.6
+   }
+  },
+  "rivers": {
+   "minArea": 480,
+   "depth": 2.2,
+   "width": 11
+  },
+  "lakes": {
+   "count": 3,
+   "r": [
+    70,
+    120
+   ],
+   "depth": 4,
+   "maxH": 140
+  },
+  "beach": {
+   "top": 2.4,
+   "shelf": false
+  },
+  "terrace": {
+   "step": 5.5,
+   "amount": 0.55,
+   "slopeMin": 0.65,
+   "hMin": 24
+  },
+  "palette": {
+   "sky": "#eaf0ff",
+   "fog": "#dfe6f4",
+   "shallow": "#a4e6e0",
+   "deep": "#3f8fb1",
+   "foam": "#ffffff"
+  },
+  "zones": [
+   {
+    "name": "deep floor",
+    "color": "#8fb9b4",
+    "h": [
+     -400,
+     -6,
+     4
+    ]
+   },
+   {
+    "name": "shallow floor",
+    "color": "#e9dcb8",
+    "h": [
+     -6,
+     -0.2,
+     2
+    ]
+   },
+   {
+    "name": "sand",
+    "color": "#f4e3c0",
+    "h": [
+     -0.3,
+     1.8,
+     0.6
+    ],
+    "slope": [
+     0,
+     0.7,
+     0.2
+    ]
+   },
+   {
+    "name": "meadow",
+    "color": "#a8d9ae",
+    "h": [
+     1.2,
+     500,
+     1
+    ],
+    "slope": [
+     0,
+     0.7,
+     0.2
+    ]
+   },
+   {
+    "name": "pine forest",
+    "color": "#5fae96",
+    "h": [
+     8,
+     170,
+     10
+    ],
+    "slope": [
+     0,
+     0.62,
+     0.15
+    ],
+    "noise": {
+     "scale": 0.009,
+     "min": -0.05,
+     "max": 1,
+     "soft": 0.14,
+     "seed": 4
+    }
+   },
+   {
+    "name": "alpine meadow",
+    "color": "#cbe3bd",
+    "h": [
+     150,
+     230,
+     25
+    ],
+    "slope": [
+     0,
+     0.55,
+     0.2
+    ]
+   },
+   {
+    "name": "wet bank",
+    "color": "#b9c9a0",
+    "wet": [
+     0.35,
+     1,
+     0.4
+    ],
+    "strength": 0.6
+   },
+   {
+    "name": "rock",
+    "color": "#b3abc2",
+    "slope": [
+     0.7,
+     9,
+     0.2
+    ],
+    "h": [
+     3,
+     900,
+     1
+    ]
+   },
+   {
+    "name": "high rock",
+    "color": "#a39cb8",
+    "h": [
+     150,
+     900,
+     40
+    ],
+    "slope": [
+     0.3,
+     9,
+     0.2
+    ]
+   },
+   {
+    "name": "snow",
+    "color": "#fffafe",
+    "h": [
+     185,
+     900,
+     22
+    ],
+    "slope": [
+     0,
+     2.4,
+     0.3
+    ]
+   }
+  ],
+  "camera": {
+   "dist": 1900,
+   "elev": 0.5,
+   "az": 0.6
+  }
+ },
+ "sandbarArchipelago": {
+  "label": "Sandbar Archipelago",
+  "blurb": "A scatter of low sandy islands in warm shallow water. Wade, boat or just float between them.",
+  "size": 2048,
+  "grid": 512,
+  "lobes": [
+   {
+    "x": 0,
+    "z": 0,
+    "r": 330
+   }
+  ],
+  "scatter": {
+   "count": 11,
+   "minR": 90,
+   "maxR": 230,
+   "spread": 760,
+   "avoid": 220
+  },
+  "warp": {
+   "freq": 0.0026,
+   "amp": 140
+  },
+  "base": {
+   "shelfDepth": 3.2,
+   "deepDepth": 14,
+   "shelfWidth": 0.55,
+   "coastRise": 0.9,
+   "inlandLift": 3.2
+  },
+  "hills": {
+   "freq": 0.006,
+   "amp": 7,
+   "oct": 4,
+   "detail": 0.5
+  },
+  "mountains": null,
+  "erosion": {
+   "droplets": 20000,
+   "thermal": 3,
+   "talus": 0.8
+  },
+  "rivers": null,
+  "lakes": {
+   "count": 0,
+   "r": [
+    40,
+    60
+   ],
+   "depth": 1.5,
+   "maxH": 8
+  },
+  "beach": {
+   "top": 2.6,
+   "shelf": true
+  },
+  "terrace": null,
+  "palette": {
+   "sky": "#fff0e4",
+   "fog": "#f9e8dc",
+   "shallow": "#8fe9dc",
+   "deep": "#38a7c0",
+   "foam": "#ffffff"
+  },
+  "zones": [
+   {
+    "name": "deep floor",
+    "color": "#8fb9b4",
+    "h": [
+     -400,
+     -6,
+     4
+    ]
+   },
+   {
+    "name": "shallow floor",
+    "color": "#e9dcb8",
+    "h": [
+     -6,
+     -0.2,
+     2
+    ]
+   },
+   {
+    "name": "sand",
+    "color": "#fbe9c6",
+    "h": [
+     -0.3,
+     2.8,
+     0.9
+    ]
+   },
+   {
+    "name": "dune grass",
+    "color": "#b3dfa9",
+    "h": [
+     2,
+     60,
+     1
+    ],
+    "slope": [
+     0,
+     0.5,
+     0.2
+    ]
+   },
+   {
+    "name": "flowers",
+    "color": "#f7bdd0",
+    "h": [
+     3,
+     60,
+     1
+    ],
+    "slope": [
+     0,
+     0.3,
+     0.1
+    ],
+    "noise": {
+     "scale": 0.05,
+     "min": 0.68,
+     "max": 1,
+     "soft": 0.08,
+     "seed": 5
+    }
+   },
+   {
+    "name": "palms and brush",
+    "color": "#78c3a0",
+    "h": [
+     3.4,
+     60,
+     1
+    ],
+    "slope": [
+     0,
+     0.5,
+     0.2
+    ],
+    "noise": {
+     "scale": 0.02,
+     "min": 0.35,
+     "max": 1,
+     "soft": 0.12,
+     "seed": 6
+    }
+   },
+   {
+    "name": "rock",
+    "color": "#c3b9c8",
+    "slope": [
+     0.7,
+     9,
+     0.2
+    ],
+    "h": [
+     1,
+     900,
+     1
+    ]
+   }
+  ],
+  "camera": {
+   "dist": 1450,
+   "elev": 0.5,
+   "az": 0.4
+  }
+ },
+ "harborTown": {
+  "label": "Harbor Town",
+  "blurb": "A broad flat buildable coast wrapped around a sheltered harbor bay, hills rising behind.",
+  "size": 2048,
+  "grid": 512,
+  "lobes": [
+   {
+    "x": 0,
+    "z": -80,
+    "r": 780
+   }
+  ],
+  "bays": [
+   {
+    "x": 0,
+    "z": 420,
+    "r": 330,
+    "depth": 1.1
+   }
+  ],
+  "warp": {
+   "freq": 0.0018,
+   "amp": 150
+  },
+  "base": {
+   "shelfDepth": 7,
+   "deepDepth": 20,
+   "shelfWidth": 0.3,
+   "coastRise": 2.6,
+   "inlandLift": 5
+  },
+  "hills": {
+   "freq": 0.0038,
+   "amp": 20,
+   "oct": 5,
+   "detail": 0.6,
+   "inlandBias": {
+    "x": 0,
+    "z": -1,
+    "from": 0.15,
+    "to": 0.7,
+    "amp": 1.7
+   }
+  },
+  "knolls": {
+   "count": 5,
+   "r": [
+    110,
+    200
+   ],
+   "h": [
+    14,
+    30
+   ],
+   "spread": 0.8
+  },
+  "plateaus": [
+   {
+    "x": 0,
+    "z": 60,
+    "rx": 330,
+    "rz": 190,
+    "level": 3.6,
+    "soft": 0.9,
+    "amount": 0.92
+   }
+  ],
+  "strata": {
+   "slope": 0.5,
+   "freq": 1.2,
+   "amp": 0.06
+  },
+  "mountains": null,
+  "erosion": {
+   "droplets": 25000,
+   "thermal": 4,
+   "talus": 0.9,
+   "stream": {
+    "iters": 10,
+    "K": 0.005,
+    "m": 0.5,
+    "diff": 0.3,
+    "uplift": 0.15
+   }
+  },
+  "rivers": {
+   "minArea": 380,
+   "depth": 0.8,
+   "width": 9
+  },
+  "lakes": {
+   "count": 1,
+   "r": [
+    50,
+    80
+   ],
+   "depth": 2.6,
+   "maxH": 30
+  },
+  "beach": {
+   "top": 2.8,
+   "shelf": true
+  },
+  "terrace": {
+   "step": 2.4,
+   "amount": 0.3,
+   "slopeMin": 0.5,
+   "hMin": 6
+  },
+  "flatten": null,
+  "palette": {
+   "sky": "#ffeadf",
+   "fog": "#f4e2d8",
+   "shallow": "#a0e4d6",
+   "deep": "#4296b0",
+   "foam": "#ffffff"
+  },
+  "zones": [
+   {
+    "name": "deep floor",
+    "color": "#8fb9b4",
+    "h": [
+     -400,
+     -6,
+     4
+    ]
+   },
+   {
+    "name": "shallow floor",
+    "color": "#e9dcb8",
+    "h": [
+     -6,
+     -0.2,
+     2
+    ]
+   },
+   {
+    "name": "quay sand",
+    "color": "#efdcbc",
+    "h": [
+     -0.3,
+     3.4,
+     0.8
+    ]
+   },
+   {
+    "name": "lawn",
+    "color": "#aedcb0",
+    "h": [
+     2.4,
+     500,
+     1.2
+    ],
+    "slope": [
+     0,
+     0.55,
+     0.2
+    ]
+   },
+   {
+    "name": "garden pink",
+    "color": "#f4bfd0",
+    "h": [
+     3,
+     40,
+     1
+    ],
+    "slope": [
+     0,
+     0.25,
+     0.1
+    ],
+    "noise": {
+     "scale": 0.04,
+     "min": 0.7,
+     "max": 1,
+     "soft": 0.08,
+     "seed": 7
+    }
+   },
+   {
+    "name": "woodland",
+    "color": "#6bb89c",
+    "h": [
+     14,
+     500,
+     3
+    ],
+    "slope": [
+     0,
+     0.6,
+     0.2
+    ],
+    "noise": {
+     "scale": 0.01,
+     "min": 0.15,
+     "max": 1,
+     "soft": 0.12,
+     "seed": 2
+    }
+   },
+   {
+    "name": "wet bank",
+    "color": "#b9c9a0",
+    "wet": [
+     0.35,
+     1,
+     0.4
+    ],
+    "strength": 0.6
+   },
+   {
+    "name": "rock",
+    "color": "#bdb3c5",
+    "slope": [
+     0.6,
+     9,
+     0.18
+    ],
+    "h": [
+     3,
+     900,
+     1
+    ]
+   }
+  ],
+  "camera": {
+   "dist": 1450,
+   "elev": 0.5,
+   "az": 1.4
+  }
+ }
+}

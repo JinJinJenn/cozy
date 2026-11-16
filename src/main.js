@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {createIsland,SEA_LEVEL} from './island.js';
-import {PRESETS,PRESET_IDS} from './presets.js';
-import {buildTerrainChunk,buildWaterChunk} from './chunks.js';
+import {createIsland,SEA_LEVEL} from '../packages/island-gen/src/island.js';
+import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
+import {buildTerrainChunk,buildWaterChunk} from '../packages/island-gen/src/chunks.js';
 import {drawMinimap,drawMarker} from './minimap.js';
 
 const params=new URLSearchParams(location.search);

@@ -60,3 +60,22 @@ test('highlands carve rivers and lakes',()=>{
   const hi=createIsland('rivers','pineHighlands',FAST);
   assert.ok(hi.stats.rivers+hi.stats.lakes>=1);
 });
+
+import {generate,toHeightmap16,toUnityRaw,toMetaJSON} from '../index.js';
+test('generate() API returns heightfield, water, zones and exports',()=>{
+  const r=generate({seed:'api',preset:'pineHighlands',grid:128,droplets:3000});
+  assert.equal(r.heightfield.length,128*128);
+  assert.equal(r.water.length,128*128);
+  assert.equal(r.seaLevel,0);
+  assert.ok(Array.isArray(r.zones)&&r.zones.length>2);
+  const hm=toHeightmap16(r);
+  assert.equal(hm.data.length,128*128);
+  assert.ok(hm.seaLevelNormalized>0&&hm.seaLevelNormalized<1);
+  const raw=toUnityRaw(r,{res:129});
+  assert.equal(raw.bytes.length,129*129*2);
+  assert.equal(JSON.parse(JSON.stringify(toMetaJSON(r))).preset,'pineHighlands');
+});
+test('generate() is deterministic and JSON presets are plain data',()=>{
+  const a=generate({seed:'d',preset:'harborTown',grid:128,droplets:2000}),b=generate({seed:'d',preset:'harborTown',grid:128,droplets:2000});
+  assert.equal(a.island.checksum(),b.island.checksum());
+});

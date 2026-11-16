@@ -1,0 +1,173 @@
+{
+ "seed": "petalwood",
+ "preset": "pineHighlands",
+ "size": 2560,
+ "grid": 640,
+ "cell": 4.006259780907668,
+ "seaLevel": 0,
+ "stats": {
+  "landRatio": 0.38090576171875,
+  "minH": -60,
+  "maxH": 240.04608154296875,
+  "lakes": 3,
+  "rivers": 165,
+  "riverCells": 1270,
+  "lobes": 1
+ },
+ "zones": [
+  {
+   "name": "deep floor",
+   "color": "#8fb9b4",
+   "h": [
+    -400,
+    -6,
+    4
+   ]
+  },
+  {
+   "name": "shallow floor",
+   "color": "#e9dcb8",
+   "h": [
+    -6,
+    -0.2,
+    2
+   ]
+  },
+  {
+   "name": "sand",
+   "color": "#f4e3c0",
+   "h": [
+    -0.3,
+    1.8,
+    0.6
+   ],
+   "slope": [
+    0,
+    0.7,
+    0.2
+   ]
+  },
+  {
+   "name": "meadow",
+   "color": "#a8d9ae",
+   "h": [
+    1.2,
+    500,
+    1
+   ],
+   "slope": [
+    0,
+    0.7,
+    0.2
+   ]
+  },
+  {
+   "name": "pine forest",
+   "color": "#5fae96",
+   "h": [
+    8,
+    170,
+    10
+   ],
+   "slope": [
+    0,
+    0.62,
+    0.15
+   ],
+   "noise": {
+    "scale": 0.009,
+    "min": -0.05,
+    "max": 1,
+    "soft": 0.14,
+    "seed": 4
+   }
+  },
+  {
+   "name": "alpine meadow",
+   "color": "#cbe3bd",
+   "h": [
+    150,
+    230,
+    25
+   ],
+   "slope": [
+    0,
+    0.55,
+    0.2
+   ]
+  },
+  {
+   "name": "wet bank",
+   "color": "#b9c9a0",
+   "wet": [
+    0.35,
+    1,
+    0.4
+   ],
+   "strength": 0.6
+  },
+  {
+   "name": "rock",
+   "color": "#b3abc2",
+   "slope": [
+    0.7,
+    9,
+    0.2
+   ],
+   "h": [
+    3,
+    900,
+    1
+   ]
+  },
+  {
+   "name": "high rock",
+   "color": "#a39cb8",
+   "h": [
+    150,
+    900,
+    40
+   ],
+   "slope": [
+    0.3,
+    9,
+    0.2
+   ]
+  },
+  {
+   "name": "snow",
+   "color": "#fffafe",
+   "h": [
+    185,
+    900,
+    22
+   ],
+   "slope": [
+    0,
+    2.4,
+    0.3
+   ]
+  }
+ ],
+ "palette": {
+  "sky": "#eaf0ff",
+  "fog": "#dfe6f4",
+  "shallow": "#a4e6e0",
+  "deep": "#3f8fb1",
+  "foam": "#ffffff"
+ },
+ "checksum": 889791399,
+ "unity": {
+  "res": 513,
+  "heightMin": -60,
+  "heightMax": 240.04608154296875,
+  "terrainHeight": 300.04608154296875,
+  "worldSize": 2560,
+  "seaLevelY": 60
+ },
+ "heightmap16": {
+  "res": 640,
+  "heightMin": -60,
+  "heightMax": 240.04608154296875
+ }
+}

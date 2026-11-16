@@ -3,8 +3,8 @@
 import {writeFile,mkdir} from 'node:fs/promises';
 import zlib from 'node:zlib';
 import path from 'node:path';
-import {createIsland} from '../src/island.js';
-import {PRESET_IDS} from '../src/presets.js';
+import {createIsland} from '../packages/island-gen/src/island.js';
+import {PRESET_IDS} from '../packages/island-gen/src/presets.js';
 import {renderMinimapPixels} from '../src/minimap.js';
 const date=new Date().toISOString().slice(0,10);
 const out=process.argv[2]||path.resolve('docs/shots',date,'gallery');await mkdir(out,{recursive:true});

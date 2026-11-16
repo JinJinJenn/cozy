@@ -1,4 +1,4 @@
-import {clamp,lerp} from './rng.js';
+import {clamp,lerp} from '../packages/island-gen/src/rng.js';
 
 // Top-down minimap: depth-tinted water + zone-painted land with hillshade.
 export function renderMinimapPixels(island,W,H){
