@@ -62,6 +62,19 @@ test('club renovation preserves both music parts and blocks undo across an occup
   assert.equal(s.edit(0,true,club.id),false);assert.deepEqual(s.layout.club.undo,[0]);
   s.actors.delete('C');assert.ok(s.edit(0,true,club.id));assert.equal(s.layout.club.wall,0);
 });
+test('extending either front corner stops before its side wall traps a walker',()=>{
+  const home={...b,cafe:false,kind:'house',id:'l108',w:6.6,d:6.9};
+  for(const side of [-1,1]){
+    const p=toWorld(home,side*(home.w/2+.36),home.d/2+.87),layout=defaultLayout();
+    assert.ok(walkable(island,[home],layout,p));
+    const wall=legalWall(0,1.5,[p],home);
+    assert.equal(wall,.5);
+    layout.homes.l108={wall,undo:[0]};
+    assert.ok(walkable(island,[home],layout,p));
+    layout.homes.l108.wall=1;
+    assert.equal(walkable(island,[home],layout,p),false);
+  }
+});
 test('all waterfront front doors can be reached from their shared road on the graded island',()=>{
   const result=generate({seed:'petalwood',preset:'harborTown'}),world=result.island;
   world.plan=generateSettlement(result);result.heightfield.set(createFlattenHook(world.plan)(result));

@@ -182,6 +182,22 @@ try{
   await host.locator('#undo-wall').click();await guest.waitForFunction(performing,0);
   assert.deepEqual(errors,[]);
   console.log('PASS two players walked to the club, loaded the piano and kept melody and bass through renovation and undo');
+  for(const point of [['club',0,1],['club',0,4.65],['club',2.25,4.65]])await walkTo(guest,...point);
+  await host.locator('#wall-offset').fill('1');
+  await host.locator('#wall-limit').waitFor({state:'visible'});
+  assert.match(await host.locator('#wall-limit').innerText(),/Someone is in the way/);
+  const allowed=await host.evaluate(()=>window.__cozy.street.previewOffset);
+  assert.ok(allowed<1);
+  if(process.argv.includes('--corner-shot')){
+    await host.setViewportSize({width:1280,height:720});
+    await host.screenshot({path:path.join(root,'docs/shots/2026-11-16/club-wall-clearance.jpg'),type:'jpeg',quality:88});
+  }
+  assert.equal(await guest.evaluate(()=>window.__cozy.street.session.layout.club.wall),0);
+  await walkTo(guest,'club',2.25,7);
+  await host.locator('#wall-limit').waitFor({state:'hidden'});
+  await host.locator('#apply-wall').click();
+  await guest.waitForFunction(()=>window.__cozy.street.session.layout.club.wall===1);
+  console.log('PASS wall preview stopped at the guest and cleared when the guest walked away');
   await context.close();
   if(!relay){
     const mobile=await testContext({isMobile:true,hasTouch:true,viewport:{width:393,height:852}});

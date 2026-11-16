@@ -2,6 +2,20 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 9,
+   "date": "2026-11-16",
+   "slug": "occupied-front-corners",
+   "milestone": "M9 live building",
+   "title": "A visitor at the club entrance",
+   "text": [
+    "When someone stands beside a moving wall, the owner can see how far the edit will go. The handle and preview stop at the last clear half-metre. Walk away and the preview updates. Releasing the handle checks everyone's position again.",
+    "The same check now covers the ends of both side walls, including the narrow strip beyond the face of each front corner. The open door still has room for a visitor to pass through."
+   ],
+   "stills": [
+    {"file": "shots/2026-11-16/club-wall-clearance.jpg", "caption": "The owner asks for a metre of space at the Moon Room. The build panel shows how far the front wall can travel while a guest stands outside."}
+   ]
+  },
+  {
    "n": 8,
    "date": "2026-11-16",
    "slug": "moon-room-duet",

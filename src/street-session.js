@@ -1,6 +1,6 @@
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
-import {defaultLayout,frontAt,hasEditableFront,isHome,legalWall,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
+import {defaultLayout,frontAt,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const zero={x:0,z:0};
@@ -105,16 +105,19 @@ export class StreetSession {
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
   persist(){this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
+  limitFor(b,goal){
+    const people=[...this.actors.values(),...this.town.people.filter(p=>p.visible).map(p=>p.position)];
+    return wallLimit(wallState(this.layout,b).wall,goal,people,b);
+  }
   edit(target,undo=false,lot=this.cafe.id){
     if(!this.owner||!this.ready)return false;
     const b=this.plots.find(p=>p.id===lot&&(p.cafe||hasEditableFront(p)));
     if(!b)return false;
     const state=wallState(this.layout,b),old=state.wall,goal=undo?state.undo.at(-1):target;
     if(!Number.isFinite(goal))return false;
-    const occupants=[...this.actors.values(),...this.town.people.filter(p=>p.visible).map(p=>p.position)];
-    const next=legalWall(old,goal,occupants,b);
+    const {offset:next,reason}=this.limitFor(b,goal);
     if(goal===old){this.notice('The wall is already there.');return false;}
-    if(next===old||(undo&&next!==goal)){this.notice('Wall held. Someone is in its path.');return false;}
+    if(next===old||(undo&&next!==goal)){this.notice(reason==='parcel'?'Wall held at the lot boundary.':'Wall held. Someone is in its path.');return false;}
     if(undo)state.undo.pop();else state.undo=[...state.undo.slice(-31),old];
     state.wall=next;
     if(isHome(b)){this.layout.homes[b.id]=state;this.updatePatrol();}

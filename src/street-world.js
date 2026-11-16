@@ -45,33 +45,37 @@ export const toWorld = (b,x,z) => ({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export const toRoom = (b,p) => ({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
 export const within = (p,q,d) => Math.hypot(p.x-q.x,p.z-q.z) < d;
 const boxHit = (p,x,z,w,d) => Math.abs(p.x-x)<w/2+radius && Math.abs(p.z-z)<d/2+radius;
-export function partitionHit(p,z) {
+export function partitionHit(p,z,travel=0) {
   // Door centred on the room axis, with its open leaf against the right jamb.
-  return (Math.abs(p.z-z)<radius+.11 && Math.abs(p.x)<4.6+radius && Math.abs(p.x)>.95-radius) ||
-    boxHit(p,1.02,z-.53,.13,1.06);
+  return (Math.abs(p.z-z)<radius+.11+travel/2 && Math.abs(p.x)<4.6+radius && Math.abs(p.x)>.95-radius) ||
+    boxHit(p,1.02,z-.53,.13,1.06+travel);
 }
-function facadeHit(p,z,w){
-  return (Math.abs(p.z-z)<radius+.10&&Math.abs(p.x)<w/2+radius&&Math.abs(p.x)>1.05-radius)||
-    boxHit(p,1.035,z-.5,.12,1);
+function facadeHit(p,z,w,travel=0){
+  return (Math.abs(p.z-z)<radius+.10+travel/2&&Math.abs(p.x)<w/2+radius&&Math.abs(p.x)>1.05-radius)||
+    boxHit(p,1.035,z-.5,.12,1+travel)||
+    (Math.abs(Math.abs(p.x)-w/2)<.09+radius&&Math.abs(p.z-z)<radius+travel/2);
 }
-export function legalWall(current,wanted,occupants,b) {
+export function wallLimit(current,wanted,occupants,b) {
   const goal=Math.max(-1.5,Math.min(1.5,Math.round(wanted*2)/2));
-  if (!Number.isFinite(goal)) return current;
+  if (!Number.isFinite(goal)) return {offset:current,reason:'invalid'};
   const pts=occupants.map(p=>toRoom(b,p));
   const dir=Math.sign(goal-current);
   let safe=current;
   for(let z=current+dir*.5;dir && (goal-z)*dir>=0;z+=dir*.5) {
-    // Sweep the whole thickness, so a long drag cannot skip a person.
     if(hasEditableFront(b)&&b.parcel&&[-1,1].some(side=>{
       const p=toWorld(b,side*(b.w/2+.38),b.d/2+z+.38);
       return !pointInPoly(p.x,p.z,b.parcel);
-    }))break;
-    if([.25,.5,.75,1].some(t=>{const offset=safe+t*(z-safe);
-      return pts.some(p=>b.cafe?partitionHit(p,offset):facadeHit(p,b.d/2+offset,b.w));
-    }))break;
+    }))return {offset:safe,reason:'parcel'};
+    // A straight translation sweeps each rectangle over exactly its length plus travel.
+    const middle=(safe+z)/2,travel=Math.abs(z-safe);
+    if(pts.some(p=>b.cafe?partitionHit(p,middle,travel):facadeHit(p,b.d/2+middle,b.w,travel)))
+      return {offset:safe,reason:'occupied'};
     safe=z;
   }
-  return safe;
+  return {offset:safe,reason:null};
+}
+export function legalWall(current,wanted,occupants,b){
+  return wallLimit(current,wanted,occupants,b).offset;
 }
 export function floorAt(island,plots,x,z,layout={}) {
   for (const b of plots) {

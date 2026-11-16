@@ -34,6 +34,7 @@ body.shot #ui,body.shot #mini{display:none}
     <div class="street-buttons"><button class="primary" id="use-place" hidden>Interact</button><button id="directions-open">Find a place</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
     <div id="directions-pane" class="street-drawer" hidden><label>Walk to <select id="destination"></select></label></div>
     <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
+      <p id="wall-limit" role="status" hidden></p>
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
     <div id="social-pane" class="street-drawer" hidden><div id="owner-room"><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label></div>
       <button id="browse-streets">Browse listed streets</button><div id="room-results"></div></div>

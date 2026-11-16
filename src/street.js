@@ -58,14 +58,14 @@ export class Street {
       $('build-pane').hidden=false;this.selectLot(this.editable.includes(near)?near:this.cafe);
     });
     listen($('build-lot'),'change',()=>this.selectLot(this.editable.find(b=>b.id===$('build-lot').value)));
-    listen($('wall-offset'),'input',()=>this.preview());
+    listen($('wall-offset'),'input',()=>{this.notice('');this.preview();});
     listen($('apply-wall'),'click',()=>this.commitWall());
     listen($('undo-wall'),'click',()=>this.commitWall(true));
     const grip=$('wall-grip');
     listen(grip,'pointerdown',e=>{
       if(!this.buildLot||this.drag||e.button!==0)return;
       const start=this.pointerZ(e);if(start===null)return;
-      e.preventDefault();grip.setPointerCapture(e.pointerId);
+      e.preventDefault();this.notice('');grip.setPointerCapture(e.pointerId);
       this.drag={id:e.pointerId,start,offset:Number($('wall-offset').value)};
     });
     listen(grip,'pointermove',e=>this.dragWall(e));
@@ -132,12 +132,21 @@ export class Street {
     $('wall-offset').value=Math.round((this.drag.offset+z-this.drag.start)*2)/2;this.preview();
   }
   preview(){
-    const value=Number($('wall-offset').value);$('wall-readout').textContent=value.toFixed(1)+' m';
-    this.art.preview(this.buildLot,value,!!this.buildLot&&value!==wallState(this.session.layout,this.buildLot).wall);
-    if(this.buildLot)this.positionGrip();
+    const lot=this.buildLot;if(!lot)return;
+    const value=Number($('wall-offset').value),current=wallState(this.session.layout,lot).wall;
+    const {offset,reason}=value===current?{offset:current}:this.session.limitFor(lot,value);
+    $('wall-readout').textContent=value.toFixed(1)+' m';
+    const limit=$('wall-limit');limit.hidden=!reason;
+    if(reason){
+      const message=(reason==='parcel'?'Lot boundary':'Someone is in the way')+' · Wall stops at '+offset.toFixed(1)+' m';
+      if(limit.textContent!==message)limit.textContent=message;
+    }
+    this.previewOffset=offset;
+    this.art.preview(lot,offset,offset!==current);
+    this.positionGrip();
   }
   positionGrip(){
-    const b=this.buildLot,offset=Number($('wall-offset').value);
+    const b=this.buildLot,offset=this.previewOffset;
     const p=toWorld(b,-b.w*.25,(b.cafe?0:b.d/2)+offset);
     const projected=this.point.set(p.x,b.y+2.25,p.z).project(this.camera),r=this.controls.domElement.getBoundingClientRect();
     const grip=$('wall-grip');grip.hidden=projected.z< -1||projected.z>1;
@@ -207,6 +216,7 @@ export class Street {
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
+    if(this.buildLot&&Number($('wall-offset').value)!==wallState(s.layout,this.buildLot).wall)this.preview();
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
     $('walk-hint').textContent=this.buildLot?'Drag the wall handle, or set an offset below.':'WASD to walk · Drag to orbit · E to interact';
     const waypoint=$('waypoint');waypoint.hidden=!this.destination;
