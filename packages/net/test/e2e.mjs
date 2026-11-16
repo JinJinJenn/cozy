@@ -30,7 +30,7 @@ const base = `http://127.0.0.1:${server.address().port}/packages/net/test/e2e.ht
 
 const arg = process.argv[2] || 'broadcast';
 const modes = arg === 'all' ? ['broadcast', 'nostr', 'torrent'] : [arg];
-const exe = process.env.CHROME_EXE || 'C:/Users/trent/AppData/Local/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe';
+const exe = (process.env.CHROME_EXE||(process.env.LOCALAPPDATA||'').split(String.fromCharCode(92)).join('/')+'/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe');
 const browser = await chromium.launch({ headless: true, executablePath: exe, args: ['--mute-audio'] });
 
 let failed = 0, unreachable = 0;

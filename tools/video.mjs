@@ -14,7 +14,7 @@ const date=new Date().toISOString().slice(0,10);
 const outDir=path.resolve('docs/video',date,'raw');await mkdir(outDir,{recursive:true});
 const tmp=path.join(os.tmpdir(),'cozy-frames-'+preset);await rm(tmp,{recursive:true,force:true});await mkdir(tmp,{recursive:true});
 await new Promise(r=>server.listen(4182,'127.0.0.1',r));
-const browser=await chromium.launch({headless:true,executablePath:'C:/Users/trent/AppData/Local/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
+const browser=await chromium.launch({headless:true,executablePath:(process.env.CHROME_EXE||(process.env.LOCALAPPDATA||'').split(String.fromCharCode(92)).join('/')+'/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-win64/chrome-headless-shell.exe'),args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']});
 const page=await browser.newPage({viewport:{width:W,height:H}});
 await page.goto(`http://127.0.0.1:4182/index.html?shot=1&preset=${preset}&seed=${seed}`);
 await page.waitForFunction(()=>window.__cozy&&window.__cozy.ready,null,{timeout:180000});
