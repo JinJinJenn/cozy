@@ -74,9 +74,61 @@ try{
       return s.layout.wall===1&&(a.x-b.x)*b.s+(a.z-b.z)*b.c<-.2;});
   }finally{await guest.keyboard.up('w');}
   console.log('Guest crossed the café entrance and received the owner edit');
+  // Walk the visitor out of the café and into the chair in Bluebell House.
+  // The test steers the orbit camera. Movement still goes through normal guest input.
+  for(const [kind,x,z] of [['cafe',0,7.7],['house',0,6.8],['house',0,.5],['house',.87,.38]]){
+    await guest.evaluate(async([kind,x,z])=>{
+      const c=window.__cozy,s=c.street.session,b=s.plots.find(p=>p.kind===kind);
+      const tx=b.x+b.c*x+b.s*z,tz=b.z-b.s*x+b.c*z,end=performance.now()+23000;
+      const key=type=>document.body.dispatchEvent(new KeyboardEvent(type,{code:'KeyW',bubbles:true}));
+      const pause=()=>new Promise(r=>setTimeout(r,45));
+      document.activeElement.blur();key('keydown');
+      try{while(performance.now()<end){const a=s.actors.get(s.id),dx=tx-a.x,dz=tz-a.z,len=Math.hypot(dx,dz);
+        if(len<.42)return;
+        c.camera.position.set(c.controls.target.x-dx/len*8,c.controls.target.y+4,c.controls.target.z-dz/len*8);c.controls.update();await pause();}
+        throw Error('Walk to '+kind+' timed out');
+      }finally{key('keyup');}
+    },[kind,x,z]);
+  }
+  await guest.getByRole('button',{name:'Sit down'}).click();
+  await host.waitForFunction(id=>window.__cozy.street.session.actors.get(id)?.activity==='sit',guestId);
+  if(process.argv.includes('--renovation-shot'))await host.setViewportSize({width:1280,height:720});
+  await host.locator('#build-lot').selectOption('l106');
+  // Move the on-world handle by a measured metre in the cottage's facing direction.
+  const grip=host.locator('#wall-grip'),bounds=await grip.boundingBox();assert.ok(bounds);
+  const delta=await host.evaluate(async()=>{
+    const {Vector3}=await import('three'),c=window.__cozy,b=c.street.buildLot;
+    const project=z=>new Vector3(b.x-b.c*b.w*.25+b.s*z,b.y+2.25,b.z+b.s*b.w*.25+b.c*z).project(c.camera);
+    const start=project(b.d/2),end=project(b.d/2+1.02);
+    return [(end.x-start.x)*innerWidth/2,(start.y-end.y)*innerHeight/2];
+  });
+  const sx=bounds.x+bounds.width/2,sy=bounds.y+bounds.height/2;
+  await host.mouse.move(sx,sy);await host.mouse.down();await host.mouse.move(sx+delta[0],sy+delta[1],{steps:6});
+  assert.equal(await host.locator('#wall-offset').inputValue(),'1');
+  assert.equal(await guest.evaluate(()=>window.__cozy.street.session.layout.homes.l106?.wall??0),0);
+  if(process.argv.includes('--renovation-shot')){
+    const dir=path.join(root,'docs/shots/2026-11-16');await mkdir(dir,{recursive:true});
+    await host.screenshot({path:path.join(dir,'peach-cottage-renovation.jpg'),type:'jpeg',quality:89});
+  }
+  await host.mouse.up();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;
+    return s.layout.homes.l106?.wall===1&&s.actors.get(s.id).activity==='sit';});
+  if(process.argv.includes('--renovation-shot')){
+    await guest.setViewportSize({width:1280,height:720});
+    await guest.evaluate(()=>{const c=window.__cozy,b=c.street.plots.find(p=>p.kind==='house'),t=c.controls.target;
+      c.camera.position.set(t.x+b.c*3.8+b.s*3.9,t.y+3.5,t.z-b.s*3.8+b.c*3.9);c.controls.update();c.street.render();});
+    await guest.screenshot({path:path.join(root,'docs/shots/2026-11-16/bluebell-guest.jpg'),type:'jpeg',quality:89});
+    await guest.setViewportSize({width:720,height:432});
+  }
+  await host.locator('#build-lot').selectOption('l108');await host.locator('#wall-offset').fill('-0.5');await host.locator('#apply-wall').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return s.layout.homes.l108?.wall===-.5&&s.actors.get(s.id).activity==='sit';});
+  await host.locator('#undo-wall').click();await guest.waitForFunction(()=>{const s=window.__cozy.street.session;
+    return s.layout.homes.l108.wall===0&&s.layout.homes.l106.wall===1&&s.actors.get(s.id).activity==='sit';});
+  await host.locator('#build-lot').selectOption('l107');
   const late=await visit(link,relay?await testContext():context);
   await late.waitForFunction(()=>window.__cozy.street.session.connected&&window.__cozy.street.session.layout.wall===1);
   assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.lights),false);
+  assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.homes.l106.wall),1);
   await late.close();
   console.log('Late join received geometry and lantern state');
   await host.locator('#undo-wall').click();await guest.waitForFunction(()=>window.__cozy.street.session.layout.wall===0);
@@ -84,9 +136,10 @@ try{
   await guest.waitForFunction(()=>window.__cozy.street.session.layout.wall===-.5);
   const oldBoot=await guest.evaluate(()=>window.__cozy.street.session.hostBoot);
   await host.reload({waitUntil:'domcontentloaded',timeout:120000});await ready(host);assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
+  assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.homes.l106.wall),1);
   await guest.waitForFunction(old=>window.__cozy.street.session.connected&&window.__cozy.street.session.hostBoot!==old,oldBoot);
   await host.locator('#island-map').click();await host.locator('#walk-street').click();
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.deepEqual(errors,[]);
-  console.log('PASS owner invite, guest movement through café door, shared lights, owner-only edit, late join, undo, reload and map return');
+  console.log('PASS guest walking and sitting, on-world renovation drag, independent home undo, late join, owner reload and map return');
 }finally{await browser.close();}

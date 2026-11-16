@@ -2,6 +2,31 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 7,
+   "date": "2026-11-16",
+   "slug": "waterfront-renovations",
+   "milestone": "M7 home renovations",
+   "title": "Moving the front door at Peach Cottage",
+   "text": [
+    "The two homes on the waterfront can change size while visitors are inside. Drag the front wall toward the street to make room. Its windows, open door and porch move together. The back wall, furniture and anyone using it stay put.",
+    "Build opens over the selected property. The translucent wall is a private preview until the owner releases it. Each house keeps its own undo history. The café partition still works with existing saves."
+   ],
+   "stills": [
+    {
+     "file": "shots/2026-11-16/peach-cottage-renovation.jpg",
+     "caption": "The owner previews a one-metre extension at Peach Cottage while a guest sits next door in Bluebell House."
+    },
+    {
+     "file": "shots/2026-11-16/bluebell-guest.jpg",
+     "caption": "The same session from the guest's chair in Bluebell House after the cottage extension."
+    }
+   ],
+   "next": [
+    "Add side-wall and corner edits.",
+    "Check joining from two independent networks."
+   ]
+  },
+  {
    "n": 6,
    "date": "2026-11-16",
    "slug": "harbor-street",

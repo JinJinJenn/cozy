@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {polyCentroid,pointInPoly} from '../packages/settlement/src/geom.js';
-import {toWorld,toRoom,floorAt} from './street-world.js';
+import {toWorld,toRoom,isHome,frontAt,wallState} from './street-world.js';
 
 const clay='#bf6251', wood='#986647', cream='#fff1d3', dark='#334747', glass='#91c9c8', pine='#476b50';
 export const places={
@@ -78,16 +78,40 @@ function furnish(a,b) {
     for(const x of [-1.7,1.7]){a.box(x,.75,-2,1.8,.18,.74,'#343447');for(let i=0;i<10;i++)a.box(x-.72+i*.16,.87,-1.98,.14,.07,.5,cream);}
     a.ball(0,2.7,-.7,.6,.6,.6,'#c6d6d9');
   }else{
+    const peach=b.kind==='cottage',trim=peach?'#bb765c':'#526e85';
+    a.box(0,.025,-.8,4.95,.04,3.8,peach?'#cc9e73':'#79949a');
+    for(let i=0;i<7;i++)a.box(0,.051,-2.48+i*.55,4.76,.018,.055,cream);
     a.box(-1.65,.45,-1.74,1.22,.65,2.2,wood);a.box(-1.65,.83,-1.74,1.24,.18,2.24,'#b6c6bc');a.box(-1.65,.99,-2.45,.95,.15,.4,cream);
     table(a,1.38,-.94);chair(a,1.38,-.14,'#b08870');planter(a,2.38,-2.65,.8);
+    if(peach){
+      a.box(.15,.48,-3.06,2.65,.92,.65,trim);a.box(.15,.99,-3.06,2.73,.11,.69,cream);
+      for(const x of [-.55,.65]){a.box(x,.52,-2.72,1.05,.69,.04,'#da9e7c');a.box(x,.68,-2.68,.24,.05,.05,wood);}
+      a.round(-.58,1.06,-3.04,.47,.055,.47,dark);a.round(-.58,1.17,-3.04,.32,.19,.32,'#c46c55');
+    }else{
+      a.box(.13,.86,-3.12,2.37,1.72,.45,trim);
+      for(let n=0;n<3;n++){a.box(.13,.2+n*.52,-2.85,2.4,.1,.54,wood);
+        for(let j=0;j<7;j++){const h=.22+.05*((n+j)%4);a.box(-.78+j*.26,.24+n*.52+h/2,-2.86,.18,h,.31,[clay,cream,glass][(n+j)%3]);}}
+    }
+    a.box(-.78,.65,-1.85,.12,1.3,3.13,peach?'#ecd2ad':'#b5cbcd');
+    a.box(-.78,1.34,-1.85,.18,.09,3.17,wood);
+    a.box(-1.65,.939,-1.2,1.245,.028,.72,trim);
+    for(const z of [-1.43,-1.35])a.box(-1.65,.958,z,1.25,.018,.035,cream);
   }
-  planter(a,-b.w/2+.52,hd+.58);planter(a,b.w/2-.52,hd+.58);
 }
 
-function building(b){
+function building(b,island){
   const g=new THREE.Group();g.position.set(b.x,b.y,b.z);g.rotation.y=b.yaw;
   const a=new Pieces(g),hw=b.w/2,hd=b.d/2,[name,wall,col]=places[b.kind],h=3.02;
-  a.box(0,-.32,0,b.w+.38,.64,b.d+.38,'#b6a18a');a.box(0,-.035,0,b.w,.09,b.d,'#e8d3af');
+  const slab=new THREE.Group(),base=new Pieces(slab);g.add(slab);
+  base.box(0,-.32,0,b.w+.38,.64,b.d+.38,'#b6a18a');base.box(0,-.035,0,b.w,.09,b.d,'#e8d3af');
+  if(isHome(b)){
+    for(let i=0;i<14;i++){
+      const z=-hd+(i+.5)*b.d/14;
+      base.box(0,.012,z,b.w-.18,.012,b.d/14-.013,['#e1c39c','#e6cca8','#ddbd95'][i%3]);
+      base.box(i%2?1.2:-1.2,.020,z,.012,.008,b.d/14,'#ceb18e');
+    }
+  }
+  base.finish();
   const faces=[0,1,2,3].map(()=>new THREE.Group()),[left,right,back,front]=faces.map(f=>new Pieces(f));
   g.add(...faces);
   left.box(-hw,h/2,0,.18,h,b.d,wall);right.box(hw,h/2,0,.18,h,b.d,wall);
@@ -95,13 +119,35 @@ function building(b){
     front.box(s*(hw+1.05)/2,h/2,hd,hw-1.05,h,.17,wall);windows(front,s*(hw+1.05)/2,hd+.1,Math.min(1.8,hw-1.5));
     front.box(s*(hw-.04),h/2,hd+.06,.16,h,.19,col);}
   back.box(0,h/2,-hd,b.w,h,.18,wall);front.box(0,2.72,hd,2.1,.6,.18,wall);
-  a.box(0,-.04,hd+.7,2.65,.16,1.4,'#ccbba5');
+  const porch=new THREE.Group(),p=new Pieces(porch);g.add(porch);
+  p.box(0,-.04,hd+.7,2.65,.16,1.4,'#ccbba5');
+  planter(p,-hw+.52,hd+.58);planter(p,hw-.52,hd+.58);p.finish();
   const home=['house','cottage'].includes(b.kind);
+  const walkway=new THREE.Group(),tiles=new Pieces(walkway);g.add(walkway);
+  for(let i=0;i<5;i++){
+    const z=hd+1.7+i*.8,point=toWorld(b,0,z);
+    tiles.box(0,island.sample(point.x,point.z)-b.y+.045,z,1.7,.085,.7,'#ddcbb1');
+  }
+  tiles.finish();
   if(!home){
     for(let i=0;i<13;i++)front.box((i-6)*(b.w-.22)/13,2.65,hd+.57,(b.w-.22)/13, .16,1.14,i%2?cream:col);
     sign(faces[3],name,Math.min(4.55,b.w*.78),3.36,hd+.50,col,cream);
     table(a,-hw+1.45,hd+1.9);chair(a,-hw+1.46,hd+2.58,col);
-  }else{sign(faces[3],name,2.2,2.74,hd+.14,col,cream);}
+  }else{
+    sign(faces[3],name,2.2,2.74,hd+.14,col,cream);
+    for(const s of [-1,1]){
+      const x=s*(hw+1.05)/2,w=1.75;
+      front.box(x,1.7,hd-.11,w+.14,1.26,.09,wood);front.box(x,1.73,hd-.18,w,1.10,.09,'#a4c8c9');
+      front.box(x,1.73,hd-.24,.07,1.14,.06,cream);front.box(x,1.72,hd-.24,w,.07,.06,cream);
+      front.box(x,1.10,hd-.18,w+.22,.1,.32,cream);
+      for(const edge of [-1,1])front.box(x+edge*.74,1.82,hd-.28,.2,1.18,.10,col);
+      back.box(s*1.61,2.02,-hd+.10,1.0,.81,.07,wood);
+      back.box(s*1.61,2.02,-hd+.15,.84,.65,.04,s>0?col:glass);
+    }
+    front.box(1.035,1.06,hd-.5,.12,2.12,1,col);
+    front.box(.96,1.45,hd-.5,.03,.76,.65,glass);
+    front.ball(.94,.96,hd-.92,.095,.095,.095,'#d1aa63');
+  }
   for(const s of [-1,1])front.box(s*1.06,1.18,hd+.11,.12,2.36,.2,col);
   front.box(0,2.35,hd+.12,2.22,.15,.2,col);
   for(const f of [left,right,back,front])f.finish();
@@ -109,7 +155,14 @@ function building(b){
   const top=new THREE.Group(),r=new Pieces(top);r.box(0,h+.05,0,b.w+.57,.21,b.d+.57,col);
   if(home){r.put(roof,0,h+.15,0,b.w+.76,1.68,b.d+.74,col);r.box(hw*.55,4.12,-hd*.4,.63,1.65,.67,'#9e7665');}
   else{r.box(0,h+.2,0,b.w+.18,.16,b.d+.2,'#ab9786');}
-  r.finish();g.add(top);return {g,top,faces};
+  r.finish();g.add(top);
+  return {g,top,faces,resize(offset){
+    for(const part of [faces[0],faces[1],slab,top]){
+      part.scale.z=(b.d+offset)/b.d;part.position.z=offset/2;
+    }
+    faces[3].position.z=porch.position.z=offset;
+    walkway.scale.z=1-offset/3.9;walkway.position.z=(hd+5.25)*(1-walkway.scale.z);
+  }};
 }
 function partition(){
   const g=new THREE.Group(),a=new Pieces(g);
@@ -157,31 +210,41 @@ function promenade(island,road,plots){
   return new THREE.Mesh(geom,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}));
 }
 export function streetArt(island,plots,scene) {
-  const g=new THREE.Group(), houses=plots.map(building),cafe=plots.find(b=>b.cafe);scene.add(g);
+  const g=new THREE.Group(), houses=plots.map(b=>building(b,island)),cafe=plots.find(b=>b.cafe);scene.add(g);
   for(const h of houses)g.add(h.g);
   const wall=partition();houses[plots.indexOf(cafe)].g.add(wall);
   const ghost=partition(),outline=new THREE.MeshBasicMaterial({color:0x338876,transparent:true,opacity:.34,depthWrite:false});
-  ghost.traverse(m=>{if(m.isMesh)m.material=outline;});ghost.visible=false;wall.parent.add(ghost);
+  const ghosts=new Map([[cafe.id,ghost]]);
+  wall.parent.add(ghost);
+  for(const [i,b] of plots.entries())if(isHome(b)){
+    const frame=new THREE.Group(),f=new Pieces(frame),hw=b.w/2,hd=b.d/2;
+    for(const side of [-1,1])f.box(side*(hw+1.05)/2,1.4,hd,hw-1.05,2.8,.12,'#ffffff');
+    f.box(0,2.72,hd,2.1,.6,.12,'#ffffff');f.box(1.035,1.06,hd-.5,.12,2.12,1,'#ffffff');
+    f.finish();houses[i].g.add(frame);ghosts.set(b.id,frame);
+  }
+  for(const frame of ghosts.values()){frame.traverse(m=>{if(m.isMesh)m.material=outline;});frame.visible=false;}
   const lanterns=new THREE.Group();houses[plots.indexOf(cafe)].g.add(lanterns);const L=new Pieces(lanterns);
   for(const x of [-2.6,0,2.6])L.ball(x,2.38,cafe.d/2+.8,.28,.3,.28,'#ffe39a');L.finish();
   const street=new Pieces(g);
   const road=island.plan.roads.find(r=>r.id===cafe.road);
   if(road)g.add(promenade(island,road,plots));
   for(const b of plots){
-    for(const [side,depth] of [[-b.w/2-.85,1.1],[b.w/2+.75,-1.5]]){const p=toWorld(b,side,depth),y=island.sample(p.x,p.z);
+    for(const [side,depth] of [[-b.w/2-1.42,.7],[b.w/2+1.44,-2.1]]){const p=toWorld(b,side,depth),y=island.sample(p.x,p.z);
       street.round(p.x,y+.94,p.z,.28,1.95,.27,wood);street.ball(p.x,y+2.55,p.z,2.65,2.9,2.48,'#678768');street.ball(p.x+.51,y+2.95,p.z-.24,1.77,1.72,1.82,'#8ca878');}
     const q=toWorld(b,b.w/2+.72,b.d/2+2.6),y=island.sample(q.x,q.z);
     street.round(q.x,y+1.25,q.z,.11,2.5,.11,dark);street.ball(q.x,y+2.65,q.z,.35,.44,.35,cream);
-    for(let i=0;i<5;i++){const p=toWorld(b,0,b.d/2+1.7+i*.8);street.box(p.x,island.sample(p.x,p.z)+.045,p.z,1.7,.085,.7,'#ddcbb1',b.yaw);}
   }
   // A path runs outside the last cottage down to the actual sampled shoreline.
   const last=plots.find(b=>b.kind==='gym'),edge=last.w/2+.85;
   for(let i=0;i<52;i++){const side=-edge-Math.max(0,i-16)*.37,p=toWorld(last,side,last.d/2+2-i*.82),y=island.sample(p.x,p.z);
     if(y<.12)break;street.box(p.x,y+.025,p.z,1.85,.085,.9,i%3?'#ddc19a':'#e7cfaa',last.yaw);}
   street.finish();
-  return {g,wall,ghost,lanterns,update(pos,layout,camera=pos,build=false){wall.position.z=layout.wall;lanterns.visible=layout.lights;
+  return {g,wall,lanterns,preview(b,value,show){
+    for(const [id,frame] of ghosts){frame.visible=show&&b?.id===id;if(frame.visible)frame.position.z=value;}
+  },update(pos,layout,camera=pos,buildLot){wall.position.z=layout.wall;lanterns.visible=layout.lights;
     houses.forEach((h,i)=>{const b=plots[i],p=toRoom(b,pos),eye=toRoom(b,camera);
-      const cut=(Math.abs(p.x)<=b.w/2+.28&&Math.abs(p.z)<=b.d/2+.28)||(build&&b.cafe);
+      if(isHome(b))h.resize(wallState(layout,b).wall);
+      const cut=(Math.abs(p.x)<=b.w/2+.28&&p.z>=-b.d/2-.28&&p.z<=frontAt(b,layout)+.28)||buildLot===b.id;
       h.top.visible=!cut;const sides=[eye.x<0,eye.x>0,eye.z<0,eye.z>0];
       h.faces.forEach((f,k)=>f.visible=!cut||!sides[k]);});},
     dispose(){disposeGroup(g);outline.dispose();scene.remove(g);}};
@@ -189,13 +252,21 @@ export function streetArt(island,plots,scene) {
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 
 export function avatar(color,skin='#d9a779'){
-  const g=new THREE.Group(),a=new Pieces(g);
-  for(const s of [-1,1]){a.box(s*.135,.26,0,.2,.44,.21,'#46566a');a.ball(s*.135,.088,.05,.24,.17,.34,dark);
-    a.ball(s*.33,.9,0,.18,.54,.2,color);}
+  const g=new THREE.Group(),torso=new THREE.Group(),standing=new THREE.Group(),sitting=new THREE.Group();
+  const a=new Pieces(torso),legs=new Pieces(standing),seated=new Pieces(sitting);
+  for(const s of [-1,1]){
+    legs.box(s*.135,.26,0,.2,.44,.21,'#46566a');legs.ball(s*.135,.088,.05,.24,.17,.34,dark);
+    legs.ball(s*.33,.9,0,.18,.54,.2,color);
+    seated.box(s*.14,.50,.13,.22,.20,.38,'#46566a');seated.box(s*.14,.28,.31,.18,.34,.18,'#46566a');
+    seated.ball(s*.14,.105,.37,.23,.17,.33,dark);
+    seated.ball(s*.31,.85,.03,.18,.39,.18,color);seated.ball(s*.31,.705,.17,.145,.14,.30,skin);
+  }
   a.ball(0,.86,0,.61,.85,.43,color);a.ball(0,1.47,0,.48,.52,.45,skin);
   a.ball(0,1.62,-.04,.51,.3,.47,'#584543');
   for(const s of [-1,1])a.ball(s*.09,1.48,.207,.037,.049,.028,dark);
-  a.finish();return g;
+  a.finish();legs.finish();seated.finish();g.add(torso,standing,sitting);
+  g.setSeated=value=>{standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:0;};
+  g.setSeated(false);return g;
 }
 
 export function townExteriors(island,detail,scene){

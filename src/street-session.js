@@ -1,6 +1,6 @@
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
-import {defaultLayout,legalWall,moveWalker,readLayout,toRoom,toWorld,within} from './street-world.js';
+import {defaultLayout,frontAt,isHome,legalWall,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const zero={x:0,z:0};
@@ -35,9 +35,15 @@ export class StreetSession {
     this.visit=new URLSearchParams(location.search).get('visit');this.owner=!this.visit;
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
     this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:''});
-    this.routes=plots.map(b=>toWorld(b,0,b.d/2+3.35));
-    this.patrol=[this.routes[0],this.routes[1],toWorld(this.cafe,0,1.5),toWorld(this.cafe,0,-2.35),toWorld(this.cafe,0,1.5),this.routes[1],this.routes[2],this.routes[4],this.routes[2],this.routes[1]];
     this.start=this.init();
+  }
+  updatePatrol(){
+    const [cottage,cafe,house]=this.plots;
+    const approach=b=>toWorld(b,0,b.d/2+3.35);
+    const entry=b=>toWorld(b,0,frontAt(b,this.layout)+.8);
+    this.patrol=[approach(cottage),approach(cafe),toWorld(cafe,0,1.5),toWorld(cafe,0,-2.35),
+      toWorld(cafe,0,1.5),approach(cafe),approach(house),entry(house),toWorld(house,0,.35),entry(house),
+      approach(house),approach(cafe),approach(cottage),entry(cottage),toWorld(cottage,0,.35),entry(cottage)];
   }
   async init(){
     try{
@@ -53,6 +59,7 @@ export class StreetSession {
         this.layout=readLayout(stored(project+'.layout.'+this.pub))||defaultLayout();this.saved=id.persistent!==false;
       }
       if(this.owner){
+        this.updatePatrol();
         for(let i=0;i<2;i++)this.actors.set('resident'+i,{id:'resident'+i,...this.patrol[i*6],yaw:0,activity:'',part:'',way:i*6,dwell:1+i*3});
       }else{
         if(!validKey(this.visit))throw Error('Invalid street invitation');
@@ -98,16 +105,22 @@ export class StreetSession {
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
   persist(){this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
-  edit(target,undo=false){
+  edit(target,undo=false,lot=this.cafe.id){
     if(!this.owner||!this.ready)return false;
-    const old=this.layout.wall,goal=undo?this.layout.undo.at(-1):target;if(!Number.isFinite(goal))return false;
-    const next=legalWall(old,goal,[...this.actors.values()],this.cafe);
+    const b=this.plots.find(p=>p.id===lot&&(p.cafe||isHome(p)));
+    if(!b)return false;
+    const state=wallState(this.layout,b),old=state.wall,goal=undo?state.undo.at(-1):target;
+    if(!Number.isFinite(goal))return false;
+    const occupants=[...this.actors.values(),...this.town.people.filter(p=>p.visible).map(p=>p.position)];
+    const next=legalWall(old,goal,occupants,b);
     if(goal===old){this.notice('The wall is already there.');return false;}
     if(next===old||(undo&&next!==goal)){this.notice('Wall held. Someone is in its path.');return false;}
-    if(undo)this.layout.undo.pop();else this.layout.undo=[...this.layout.undo.slice(-31),old];
-    this.layout.wall=next;this.layout.revision++;this.persist();this.notice(next===goal?'Wall and doorway moved.':'Wall stopped before an occupant.');return true;
+    if(undo)state.undo.pop();else state.undo=[...state.undo.slice(-31),old];
+    state.wall=next;
+    if(isHome(b)){this.layout.homes[b.id]=state;this.updatePatrol();}
+    this.layout.revision++;this.persist();this.notice(next===goal?'Wall and doorway moved.':'Wall stopped at its safe limit.');return true;
   }
-  near(actor){return this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=b.d/2+4});}
+  near(actor){return this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4});}
   station(actor,b){
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
@@ -118,7 +131,7 @@ export class StreetSession {
       house:[[1.38,-.14,'sit']],cottage:[[1.38,-.14,'sit']]
     };
     const p=toRoom(b,actor);
-    if(Math.abs(p.x)>b.w/2-.25||Math.abs(p.z)>b.d/2-.22)return null;
+    if(Math.abs(p.x)>b.w/2-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
     return seats[b.kind].map(([x,z,action,part=''])=>({...toWorld(b,x,z),action,part,dist:Math.hypot(x-p.x,z-p.z)}))
       .filter(q=>q.dist<=1.35&&![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,q,.55)))
       .sort((a,c)=>a.dist-c.dist)[0];
@@ -149,12 +162,13 @@ export class StreetSession {
       try{
         if(!await crypto.subtle.verify(signature,this.publicKey,decode(m.sig),utf8.encode(m.body)))return;
         const f=JSON.parse(m.body);
+        const layout=readLayout(f.layout);
         if(this.closed||f.room!==this.pub||!Number.isFinite(f.t)||!Number.isFinite(f.seq)||!Array.isArray(f.actors)||f.actors.length>16||
-          !f.actors.every(validActor)||!readLayout(f.layout)||!f.actors.some(a=>a.id===this.id))return;
+          !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
-        this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=f.layout;this.time=f.t;
+        this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(Array.isArray(f.residents)&&f.residents.length===this.town.people.length)
           f.residents.forEach((r,i)=>{if(!Array.isArray(r)||r.length!==5||!r.every(Number.isFinite))return;
             const m=this.town.people[i];m.position.set(r[0],r[1],r[2]);m.visible=!!r[3];m.scale.y=r[4];});
