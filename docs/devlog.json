@@ -2,6 +2,31 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 6,
+   "date": "2026-11-16",
+   "slug": "harbor-street",
+   "milestone": "M6 playable waterfront",
+   "title": "Seven front doors on one island",
+   "text": [
+    "Start outside Jenn's Café. Turn along the street to reach the two homes, Bay Kitchen, spa, gym and nightclub. Enter on foot and the roof cuts away. The waterfront buildings and their neighbours stand on the generated lots.",
+    "A guest can visit from a link while the owner previews a café wall move. The doorway travels with it. Players and the two waterfront residents limit how far it can slide. At the club two visitors can divide a piano tune into melody and bass."
+   ],
+   "stills": [
+    {
+     "file": "shots/2026-11-16/harbor-street.jpg",
+     "caption": "The waterfront at player height. Each building has its own position on the island."
+    },
+    {
+     "file": "shots/2026-11-16/harbor-neighborhood.jpg",
+     "caption": "The waterfront road joins the rest of Harbor Town at the north end of the bay."
+    }
+   ],
+   "next": [
+    "Expand structural editing to exterior walls and adjoining parcels.",
+    "Playtest public relay joining on different networks."
+   ]
+  },
+  {
    "n": 1,
    "date": "2026-11-15",
    "slug": "first-island",

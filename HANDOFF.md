@@ -6,13 +6,13 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 The island viewer generates terrain, settlements and graded lots from a seed and locale. Town view finds a resident. Capsule residents follow the town simulation and appear on the minimap. The petalwood Harbor Town seed has 61 road pieces, 534 plots and eight residents.
 
-The browser viewer currently runs locally on each client. The objects package supports building permissions, occupied objects and per-builder undo. The network package exchanges player positions. Connecting those packages to structural edits is the next piece of work.
+Harbor Town now opens at the café, with seven furnished venues occupying real waterfront parcels. The island has additional street-facing exteriors on buildable lots. Find a place gives a direction and distance to each venue. The terrain inspector remains available under Island map.
 
-## Next playable milestone
+## Building and multiplayer
 
-Build and live mode must coexist on the same island. Start with one occupied lot and two connected clients. One player edits a wall while another uses its doorway and a resident follows a route through the lot. Doors should follow the wall they belong to. Only the room owner can build. Guests retain direct control and can use the existing space while the owner pushes walls and attached doors aside.
+The host simulates player movement and two waterfront residents against the committed floor plan. Guests join from a link and receive signed host frames. Only the owner commits the café partition and attached doorway. A sweep stops before an occupant, including at the open door leaf. Visitors can walk, use the lanterns and play their part at the club during the edit. Layout, lantern state and undo history persist in the owner's browser. A host must be present for guests. Run npm run test:street for a browser playtest using the local transport.
 
-Use a local drag preview. Commit a valid edit as one host-authoritative operation so the wall, its openings, its collision and the affected routes change together. Check a blocked drag, a guest attempting an edit during an owner drag, per-builder undo and a late join. Keep people seated, nearby interactions active and distant lots ticking throughout. Town Kit supplies layout ideas to try after this interaction feels right.
+The next structural step is movable exterior walls on adjoining lots, with explicit route updates for the broader resident simulation. Test across independent networks and exercise host loss before promising a persistent public town. Other venues still need authored floor plans, furniture and deeper activities.
 
 ## Reference projects and social play
 

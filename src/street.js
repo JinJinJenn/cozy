@@ -1,0 +1,124 @@
+import * as THREE from 'three';
+import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
+import {floorAt,plotsForStreet,toRoom,toWorld} from './street-world.js';
+import {StreetSession} from './street-session.js';
+import {StreetMusic} from './street-music.js';
+
+const $=id=>document.getElementById(id);
+const names={cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
+const directions=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
+export class Street {
+  constructor(island,scene,camera,controls,town){
+    Object.assign(this,{island,scene,camera,controls,town});
+    this.plots=plotsForStreet(island);this.clearExteriors=townExteriors(island,this.plots,scene);
+    if(!this.plots.length)return;
+    this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
+    this.music=new StreetMusic();this.abort=new AbortController();this.joy={x:0,z:0};this.cafe=this.plots.find(b=>b.cafe);
+    $('destination').replaceChildren(new Option('Choose a place',''),...this.plots.map(b=>new Option(places[b.kind][0],b.kind)));
+    const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
+    listen(window,'keydown',e=>{
+      if(!this.active||e.target.matches('input,select,textarea'))return;
+      if(directions.has(e.code)){e.preventDefault();this.keys.add(e.code);}
+      if(e.code==='KeyE'&&!e.repeat){e.preventDefault();this.use();}
+      if(e.code==='Escape')this.closePanels();
+    });
+    listen(window,'keyup',e=>this.keys.delete(e.code));listen(window,'blur',()=>this.clearInput());
+    listen($('use-place'),'click',()=>this.use());
+    listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
+    listen($('destination'),'change',()=>{this.destination=this.plots.find(b=>b.kind===$('destination').value);this.nextUI=0;});
+    listen($('build-open'),'click',()=>{const open=$('build-pane').hidden;this.closePanels();$('build-pane').hidden=!open;
+      $('wall-offset').value=this.session.layout.wall;this.preview();});
+    listen($('wall-offset'),'input',()=>this.preview());
+    listen($('apply-wall'),'click',()=>{this.session.edit(Number($('wall-offset').value));$('wall-offset').value=this.session.layout.wall;this.preview();});
+    listen($('undo-wall'),'click',()=>{this.session.edit(0,true);$('wall-offset').value=this.session.layout.wall;this.preview();});
+    listen($('social-open'),'click',()=>{const open=$('social-pane').hidden;this.closePanels();$('social-pane').hidden=!open;});
+    listen($('copy-street'),'click',async()=>{
+      const url=await this.session.invite();if(!url)return;
+      $('invite-url').value=url;$('invite-url').hidden=false;
+      try{await navigator.clipboard.writeText(url);this.notice('Invite link copied.');}catch{$('invite-url').select();this.notice('Your invite link is ready to copy.');}
+    });
+    listen($('list-street'),'change',async()=>{await this.session.setListed($('list-street').checked);$('list-street').checked=this.session.listed;});
+    listen($('browse-streets'),'click',async()=>{await this.session.discover();this.browsing=true;this.showRooms();});
+    const pad=$('walk-pad'),stick=$('pad-stick');
+    const steer=e=>{const r=pad.getBoundingClientRect();let x=(e.clientX-r.left-r.width/2)/(r.width*.35),z=(r.top+r.height/2-e.clientY)/(r.height*.35);
+      const n=Math.max(1,Math.hypot(x,z));x/=n;z/=n;this.joy={x,z};stick.style.transform='translate('+x*22+'px,'+-z*22+'px)';};
+    listen(pad,'pointerdown',e=>{pad.setPointerCapture(e.pointerId);steer(e);});
+    listen(pad,'pointermove',e=>{if(pad.hasPointerCapture(e.pointerId))steer(e);});
+    listen(pad,'lostpointercapture',()=>{this.joy={x:0,z:0};stick.style.transform='';});
+  }
+  notice(text){$('street-note').textContent=text;}
+  showRooms(){
+    const el=$('room-results'),rooms=this.session.rooms(),key=rooms.map(r=>r.url).join();
+    if(el.dataset.rooms===key)return;el.dataset.rooms=key;el.replaceChildren();
+    if(!rooms.length){el.textContent='No listed streets nearby.';return;}
+    for(const [i,r] of rooms.entries()){const link=document.createElement('a');link.href=r.url;link.textContent='Visit Harbor Street '+(i+1);el.append(link);}
+  }
+  preview(){const value=Number($('wall-offset').value);$('wall-readout').textContent=value.toFixed(1)+' m';
+    this.art.ghost.visible=!$('build-pane').hidden&&value!==this.session.layout.wall;this.art.ghost.position.z=value;}
+  closePanels(){for(const id of ['build-pane','social-pane','directions-pane'])$(id).hidden=true;if(this.art)this.art.ghost.visible=false;}
+  clearInput(){this.keys?.clear();this.joy={x:0,z:0};if(this.session)this.session.keys={x:0,z:0};}
+  use(){if(!this.session?.ready)return;void this.music.unlock();this.session.use();}
+  activate(){
+    if(!this.art)return false;
+    if(!this.session){
+      this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
+      let last=performance.now();this.timer=setInterval(()=>{const now=performance.now(),dt=Math.min((now-last)/1000,.15);last=now;
+        if(this.active)this.input();this.session.tick(dt);},35);
+    }
+    this.active=true;this.closePanels();this.clearInput();this.nextUI=0;
+    document.body.classList.add('in-street');$('street-panel').hidden=false;$('street-note').textContent='';
+    $('build-open').hidden=!this.session.owner;$('owner-room').hidden=!this.session.owner;$('invite-url').hidden=true;
+    const p=this.session.actors.get(this.session.id)||this.session.spawn;
+    const y=floorAt(this.island,this.plots,p.x,p.z),off=toWorld(this.cafe,6.5,12);
+    this.controls.minDistance=2.6;this.controls.maxDistance=45;this.controls.enablePan=false;
+    this.camera.near=.13;this.camera.updateProjectionMatrix();
+    this.controls.target.set(p.x,y+1.1,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+5.9,p.z+off.z-this.cafe.z);
+    this.controls.update();this.render();return true;
+  }
+  deactivate(){if(!this.active)return;this.active=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+    document.body.classList.remove('in-street');$('street-panel').hidden=true;
+    this.controls.enablePan=true;this.controls.minDistance=8;this.controls.maxDistance=4200;
+    this.camera.near=1;this.camera.updateProjectionMatrix();}
+  input(){
+    const keys=this.keys,down=(a,b)=>Number(keys.has(a)||keys.has(b));
+    const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+this.joy.z;
+    const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
+    const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
+    this.session.keys={x:(forward*dx-side*dz)/n,z:(forward*dz+side*dx)/n};
+  }
+  render(){
+    const s=this.session;if(!s||!this.active)return;
+    const local=s.actors.get(s.id);if(!local)return;
+    const now=performance.now();
+    for(const [id,a] of s.actors){
+      let mesh=this.meshes.get(id);
+      if(!mesh){const npc=id.startsWith('resident');mesh=avatar(id===s.id?'#c55b61':npc?'#729581':'#6687bd',id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
+      const y=floorAt(this.island,this.plots,a.x,a.z);
+      mesh.position.set(a.x,y,a.z);mesh.rotation.y=a.yaw;
+      const seated=['sit','dine','relax','piano'].includes(a.activity);
+      mesh.scale.y=seated?.73:a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
+      mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
+    }
+    for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
+    const m=this.meshes.get(s.id),target=this.controls.target;
+    this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.1-target.y;this.camera.position.z+=m.position.z-target.z;
+    target.set(m.position.x,m.position.y+1.1,m.position.z);
+    this.art.update(local,s.layout,this.camera.position,!$('build-pane').hidden);
+    const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
+    if(this.nextUI>now)return;this.nextUI=now+150;
+    $('place').textContent=near?places[near.kind][0]:'Harbor Town';
+    const waypoint=$('waypoint');waypoint.hidden=!this.destination;
+    if(this.destination){const b=this.destination,p=toWorld(b,0,b.d/2+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
+      const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
+      $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=places[b.kind][0]+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
+    const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
+    $('party').textContent=s.error?'Room unavailable':s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
+    $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
+    const spot=s.station(local,near),use=$('use-place');use.hidden=!spot&&!local.activity;use.disabled=!s.ready||(!s.owner&&!s.connected);
+    if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing'}[local.activity]||local.activity):spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind];
+    $('undo-wall').disabled=!s.layout.undo.length;$('list-street').checked=s.listed;
+    if(this.browsing&&!$('social-pane').hidden)this.showRooms();
+  }
+  dispose(){this.deactivate();clearInterval(this.timer);this.abort?.abort();this.music?.dispose();this.session?.dispose();
+    for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();this.clearExteriors();}
+}

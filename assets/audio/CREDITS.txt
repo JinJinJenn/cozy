@@ -1,0 +1,5 @@
+Piano A3 from Salamander Grand Piano by Alexander Holm.
+Sample distribution: https://github.com/Tonejs/audio/blob/master/salamander/A3.mp3
+License: Creative Commons Attribution 3.0, https://creativecommons.org/licenses/by/3.0/
+The game pitches and envelopes the original recording during playback.
+The two waterfront keyboard parts were written for Jenn's Cozy Town.

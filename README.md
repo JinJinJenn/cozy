@@ -1,12 +1,14 @@
 # Jenn's Cozy Town
 
-Explore a seeded island, choose **Town** to meet its residents, and click the minimap to jump between neighbourhoods. The current playtest shows graded streets and outlined lots across four island presets. [Play Harbor Town](https://jinjinjenn.github.io/cozy/?preset=harborTown&seed=petalwood&view=town) · [Devlog](docs/DEVLOG.html)
+Walk Harbor Town on a continuous island. The waterfront has two homes, Jenn's Café, Bay Kitchen, Tidepool Spa, Harbor Gym and The Moon Room. Find a place points toward its front door. [Play Jenn's Cozy Town](https://jinjinjenn.github.io/cozy/) · [Devlog](docs/DEVLOG.html)
 
-## Where the game is going
+## Live mode and building
 
-Jenn's Café contributed the models and building tools. Jenn's Farm informed the rendering and UI. Jenn's Town explored residents and neighbourhood routines. Cozy Town starts with a fresh island and brings those ideas together around live, multiplayer building.
+Walk with WASD, the arrow keys or the touch pad. Drag to orbit and press E or tap the activity button. Switch the café lanterns, relax at the spa, work out at the gym or play a part at the club. Two people can take melody and bass on the same score.
 
-The next playable milestone is one occupied lot on the island. The room owner drags a wall with an attached door while a guest walks through the doorway and a resident continues their routine. The edit should move connected pieces together, preserve a usable passage and resolve contact without trapping a player or cancelling an unrelated interaction. A constrained drag should stop at the last valid position. The host should commit the geometry, collision and navigation change at the same simulation tick. Guests can join from a link and keep playing throughout a drag. A late joiner and an owner undo should see the same resulting layout. The first planned group activity lets players perform different parts of one MML song together.
+The owner can use Build to preview, move and undo the café partition and its attached doorway. The host sweeps the edit against players and street residents. Occupied space limits the move. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
+
+Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Other lots across the island have building exteriors. The seven waterfront buildings have furnished interiors and activities.
 
 ## Run
 

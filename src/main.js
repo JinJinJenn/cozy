@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {IslandClient} from './island-client.js';
 import {SettlementView} from './settlement-view.js';
+import {Street} from './street.js';
 const SEA_LEVEL=0;
 import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
 import {drawMarker} from './minimap.js';
@@ -54,7 +55,7 @@ function buildOcean(half){
   ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);ocean.geometry=g;
 }
 let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
-let town=null, captureTime=0;
+let town=null, street=null, captureTime=0;
 let streamRadius=4200;
 
 function lodFor(d){return d<260?33:d<620?17:d<1300?9:5;}
@@ -129,6 +130,9 @@ function clampCamera(){
 }
 function setView(name,opts={}){
   if(!island) return;
+  if(name==='street' && street?.activate()){streamRadius=680;return;}
+  streamRadius=4200;
+  street?.deactivate();
   const pc=island.preset.camera,half=island.half;
   const dir=(az,el)=>new THREE.Vector3(Math.cos(el)*Math.sin(az),Math.sin(el),Math.cos(el)*Math.cos(az));
   let tgt,pos;
@@ -170,6 +174,7 @@ async function load(presetId,seed,view='oblique',viewOpts){
   const generation=++loadGen;
   inflight.clear();
   for(const c of chunkMap.values())disposeChunk(c);chunkMap.clear();
+  street?.dispose();street=null;
   if(town){scene.remove(town.group);town.dispose();town=null;}
   island=null;
   const t0=performance.now();
@@ -178,7 +183,9 @@ async function load(presetId,seed,view='oblique',viewOpts){
     if(generation!==loadGen) return;
     island=loaded;
     town=new SettlementView(island,renderer.capabilities);
+    island.deckHeight=town.decks.heightAt;
     scene.add(town.group);
+    street=new Street(island,scene,camera,controls,town);
     captureTime=0;
     const tGen=performance.now()-t0;
     applyPalette(island.preset.palette);buildOcean(island.half);
@@ -208,12 +215,17 @@ function updateMarker(){if(town)drawMarker($('mapo'),island,controls.target,came
 function randomSeed(){const w=['clover','plum','mint','dune','fern','tide','honey','moss','pearl','lilac','ember','drift','sorbet','wren','cove'];return w[Math.floor(Math.random()*w.length)]+'-'+Math.floor(Math.random()*900+100);}
 
 for(const id of PRESET_IDS){const o=document.createElement('option');o.value=id;o.textContent=PRESETS[id].label;$('preset').appendChild(o);}
-const startPreset=params.get('preset')&&PRESETS[params.get('preset')]?params.get('preset'):PRESET_IDS[0];
+const startPreset=PRESETS[params.get('preset')]?params.get('preset'):'harborTown';
 $('preset').value=startPreset;$('seed').value=params.get('seed')||'petalwood';
 $('preset').onchange=()=>load($('preset').value,$('seed').value);
 $('seed').onchange=()=>load($('preset').value,$('seed').value);
 $('reroll').onclick=()=>{$('seed').value=randomSeed();load($('preset').value,$('seed').value);};
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+$('island-map').onclick=()=>setView('top');
+$('walk-street').onclick=()=>{
+  if(street?.plots.length)return setView('street');
+  $('preset').value='harborTown';$('seed').value='petalwood';return load('harborTown','petalwood','street');
+};
 $('mapo').onclick=e=>{
   if(!island) return;const r=e.currentTarget.getBoundingClientRect();
   const x=((e.clientX-r.left)/r.width-.5)*island.size,z=((e.clientY-r.top)/r.height-.5)*island.size;
@@ -226,11 +238,12 @@ window.__cozy={ready:false,load,setView,flushChunks,
   setSize(w,h){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();},
   render(time=0){
     if(params.has('shot') && time>captureTime){town?.advance(time-captureTime);captureTime=time;}
+    street?.render();
     waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderer.render(scene,camera);
   },
   info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
     roads:island?.plan.roads.length,plots:island?.plan.lots.length,residents:town?.current,tick:town?.sim?.tick};},
-  get island(){return island;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
+  get island(){return island;},get street(){return street;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
 let last=performance.now(),frames=0,acc=0;
 function loop(now){
@@ -238,7 +251,8 @@ function loop(now){
   if(params.has('shot')) return; // headless capture drives render() itself
   const dt=(now-last)/1000;last=now;
   if(!window.__cozy.ready) return;
-  town.advance(Math.min(dt,.25));
+  if(!street?.session?.ready)town.advance(Math.min(dt,.25));
+  street?.render();
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}
   waterMat.uniforms.uTime.value=now/1000;
   controls.update();clampCamera();
@@ -246,5 +260,5 @@ function loop(now){
   if(frames%20===0) updateMarker();
   renderer.render(scene,camera);
 }
-load(startPreset,$('seed').value,params.get('view')||'oblique');
+load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));
 requestAnimationFrame(loop);

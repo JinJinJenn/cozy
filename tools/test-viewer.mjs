@@ -19,7 +19,7 @@ try {
   page.on('pageerror', err => errors.push(err.message));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
   const origin = 'http://cozy.test/cozy/';
-  const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json' };
+  const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css':'text/css' };
   await page.context().route('**/*', async route => {
     const url = route.request().url();
     if (!url.startsWith(origin)) {

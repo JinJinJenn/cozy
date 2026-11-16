@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Jenn's Cozy Town</title>
+<link rel="stylesheet" href="./src/street.css">
 <style>
 :root{--ink:#4a3b4f;--panel:rgba(255,246,250,.88);--accent:#e98fb0;--mint:#8fd9c0}
 html,body{margin:0;height:100%;overflow:hidden;background:#f6e3ec;font:13px/1.35 system-ui,Segoe UI,sans-serif;color:var(--ink)}
@@ -19,12 +20,26 @@ body.shot #ui,body.shot #mini{display:none}
 </style></head><body>
 <canvas id="gl"></canvas>
 <div id="ui">
+  <button id="walk-street">Walk in Harbor Town</button>
   <label>Locale<select id="preset"></select></label>
   <label>Seed<div class="row"><input id="seed" value="petalwood" spellcheck="false"><button id="reroll" title="New random seed">Re-roll</button></div></label>
   <div class="row"><button class="alt" data-view="oblique">Oblique</button><button class="alt" data-view="top">Top</button><button class="alt" data-view="shore">Shore</button><button class="alt" data-view="town">Town</button></div>
   <div id="blurb"></div><div><a href="docs/DEVLOG.html" style="color:inherit">Devlog</a></div><div id="info"></div>
 </div>
 <div id="mini"><canvas id="mapc" width="208" height="208"></canvas><canvas id="mapo" width="208" height="208"></canvas></div>
+<div id="street-panel" hidden>
+  <header class="street-hud"><h1 id="place">Harbor Town</h1><p><span id="party">Your street</span> · Jenn's Cozy Town</p><p id="waypoint" hidden><b id="bearing" aria-hidden="true">↑</b> <span id="range"></span></p></header>
+  <div id="walk-pad" aria-label="Walk"><div id="pad-stick"></div></div>
+  <section class="street-actions" aria-label="Street controls">
+    <div class="street-buttons"><button class="primary" id="use-place" hidden>Interact</button><button id="directions-open">Find a place</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
+    <div id="directions-pane" class="street-drawer" hidden><label>Walk to <select id="destination"></select></label></div>
+    <div id="build-pane" class="street-drawer" hidden><h2>Café partition and door</h2><label>Offset <input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
+      <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
+    <div id="social-pane" class="street-drawer" hidden><div id="owner-room"><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label></div>
+      <button id="browse-streets">Browse listed streets</button><div id="room-results"></div></div>
+    <p id="street-note" aria-live="polite"></p><small class="desktop-hint">WASD to walk · Drag to orbit · E to interact</small>
+  </section>
+</div>
 <div id="busy">Generating island...</div>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/"}}</script>
 <script type="module" src="./src/main.js"></script>

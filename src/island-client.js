@@ -5,7 +5,7 @@ const SEA_LEVEL=0;
 export class IslandClient{
   constructor(){
     this.worker=new Worker(new URL('./gen-worker.js',import.meta.url),{type:'module'});
-    this.pending=new Map();this.nextId=1;this.cache=new Map();this.cacheMax=1800;this.gen=0;
+    this.pending=new Map();this.nextId=1;this.cache=new Map();this.cacheMax=360;this.gen=0;
     this.worker.onmessage=e=>{const m=e.data,p=this.pending.get(m.id);if(!p) return;this.pending.delete(m.id);m.type==='error'?p.reject(new Error(m.message)):p.resolve(m);};
     this.worker.onerror=e=>{for(const p of this.pending.values())p.reject(new Error(e.message));this.pending.clear();};
   }
