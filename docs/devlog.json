@@ -176,6 +176,52 @@
     "Web Worker generation and chunk mesh cache.",
     "Landmarks per locale, quantile sea level, moisture field, coast smoothing."
    ]
+  },
+  {
+   "n": 4,
+   "date": "2026-11-16",
+   "slug": "island-package-and-settlement",
+   "milestone": "M4 settlement and a living island",
+   "title": "A package, a worker, roads, plots and a handful of residents",
+   "blogTitle": "The island got roads, plots and neighbours",
+   "text": [
+    "Terrain: the generator is now a standalone island-gen package (generate(), PNG16 and Unity RAW export, JSON presets, tests). Generation runs in a Web Worker with a chunk cache. Sea level is picked by height quantile so land ratio is a preset knob, coasts get majority smoothing, and each locale gets landmarks (hero hills, sea stacks, scatter peninsulas). The river beads turned out to be depth-tint variation in the water shader, so inland water now uses a saturated tint and rivers read as continuous channels.",
+    "Settlement: a new settlement package scores town sites on flat dry land, routes roads with slope-aware pathfinding (fords and bridges over narrow water, a style per locale), finds blocks and cuts plots along the street edge. Harbor Town now has 527 plots, 490 buildable. Roads and plots are data, ready for the flatten hook and the minimap.",
+    "Living island: an objects package (every object is a list of composable interaction layers, co-op edit ops, roles, occupancy, per-builder undo), a deterministic sim package (a handful of NPCs with home plots, a day routine, seats and lamps through the objects layers, replayable from seed plus an input log) and a net skeleton (invite links, Trystero guest-join, tested between two headless tabs).",
+    "Next: wire roads, plots and walking NPCs into the viewer, then building rules."
+   ],
+   "stills": [
+    {
+     "file": "docs/shots/2026-11-16/town-harborTown.png",
+     "caption": "Harbor Town: four towns, a main road, 527 plots"
+    },
+    {
+     "file": "docs/shots/2026-11-16/sim-harborTown.png",
+     "caption": "Harbor Town: a day of NPC trails"
+    },
+    {
+     "file": "docs/shots/2026-11-16/pineHighlands-oblique.png",
+     "caption": "Pine Highlands: continuous rivers, no horizon steps"
+    }
+   ],
+   "videos": [
+    {
+     "file": "video/2026-11-16/cut-m3-four-locales.mp4",
+     "caption": "M3 cut: four locale orbits"
+    }
+   ],
+   "bad": [
+    "Coast gullying and round silhouettes are only partly fixed.",
+    "Sandbar towns all sit on the main island; other islands stay unsettled.",
+    "No alleys; plots are still simple shapes.",
+    "NPCs cluster in one town and do not avoid each other.",
+    "None of the new packages are wired into the viewer yet."
+   ],
+   "next": [
+    "Wire roads, plots and walking NPCs into the viewer.",
+    "Building rules per lot, then massing."
+   ],
+   "blog": false
   }
  ]
 }

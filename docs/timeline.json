@@ -107,6 +107,27 @@
      "desc": "Harbor Town 12-seed gallery"
     }
    ],
+   "clips": [
+    {
+     "file": "docs/video/2026-11-16/cut-m3-four-locales.mp4",
+     "desc": "M3 cut: four locale orbits"
+    }
+   ]
+  },
+  {
+   "id": "M4",
+   "date": "2026-11-16",
+   "title": "Settlement, objects, sim and net packages",
+   "stills": [
+    {
+     "file": "docs/shots/2026-11-16/town-harborTown.png",
+     "desc": "Harbor Town roads and plots"
+    },
+    {
+     "file": "docs/shots/2026-11-16/sim-harborTown.png",
+     "desc": "NPC trails on Harbor Town"
+    }
+   ],
    "clips": []
   }
  ]

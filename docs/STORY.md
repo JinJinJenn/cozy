@@ -24,3 +24,6 @@ Raw material for a longer YouTube edit. Newest at the bottom. Keep before/after 
 - Rivers went from invisible to trench-like on flat plains; reduced depth for the flat locales.
 - Seeds gallery showed every Meadow Cove had the same south bay; added per-seed rotation of bays and plateaus.
 - Gotcha: the capture folder is dated in UTC, so after 7 pm local the date rolled to 2026-11-16 mid-session.
+
+## 2026-11-16: settlement, objects, sim, net (M4)
+Terrain got a standalone package, a worker and quantile sea level; the river beads were a shader tint, not geometry. Then four helpers built in parallel in separate packages: settlement (sites, roads, blocks, plots), objects (layered interactions, co-op ops), sim (a handful of NPCs on a day routine) and net (invite links, Trystero skeleton). Next is putting it all in the viewer.
