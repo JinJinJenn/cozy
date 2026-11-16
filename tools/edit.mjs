@@ -1,10 +1,12 @@
 // Assemble an edited cut: title card + clip pairs, 1080p60, no audio (music-free).
 //   node tools/edit.mjs <outName> "<card title>|<clip path>|<subtitle>" ...
 import {spawnSync} from 'node:child_process';
+import {mkdirSync} from 'node:fs';
 import path from 'node:path';
 const [out,...segs]=process.argv.slice(2);
 const date=new Date().toISOString().slice(0,10);
 const outFile=path.resolve('docs/video',date,out.endsWith('.mp4')?out:out+'.mp4');
+mkdirSync(path.dirname(outFile),{recursive:true});
 const font='tools/titlefont.ttf';
 const clean=s=>s.replace(/[:',\%]/g,'');
 const inputs=[],filters=[],labels=[];
