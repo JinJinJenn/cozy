@@ -1,0 +1,10 @@
+{
+  "name": "@cozy/sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cozy headless town simulator: deterministic NPC routines on roads, seat reservations through the objects package, replayable event log.",
+  "main": "index.js",
+  "scripts": { "test": "node --test tests/*.test.mjs" },
+  "engines": { "node": ">=20" }
+}
