@@ -11,8 +11,8 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const origin='https://cozy.test/cozy/',errors=[];
 try{
   const relay=process.argv.includes('--relay');
-  const testContext=async()=>{
-    const context=await browser.newContext({viewport:{width:720,height:432}});
+  const testContext=async(options={})=>{
+    const context=await browser.newContext({viewport:{width:720,height:432},...options});
     // Software WebGL shares the test machine across three live tabs.
     await context.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);
       window.requestAnimationFrame=callback=>setTimeout(()=>raf(callback),90);});
@@ -142,4 +142,30 @@ try{
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.deepEqual(errors,[]);
   console.log('PASS guest walking and sitting, on-world renovation drag, independent home undo, late join, owner reload and map return');
+  await context.close();
+  if(!relay){
+    const mobile=await testContext({isMobile:true,hasTouch:true,viewport:{width:393,height:852}});
+    const phone=await visit(origin+'?net=local',mobile);
+    await phone.locator('#build-open').tap();await phone.locator('#build-lot').selectOption('l106');
+    await phone.locator('#wall-offset').fill('0.5');await phone.locator('#apply-wall').tap();
+    await phone.waitForFunction(()=>window.__cozy.street.session.layout.homes.l106?.wall===.5);
+    const box=await phone.locator('#wall-grip').boundingBox();assert.ok(box);
+    const delta=await phone.evaluate(async()=>{
+      const {Vector3}=await import('three'),c=window.__cozy,b=c.street.buildLot;
+      const v=z=>new Vector3(b.x-b.c*b.w*.25+b.s*z,b.y+2.25,b.z+b.s*b.w*.25+b.c*z).project(c.camera);
+      const a=v(b.d/2+.5),d=v(b.d/2+1.5);return [(d.x-a.x)*innerWidth/2,(a.y-d.y)*innerHeight/2];
+    });
+    const device=await mobile.newCDPSession(phone),x=box.x+box.width/2,y=box.y+box.height/2;
+    await device.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    await device.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+delta[0],y:y+delta[1]}]});
+    await device.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await phone.waitForFunction(()=>window.__cozy.street.session.layout.homes.l106.wall===1.5);
+    if(process.argv.includes('--renovation-shot'))
+      await phone.screenshot({path:path.join(root,'docs/shots/2026-11-16/cottage-touch.jpg'),type:'jpeg',quality:89});
+    await phone.locator('#undo-wall').tap();
+    await phone.waitForFunction(()=>window.__cozy.street.session.layout.homes.l106.wall===.5);
+    await phone.locator('#build-open').tap();await phone.locator('#build-pane').waitFor({state:'hidden'});
+    assert.equal(await phone.evaluate(()=>window.__cozy.street.session.layout.revision),3);
+    await mobile.close();assert.deepEqual(errors,[]);console.log('PASS touch drag, one-tap undo and return to live mode');
+  }
 }finally{await browser.close();}

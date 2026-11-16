@@ -20,6 +20,25 @@ export class Street {
     this.point=new THREE.Vector3();
     $('destination').replaceChildren(new Option('Choose a place',''),...this.plots.map(b=>new Option(places[b.kind][0],b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
+    // After a captured wall drag, Chromium can suppress the next compatibility
+    // click. Complete a stationary single-finger tap once, on its original button.
+    const panel=$('street-panel');let tap=null;
+    listen(panel,'touchstart',e=>{
+      const button=e.target.closest('button'),finger=e.changedTouches[0];
+      tap=e.touches.length===1&&button&&!button.disabled&&button.id!=='wall-grip'?
+        {button,id:finger.identifier,x:finger.clientX,y:finger.clientY}:null;
+    });
+    listen(panel,'touchcancel',()=>{tap=null;});
+    listen(panel,'touchmove',e=>{
+      if(!tap)return;const f=e.touches[0];
+      if(e.touches.length!==1||Math.hypot(f.clientX-tap.x,f.clientY-tap.y)>10)tap=null;
+    });
+    panel.addEventListener('touchend',e=>{
+      const start=tap;tap=null;if(!start||!e.cancelable)return;
+      const f=e.changedTouches[0],hit=document.elementFromPoint(f.clientX,f.clientY);
+      if(start.id!==f.identifier||!start.button.contains(hit)||Math.hypot(f.clientX-start.x,f.clientY-start.y)>10)return;
+      e.preventDefault();start.button.click();
+    },{signal:this.abort.signal,passive:false});
     listen(window,'keydown',e=>{
       if(!this.active)return;
       if(e.code==='Escape'){this.closePanels();return;}
@@ -80,13 +99,22 @@ export class Street {
   }
   selectLot(b){
     this.clearInput();this.drag=null;this.buildLot=b;$('build-lot').value=b.id;
+    $('street-panel').classList.add('building');
     $('build-open').textContent='Done building';this.nextUI=0;
     $('wall-label').textContent=b.cafe?'Partition':'Front wall';this.notice('');
     const eye=toWorld(b,4,-8);
     this.controls.target.set(b.x,b.y+.35,b.z);this.camera.position.set(eye.x,b.y+11,eye.z);
+    const fit=Math.max(1,.89/this.camera.aspect);
+    this.camera.position.sub(this.controls.target).multiplyScalar(fit).add(this.controls.target);
     this.controls.update();this.resetPreview();this.render();
   }
-  resetPreview(){if(this.buildLot){$('wall-offset').value=wallState(this.session.layout,this.buildLot).wall;this.preview();}}
+  resetPreview(){
+    if(!this.buildLot)return;
+    const state=wallState(this.session.layout,this.buildLot);
+    $('wall-offset').value=state.wall;
+    $('undo-wall').disabled=!state.undo.length;
+    this.preview();
+  }
   commitWall(undo=false){
     if(!this.buildLot)return;
     this.session.edit(Number($('wall-offset').value),undo,this.buildLot.id);this.resetPreview();
@@ -106,6 +134,7 @@ export class Street {
   preview(){
     const value=Number($('wall-offset').value);$('wall-readout').textContent=value.toFixed(1)+' m';
     this.art.preview(this.buildLot,value,!!this.buildLot&&value!==wallState(this.session.layout,this.buildLot).wall);
+    if(this.buildLot)this.positionGrip();
   }
   positionGrip(){
     const b=this.buildLot,offset=Number($('wall-offset').value);
@@ -118,6 +147,7 @@ export class Street {
     for(const id of ['build-pane','social-pane','directions-pane','wall-grip'])$(id).hidden=true;
     if(this.buildLot){
       this.drag=null;this.buildLot=null;this.art.preview(null,0,false);
+      $('street-panel').classList.remove('building');
       $('build-open').textContent='Build';this.clearInput();this.nextUI=0;
       this.camera.position.copy(this.controls.target).add(this.returnOffset);this.controls.update();
     }
