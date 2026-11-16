@@ -1,6 +1,6 @@
 # Cozy: island world generator (first slice)
 
-A seeded, chunk-streamed heightmap island with several locale presets, a tiny viewer and a headless capture pipeline. Terrain only for now: no streets, lots, gameplay or multiplayer. Local only (no remote yet).
+A seeded, chunk-streamed heightmap island with several locale presets, a tiny viewer and a headless capture pipeline. Terrain only for now: no streets, lots, gameplay or multiplayer. Work in progress. [Live viewer](https://jinjinjenn.github.io/cozy/) and [devlog](docs/DEVLOG.html).
 
 ## Run
 
