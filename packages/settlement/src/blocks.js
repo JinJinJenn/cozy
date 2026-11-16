@@ -38,10 +38,16 @@ export function buildBlocks(T,roads,site,S,ownerOf,opts={}){
   const win=rasterWindow(T,roads,site,S),{W,ox,oz,rs,blocked,Wh}=win;
   const reg=new Int32Array(W*W).fill(-1),lab=new Int32Array(W*W).fill(-1);let nl=0;const stack=new Int32Array(W*W);
   const info=[];
-  for(let s=0;s<W*W;s++){if(blocked[s]||lab[s]>=0)continue;let sp=0;stack[sp++]=s;lab[s]=nl;const cells=[];let border=false,sx=0,sy=0;
+  // gap closing: flood fill on roads dilated by 2 cells (a street that stops a few metres short of another no longer leaks), then regrow regions 2 cells
+  const GAP=opts.gap??2;let fb=blocked;
+  if(GAP>0){fb=new Uint8Array(W*W);const tmp=new Uint8Array(W*W);fb.set(blocked);
+    for(let it=0;it<GAP;it++){tmp.set(fb);for(let y=1;y<W-1;y++)for(let x=1;x<W-1;x++){const c=y*W+x;if(!fb[c]&&(fb[c-1]||fb[c+1]||fb[c-W]||fb[c+W]))tmp[c]=1;}fb.set(tmp);}}
+  for(let s=0;s<W*W;s++){if(fb[s]||lab[s]>=0)continue;let sp=0;stack[sp++]=s;lab[s]=nl;const cells=[];let border=false,sx=0,sy=0;
     while(sp){const c=stack[--sp];cells.push(c);const x=c%W,y=(c/W)|0;sx+=x;sy+=y;if(x===0||y===0||x===W-1||y===W-1)border=true;
-      if(x>0&&!blocked[c-1]&&lab[c-1]<0){lab[c-1]=nl;stack[sp++]=c-1;}if(x<W-1&&!blocked[c+1]&&lab[c+1]<0){lab[c+1]=nl;stack[sp++]=c+1;}
-      if(y>0&&!blocked[c-W]&&lab[c-W]<0){lab[c-W]=nl;stack[sp++]=c-W;}if(y<W-1&&!blocked[c+W]&&lab[c+W]<0){lab[c+W]=nl;stack[sp++]=c+W;}}
+      if(x>0&&!fb[c-1]&&lab[c-1]<0){lab[c-1]=nl;stack[sp++]=c-1;}if(x<W-1&&!fb[c+1]&&lab[c+1]<0){lab[c+1]=nl;stack[sp++]=c+1;}
+      if(y>0&&!fb[c-W]&&lab[c-W]<0){lab[c-W]=nl;stack[sp++]=c-W;}if(y<W-1&&!fb[c+W]&&lab[c+W]<0){lab[c+W]=nl;stack[sp++]=c+W;}}
+    if(GAP>0&&!border){let fr=cells;for(let it=0;it<GAP;it++){const nx=[];for(const c of fr){const x=c%W,y=(c/W)|0;if(x<1||y<1||x>=W-1||y>=W-1)continue;for(const d of [-1,1,-W,W]){const q=c+d;if(!blocked[q]&&lab[q]<0){lab[q]=nl;nx.push(q);cells.push(q);}}}fr=nx;}
+      sx=0;sy=0;for(const c of cells){sx+=c%W;sy+=(c/W)|0;}}
     info.push({cells,border,cx:ox+(sx/cells.length+0.5)*rs,cz:oz+(sy/cells.length+0.5)*rs});nl++;}
   const out=[];
   for(let q=0;q<info.length;q++){const r=info[q],area=r.cells.length*rs*rs;

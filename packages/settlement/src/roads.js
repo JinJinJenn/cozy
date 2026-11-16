@@ -5,33 +5,43 @@ import {chaikin,dpOpen,r1} from './geom.js';
 import {rngFor,hashStr} from './rng.js';
 
 export function buildRoads(T,sites,S,seed){
-  const N=T.N,cell=T.cell,used=new Uint8Array(N*N),roads=[],stats={droppedPieces:0,failedRoutes:0,routes:0};
+  const N=T.N,cell=T.cell,used=new Uint8Array(N*N),roads=[],stats={droppedPieces:0,failedRoutes:0,routes:0,relaxedRoutes:0};
   const W=S.widths,noise=valueNoise(hashStr(seed+'|noise'),6);
   const stamp=k=>{const i=k%N,j=(k/N)|0;for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){const a=i+di,b=j+dj;if(a>=0&&b>=0&&a<N&&b<N)used[b*N+a]=1;}};
   const segState=(a,b)=>{const L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/1.5));let s=0;for(let i=0;i<=n;i++){const t=i/n,v=T.state(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t);if(v>s)s=v;if(s===2)return 2;}return s;};
   const statesOf=p=>{const out=[];for(let i=0;i<p.length-1;i++){const s=segState(p[i],p[i+1]);if(s===2)return null;out.push(s);}return out;};
-  function emit(raw,cls,width){
-    const cands=[chaikin(dpOpen(raw,1.5),2),chaikin(raw,2),raw];let pts=null,st=null;
-    for(const c of cands){st=statesOf(c);if(st){pts=c;break;}}
+  // max grade over ~3 m steps along a polyline (slope re-check after smoothing)
+  const maxGrade=p=>{let g=0;for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1],L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/3));let h0=T.height(a[0],a[1]);
+    for(let t=1;t<=n;t++){const h1=T.height(a[0]+(b[0]-a[0])*t/n,a[1]+(b[1]-a[1])*t/n),d=L/n;if(d>0.5){const q=Math.abs(h1-h0)/d;if(q>g)g=q;}h0=h1;}}return g;};
+  // light 1-2-1 pre-smoothing of grid nodes (endpoints fixed so junctions still meet)
+  const relax=(p,it)=>{let q=p;for(let k=0;k<it;k++){if(q.length<3)break;q=q.map((v,i)=>i===0||i===q.length-1?v:[q[i-1][0]*0.25+v[0]*0.5+q[i+1][0]*0.25,q[i-1][1]*0.25+v[1]*0.5+q[i+1][1]*0.25]);}return q;};
+  function emit(raw,cls,width,gl){
+    const lim=(gl||1)*1.4,okG=c=>maxGrade(c)<=Math.max(lim,maxGrade(raw)*1.15);
+    // smooth curve (relax + Chaikin, then simplify to few points), falling back to gentler smoothing, then the raw path
+    const cands=[()=>dpOpen(chaikin(dpOpen(relax(raw,2),1.2),3),0.3),()=>chaikin(dpOpen(raw,1.5),2),()=>chaikin(raw,2),()=>raw];let pts=null,st=null;
+    for(let ci=0;ci<cands.length;ci++){const c=cands[ci]();if(ci<3&&!okG(c))continue;st=statesOf(c);if(st){pts=c;break;}}
     if(!pts){stats.droppedPieces++;return;}
     let s=0;while(s<st.length){let e=s;while(e+1<st.length&&st[e+1]===st[s])e++;
       const piece=pts.slice(s,e+2);if(piece.length>=2){let len=0;for(let i=0;i<piece.length-1;i++)len+=Math.hypot(piece[i+1][0]-piece[i][0],piece[i+1][1]-piece[i][1]);
         if(st[s]===0||len>1){const r={id:'r'+roads.length,class:cls,width:width,bridge:st[s]===1,pts:piece.map(p=>[r1(p[0]),r1(p[1])])};if(r.bridge)r.kind=len<=10?'ford':'bridge';roads.push(r);}}
       s=e+1;}
   }
-  function addPath(nodes,cls,width,dedupe=true){
+  function addPath(nodes,cls,width,dedupe=true){const gl=nodes&&nodes.gl;
     if(!nodes||nodes.length<2)return;
     const xz=nodes.map(k=>T.xz(k%N,(k/N)|0));let i=0;
     while(i<nodes.length){
       if(dedupe&&used[nodes[i]]){i++;continue;}
       let e=i;while(e+1<nodes.length&&(!dedupe||!used[nodes[e+1]]))e++;
-      if(e-i+1>=2||!dedupe){const s=Math.max(0,i-1),f=Math.min(nodes.length-1,e+1);emit(xz.slice(s,f+1),cls,width);}
+      if(e-i+1>=2||!dedupe){const s=Math.max(0,i-1),f=Math.min(nodes.length-1,e+1);emit(xz.slice(s,f+1),cls,width,gl);}
       i=e+1;}
     for(const k of nodes)stamp(k);stats.routes++;
   }
   function addPolyline(pts,cls,width){emit(pts,cls,width);const L=pts.length;for(let i=0;i<L-1;i++){const a=pts[i],b=pts[i+1],n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/cell);for(let t=0;t<=n;t++)stamp(T.k(a[0]+(b[0]-a[0])*t/n,a[1]+(b[1]-a[1])*t/n));}}
   const baseOpts=()=>({gradeMax:S.gradeMax,gradeRef:S.gradeRef,wGrade:S.wGrade,wSlope:S.wSlope});
-  const route=(a,b,o)=>{const p=astar(T,a,b,{...baseOpts(),...o});if(!p)stats.failedRoutes++;return p;};
+  // route with progressive grade relaxation: strict limit first, then 1.4x, 2x, 3x, 5x (a route only fails when none connect)
+  const route=(a,b,o)=>{for(const mul of [1,1.4,2,3,5]){const bo=baseOpts();const p=astar(T,a,b,{...bo,...o,gradeMax:Math.min(0.9,bo.gradeMax*mul)});
+    if(p){p.gl=Math.min(0.9,bo.gradeMax*mul);if(mul>1)stats.relaxedRoutes++;return p;}}
+    stats.failedRoutes++;return null;};
 
   // ---- town streets ----
   for(const site of sites){

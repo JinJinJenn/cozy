@@ -92,3 +92,33 @@ test('real presets: at least one site and buildable lots, roads dry (loose floor
     assert.deepEqual(r.heightfield,hh);
   }
 });
+
+// ---- weakness fixes: connectivity, grade fallback, smooth roads, non-rect lots, site shape ----
+const crs=(o,p,q)=>(p[0]-o[0])*(q[1]-o[1])-(p[1]-o[1])*(q[0]-o[0]);
+const simplePoly=p=>{const k=p.length;for(let i=0;i<k;i++)for(let j=i+2;j<k;j++){if(i===0&&j===k-1)continue;const a=p[i],b=p[(i+1)%k],c=p[j],d=p[(j+1)%k];if(crs(a,b,c)*crs(a,b,d)<0&&crs(c,d,a)*crs(c,d,b)<0)return false;}return true;};
+function lotsOk(p,label){
+  for(const l of p.lots){assert.ok(l.poly.length>=3&&l.poly.length<=16,label+' vertex count');assert.ok(simplePoly(l.poly),`${label} lot ${l.id} self-intersects`);
+    assert.ok(['rect','quad','corner','irregular'].includes(l.shape),label+' shape');}
+  // pairwise overlap: area shared by two lots stays under 10% of the smaller one
+  const bb=p.lots.map(l=>{let a=1e9,b=-1e9,c=1e9,d=-1e9;for(const v of l.poly){a=Math.min(a,v[0]);b=Math.max(b,v[0]);c=Math.min(c,v[1]);d=Math.max(d,v[1]);}return [a,b,c,d];});
+  for(let i=0;i<p.lots.length;i++)for(let j=i+1;j<p.lots.length;j++){const A=bb[i],B=bb[j];if(A[1]<B[0]||B[1]<A[0]||A[3]<B[2]||B[3]<A[2])continue;
+    let h=0;for(let x=Math.max(A[0],B[0]);x<=Math.min(A[1],B[1]);x+=1)for(let z=Math.max(A[2],B[2]);z<=Math.min(A[3],B[3]);z+=1)if(pointInPoly(x,z,p.lots[i].poly)&&pointInPoly(x,z,p.lots[j].poly))h++;
+    assert.ok(h<=0.1*Math.min(p.lots[i].area,p.lots[j].area)+2,`${label} lots ${p.lots[i].id}/${p.lots[j].id} overlap`);}
+}
+test('fixture lots: simple polygons, no overlap, some non-rectangular shapes',()=>{
+  lotsOk(plan,'fixture');
+  const shapes=new Set(plan.lots.map(l=>l.shape));assert.ok(shapes.has('quad'),'quads');assert.ok(shapes.size>=2,'more than one plot shape');
+});
+test('real presets: all sites connected, no failed routes, smooth roads, valid lots',async()=>{
+  const {generate,PRESET_IDS}=await import('../../island-gen/index.js');
+  for(const id of PRESET_IDS){
+    const r=generate({seed:'cozy-1',preset:id}),p=generateSettlement(r,{seed:'cozy-1',style:id});
+    assert.deepEqual(p.stats.unconnectedSites,[],id+' unconnected sites');assert.equal(p.stats.failedRoutes,0,id+' failed routes');
+    assert.ok(p.sites.every(s=>s.landFrac>0),id+' site landFrac');
+    // smooth: very few sharp kinks per vertex outside switchback terrain (pine hairpins are intentional)
+    let n=0,sharp=0;for(const rd of p.roads)for(let k=1;k<rd.pts.length-1;k++){const a=rd.pts[k-1],b=rd.pts[k],c=rd.pts[k+1],u=[b[0]-a[0],b[1]-a[1]],v=[c[0]-b[0],c[1]-b[1]];
+      if(!Math.hypot(...u)||!Math.hypot(...v))continue;n++;if(Math.abs(Math.atan2(u[0]*v[1]-u[1]*v[0],u[0]*v[0]+u[1]*v[1]))>Math.PI/4)sharp++;}
+    if(id!=='pineHighlands')assert.ok(sharp<=0.02*n+1,`${id} sharp bends ${sharp}/${n}`);
+    lotsOk(p,id);
+  }
+});
