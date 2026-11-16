@@ -192,15 +192,15 @@
    ],
    "stills": [
     {
-     "file": "docs/shots/2026-11-16/town-harborTown.png",
+     "file": "shots/2026-11-16/town-harborTown.png",
      "caption": "Harbor Town: four towns, a main road, 527 plots"
     },
     {
-     "file": "docs/shots/2026-11-16/sim-harborTown.png",
+     "file": "shots/2026-11-16/sim-harborTown.png",
      "caption": "Harbor Town: a day of NPC trails"
     },
     {
-     "file": "docs/shots/2026-11-16/pineHighlands-oblique.png",
+     "file": "shots/2026-11-16/pineHighlands-oblique.png",
      "caption": "Pine Highlands: continuous rivers, no horizon steps"
     }
    ],
