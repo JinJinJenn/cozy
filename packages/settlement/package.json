@@ -1,0 +1,10 @@
+{
+  "name": "settlement",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Seeded, deterministic settlement planner for island-gen heightfields: sites, roads, blocks, plots, flatten. No deps, no drawing.",
+  "main": "index.js",
+  "scripts": {"test": "node --test tests/*.test.mjs"},
+  "engines": {"node": ">=20"}
+}

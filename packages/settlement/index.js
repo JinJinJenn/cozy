@@ -1,0 +1,46 @@
+// settlement: seeded, deterministic town/road/plot planner for island-gen heightfields. Pure data out, no drawing.
+import {makeTerrain} from './src/terrain.js';
+import {pickSites} from './src/sites.js';
+import {buildRoads} from './src/roads.js';
+import {buildBlocks} from './src/blocks.js';
+import {buildLots} from './src/lots.js';
+import {flattenHeightfield,createFlattenHook} from './src/flatten.js';
+import {styleFor,STYLES} from './src/styles.js';
+import {rngFor} from './src/rng.js';
+import {r1,r2,polyArea} from './src/geom.js';
+export {flattenHeightfield,createFlattenHook,STYLES};
+
+// generateSettlement(island, {seed, style}) -> plain JSON-able plan.
+// island: a generate() result (heightfield, water, size, grid, cell, seaLevel). style: a locale id (default island.presetId).
+export function generateSettlement(island,{seed,style}={}){
+  const t0=Date.now(),sd=String(seed??island.seed??'settlement'),S=styleFor(style||island.presetId);
+  const T=makeTerrain(island,{maxHalf:S.maxHalf});
+  const sites=pickSites(T,S,sd);
+  const {roads,unconnected,stats:rs}=buildRoads(T,sites,S,sd);
+  const owner=(x,z)=>{let b=null,bd=1e18;for(const s of sites){const d=(s.x-x)**2+(s.z-z)**2;if(d<bd){bd=d;b=s.id;}}return b;};
+  const segs=[];for(const r of roads)for(let i=0;i<r.pts.length-1;i++){const a=r.pts[i],b=r.pts[i+1];segs.push({rid:r.id,ax:a[0],az:a[1],bx:b[0],bz:b[1],hw:r.width/2,mnx:Math.min(a[0],b[0]),mxx:Math.max(a[0],b[0]),mnz:Math.min(a[1],b[1]),mxz:Math.max(a[1],b[1])});}
+  const blocks=[],lots=[];
+  for(const site of sites){
+    const {blocks:bl,win,reg}=buildBlocks(T,roads,site,S,owner);const occ=new Uint8Array(win.W*win.W);const rng=rngFor(sd,'lots|'+site.id);
+    for(const b of bl){let poly=b.poly;if(polyArea(poly)<0)poly=poly.slice().reverse();b.poly=poly;const id='b'+blocks.length;
+      const before=lots.length;buildLots(T,b,id,site.id,S,{reg,win,centre:site,segs,occ},rng,lots);
+      blocks.push({id,townId:site.id,poly:poly.map(v=>[r1(v[0]),r1(v[1])]),area:Math.round(b.area),lots:lots.length-before,
+        roadIds:[...new Set(lots.slice(before).map(l=>l.frontageRoadId))]});}
+  }
+  const outSites=sites.map(s=>({id:s.id,x:r1(s.x),z:r1(s.z),h:r2(s.h),flatFrac:r2(s.flatFrac),flatArea:s.flatArea,coastDist:s.coastDist,riverMouth:s.riverMouth,score:r2(s.score),slopeLevel:s.slopeLevel,radius:S.R}));
+  const flat=pts=>{const o=[];for(const p of pts)o.push(p[0],p[1]);return o;};
+  const buildable=lots.filter(l=>l.buildable).length;
+  return {
+    version:1,seed:sd,style:S.id,size:island.size,seaLevel:island.seaLevel||0,
+    params:{slopeLimit:S.slopeLimit,lotW:S.lotW,lotD:S.lotD,type:S.type},
+    sites:outSites,roads,blocks,lots,
+    // minimap-ready: flat [x,z,x,z,...] world metres, no drawing in src/
+    layers:{
+      roads:roads.map(r=>({id:r.id,class:r.class,width:r.width,bridge:r.bridge,xz:flat(r.pts)})),
+      plots:lots.map(l=>({id:l.id,buildable:l.buildable,district:l.district,size:l.size,xz:flat(l.poly)})),
+      blocks:blocks.map(b=>({id:b.id,xz:flat(b.poly)})),
+      sites:outSites.map(s=>({id:s.id,x:s.x,z:s.z,radius:s.radius}))},
+    stats:{sites:sites.length,roads:roads.length,bridges:roads.filter(r=>r.bridge).length,blocks:blocks.length,lots:lots.length,buildable,
+      unconnectedSites:unconnected,failedRoutes:rs.failedRoutes,droppedRoadPieces:rs.droppedPieces,ms:Date.now()-t0}};
+}
+export const generateTown=generateSettlement;
