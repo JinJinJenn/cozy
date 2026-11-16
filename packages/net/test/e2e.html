@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>net e2e</title>
+<body>net e2e page (headless test harness)
+<script type="module">
+import { NetSession, createBroadcastTransport, createTrysteroTransport, parseInvite } from '../index.js';
+const q = new URL(location.href).searchParams;
+const inv = parseInvite(location.href);
+const mode = q.get('transport') || 'broadcast';
+const who = q.get('who') || 'a';
+const transport = mode === 'broadcast' ? createBroadcastTransport({ pingMs: 300, timeoutMs: 1500 })
+  : createTrysteroTransport({ strategy: mode });
+const net = new NetSession({ transport, room: inv.room, name: 'player-' + who });
+const log = { joins: [], leaves: [], errors: [] };
+net.on('peerjoin', p => log.joins.push(p.id));
+net.on('peerleave', p => log.leaves.push(p.id));
+net.on('error', e => log.errors.push(String(e && (e.code || e.message || e))));
+// scripted motion: a walks +x, b walks -z, at 3 m/s; yaw sweeps
+const base = who === 'a' ? [10, 4, 20] : [-30, 4, 50];
+const t0 = performance.now();
+function frame() {
+  const s = (performance.now() - t0) / 1000;
+  const p = who === 'a' ? [base[0] + 3 * s, base[1], base[2]] : [base[0], base[1], base[2] - 3 * s];
+  net.setLocal(p, [s % 6.28, 0]);
+  requestAnimationFrame(frame);
+}
+frame();
+window.__t = { net, log, inv, mode, who, base };
+window.__ready = net.join().then(() => true, e => { log.errors.push('join: ' + e.message); return false; });
+</script>
