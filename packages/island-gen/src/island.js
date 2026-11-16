@@ -183,7 +183,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
 
   // de-bead rivers: dilate the water ribbon one cell and blur the carved bed so the channel is continuous
   {
-    for(let rep=0;rep<2;rep++){
+    for(let rep=0;rep<1;rep++){
     const w2=Float32Array.from(water);
     for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
       const k=j*N+i;if(water[k]>0) continue;

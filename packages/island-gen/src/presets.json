@@ -67,7 +67,7 @@
    }
   },
   "rivers": {
-   "minArea": 380,
+   "minArea": 570,
    "depth": 0.8,
    "width": 9
   },
@@ -298,7 +298,7 @@
    }
   },
   "rivers": {
-   "minArea": 480,
+   "minArea": 720,
    "depth": 2.2,
    "width": 11
   },
@@ -762,7 +762,7 @@
    }
   },
   "rivers": {
-   "minArea": 380,
+   "minArea": 570,
    "depth": 0.8,
    "width": 9
   },
