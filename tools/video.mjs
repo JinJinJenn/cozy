@@ -21,8 +21,8 @@ await page.waitForFunction(()=>window.__cozy&&window.__cozy.ready,null,{timeout:
 const cam=await page.evaluate(()=>{const c=window.__cozy.island.preset.camera;return c;});
 for(let i=0;i<n;i++){
   const t=i/n,az=cam.az+t*Math.PI*0.9,el=cam.elev*(0.75+0.35*Math.sin(t*Math.PI)),dist=cam.dist*(1.05-0.3*Math.sin(t*Math.PI));
-  await page.evaluate(([az,el,dist,time])=>{
-    const c=window.__cozy;c.setView('oblique',{az,elev:el,dist});c.flushChunks();c.render(time);
+  await page.evaluate(async([az,el,dist,time])=>{
+    const c=window.__cozy;c.setView('oblique',{az,elev:el,dist});await c.flushChunks();c.render(time);
   },[az,el,dist,i/F]);
   await page.screenshot({path:path.join(tmp,`f${String(i).padStart(5,'0')}.jpg`),type:'jpeg',quality:92});
   if(i%30===0)console.log('frame',i,'/',n);

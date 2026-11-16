@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {createIsland,SEA_LEVEL} from '../packages/island-gen/src/island.js';
+import {IslandClient} from './island-client.js';
+const SEA_LEVEL=0;
 import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
-import {buildTerrainChunk,buildWaterChunk} from '../packages/island-gen/src/chunks.js';
-import {drawMinimap,drawMarker} from './minimap.js';
+import {drawMarker} from './minimap.js';
+const client=new IslandClient();
 
 const params=new URLSearchParams(location.search);
 if(params.has('shot')) document.body.classList.add('shot');
@@ -18,13 +19,13 @@ controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Ma
 
 const waterMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,
-  uniforms:{uTime:{value:0},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:1100},uFogFar:{value:5200}},
+  uniforms:{uTime:{value:0},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:900},uFogFar:{value:3600}},
   vertexShader:`attribute float depth;varying float vD;varying vec3 vW;varying float vDist;
     void main(){vD=depth;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vec4 mv=viewMatrix*w;vDist=length(mv.xyz);gl_Position=projectionMatrix*mv;}`,
   fragmentShader:`uniform float uTime,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;varying float vDist;
     void main(){
       float d=vD; if(d<-0.02) discard;
-      float t=1.-exp(-max(d,0.)*.11);
+      float k=mix(.11,.5,step(.8,vW.y));float t=1.-exp(-max(d,0.)*k);
       vec3 col=mix(uShallow,uDeep,t);
       float w1=sin(uTime*.9+vW.x*.12+vW.z*.07),w2=sin(uTime*1.3-vW.z*.15+vW.x*.05);
       float band=.55+.22*w1+.14*w2;
@@ -53,7 +54,7 @@ function buildOcean(half){
   ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);ocean.geometry=g;
 }
 let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
-let streamRadius=1500;
+let streamRadius=4200;
 
 function lodFor(d){return d<260?33:d<620?17:d<1300?9:5;}
 function chunkKey(cx,cz){return cx+','+cz;}
@@ -81,29 +82,40 @@ function wanted(){
   list.sort((a,b)=>a.d-b.d);
   return list;
 }
+const inflight=new Set();let loadGen=0;
 function updateChunks(budget=6){
   const want=wanted(),keep=new Set();
-  let built=0,pending=0;
+  let pending=0;
   for(const w of want){
     const k=chunkKey(w.cx,w.cz);keep.add(k);
     const cur=chunkMap.get(k);
     if(cur&&cur.res===w.res) continue;
-    if(built>=budget){pending++;continue;}
-    if(cur) disposeChunk(cur);
-    const t=buildTerrainChunk(island,w.cx,w.cz,w.res);
-    const tm=makeMesh(t,false);group.add(tm);
-    const wd=buildWaterChunk(island,w.cx,w.cz,w.res>=33?65:w.res>=17?49:w.res>=9?33:17);
-    let wm=null;if(wd){wm=makeMesh(wd,true);group.add(wm);}
-    chunkMap.set(k,{terrain:tm,water:wm,res:w.res});built++;
+    const fk=k+'|'+w.res;
+    if(inflight.has(fk)) continue;
+    if(inflight.size>=budget){pending++;continue;}
+    inflight.add(fk);const myGen=loadGen;
+    client.chunk(w.cx,w.cz,w.res,w.res>=33?65:w.res>=17?49:w.res>=9?33:17).then(r=>{
+      inflight.delete(fk);
+      if(!r||myGen!==loadGen) return;
+      const old=chunkMap.get(k);if(old) disposeChunk(old);
+      const tm=makeMesh(r.terrain,false);group.add(tm);
+      let wm=null;if(r.water){wm=makeMesh(r.water,true);group.add(wm);}
+      chunkMap.set(k,{terrain:tm,water:wm,res:w.res});
+    }).catch(err=>{inflight.delete(fk);console.error(err);});
   }
   for(const [k,c] of chunkMap) if(!keep.has(k)){disposeChunk(c);chunkMap.delete(k);}
-  return pending;
+  return pending+inflight.size;
 }
-function flushChunks(){let p;do{p=updateChunks(400);}while(p>0);}
-
+async function flushChunks(){
+  for(let i=0;i<4000;i++){
+    const left=updateChunks(24);
+    if(left===0) return;
+    await new Promise(r=>setTimeout(r,16));
+  }
+}
 function applyPalette(p){
   const c=new THREE.Color(p.sky);scene.background=c;
-  scene.fog=new THREE.Fog(new THREE.Color(p.fog),1100,5200);scene.background=new THREE.Color(p.fog);oceanMat.color.set(p.deep).lerp(new THREE.Color('#8fb9b4'),.22).multiplyScalar(.82);floorMat.color.copy(oceanMat.color).multiplyScalar(.6);
+  scene.fog=new THREE.Fog(new THREE.Color(p.fog),900,3600);scene.background=new THREE.Color(p.fog);oceanMat.color.set(p.deep).lerp(new THREE.Color('#8fb9b4'),.22).multiplyScalar(.82);floorMat.color.copy(oceanMat.color);
   waterMat.uniforms.uShallow.value.set(p.shallow);waterMat.uniforms.uDeep.value.set(p.deep);waterMat.uniforms.uFoam.value.set(p.foam);waterMat.uniforms.uFog.value.set(p.fog);
 }
 function clampCamera(){
@@ -147,22 +159,22 @@ addEventListener('resize',resize);resize();
 
 async function load(presetId,seed,view='oblique',viewOpts){
   $('busy').style.display='grid';
-  await new Promise(r=>setTimeout(r,20));
-  const t0=performance.now();
+  loadGen++;inflight.clear();
   for(const c of chunkMap.values())disposeChunk(c);chunkMap.clear();
-  island=createIsland(seed,presetId);
+  const t0=performance.now();
+  island=await client.load(seed,presetId);
   const tGen=performance.now()-t0;
   applyPalette(island.preset.palette);buildOcean(island.half);
   setView(view,viewOpts);
-  const t1=performance.now();flushChunks();
+  const t1=performance.now();await flushChunks();
   const tChunks=performance.now()-t1;
-  drawMinimap($('mapc'),island);updateMarker();
+  client.minimap(208,208).then(px=>{const c=$('mapc').getContext('2d'),img=c.createImageData(208,208);img.data.set(px);c.putImageData(img,0,0);updateMarker();});
   const s=island.stats;
   $('blurb').textContent=island.preset.blurb;
-  $('info').textContent=`land ${(s.landRatio*100).toFixed(0)}% | peak ${s.maxH.toFixed(0)}m | ${s.rivers} rivers ${s.lakes} lakes | gen ${tGen.toFixed(0)}ms, mesh ${tChunks.toFixed(0)}ms`;
+  $('info').textContent=`land ${(s.landRatio*100).toFixed(0)}% | peak ${s.maxH.toFixed(0)}m | ${s.rivers} river mouths ${s.lakes} lakes | gen ${tGen.toFixed(0)}ms (worker), first mesh ${tChunks.toFixed(0)}ms`;
   $('busy').style.display='none';
   window.__cozy.ready=true;
-  return {stats:s,tGen,tChunks,checksum:island.checksum()};
+  return {stats:s,tGen,tChunks,checksum:island.checksum};
 }
 function updateMarker(){if(island)drawMarker($('mapo'),island,controls.target,camera.position);}
 function randomSeed(){const w=['clover','plum','mint','dune','fern','tide','honey','moss','pearl','lilac','ember','drift','sorbet','wren','cove'];return w[Math.floor(Math.random()*w.length)]+'-'+Math.floor(Math.random()*900+100);}
@@ -182,7 +194,7 @@ $('mapo').onclick=e=>{
 };
 
 window.__cozy={ready:false,load,setView,flushChunks,
-  setCamera(p,t){camera.position.set(...p);controls.target.set(...t);camera.lookAt(...t);controls.update();flushChunks();},
+  async setCamera(p,t){camera.position.set(...p);controls.target.set(...t);camera.lookAt(...t);controls.update();await flushChunks();},
   setSize(w,h){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();},
   render(time=0){waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderer.render(scene,camera);},
   info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles};},
@@ -196,7 +208,7 @@ function loop(now){
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}
   waterMat.uniforms.uTime.value=now/1000;
   controls.update();clampCamera();
-  if(++frames%12===0) updateChunks(3);
+  if(++frames%4===0) updateChunks(8);
   if(frames%20===0) updateMarker();
   renderer.render(scene,camera);
 }

@@ -48,6 +48,10 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   const bays=(preset.bays||[]).map(rot);
   const plateaus=(preset.plateaus||[]).map(o=>rot(o));
   const knolls=[];
+  if(preset.hero){
+    const hr=rng(key+':hero'),a=hr()*Math.PI*2;
+    knolls.push({x:lobes[0].x+Math.cos(a)*lobes[0].r*preset.hero.dist,z:lobes[0].z+Math.sin(a)*lobes[0].r*preset.hero.dist,r:preset.hero.r,h:preset.hero.h});
+  }
   if(preset.knolls){
     const kr=rng(key+':knolls'),K=preset.knolls;let t=0;
     while(knolls.length<K.count&&t++<300){
@@ -59,7 +63,11 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   const detailFreq=.03;
   const maskAt=(wx,wz)=>{
     let m=-1;
-    for(const l of lobes) m=Math.max(m,1-Math.hypot(wx-l.x,wz-l.z)/l.r);
+    for(const l of lobes){
+      const dxl=wx-l.x,dzl=wz-l.z,ang=Math.atan2(dzl,dxl);
+      const irr=1+(preset.shapeAmp??.22)*nz.noise(Math.cos(ang)*1.7+l.x*.003+5,Math.sin(ang)*1.7+l.z*.003+5);
+      m=Math.max(m,1-Math.hypot(dxl,dzl)/(l.r*irr));
+    }
     for(const b of bays) m-=b.depth*smooth(b.r,b.r*.15,Math.hypot(wx-b.x,wz-b.z));
     return m;
   };
@@ -99,6 +107,12 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   const droplets=opts.droplets??E.droplets;
   if(droplets>0) hydraulic(h,N,droplets,er);
   if(E.thermal>0) thermal(h,N,E.thermal,E.talus*cell*.5);
+  if(preset.landRatio){
+    // sea level by height quantile: land ratio is a preset knob (shift limited so shapes stay sane)
+    const sorted=Float32Array.from(h).sort(),q=sorted[Math.floor((1-preset.landRatio)*(sorted.length-1))];
+    const shift=clamp(q,-8,8);
+    for(let k=0;k<h.length;k++)h[k]-=shift;
+  }
 
   // ---------------- 3. rivers + lakes ----------------
   const water=new Float32Array(N*N); // water surface level (>0 only where a river/lake holds water above sea)
@@ -154,16 +168,37 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       const wc=clamp(R.width/cell*(.55+.22*Math.sqrt(a)),1.1,R.width/cell*3);
       const ci=k%N,cj=(k/N)|0;
       const pi=par>=0?par%N:ci,pj=par>=0?(par/N)|0:cj,pb=par>=0&&bed[par]<1e8?bed[par]:b;
-      for(const t of [0,.34,.67]){
-        const cx=lerp(ci,pi,t),cy=lerp(cj,pj,t),bb=lerp(b,pb,t),rad=Math.ceil(wc+1.5);
-        for(let y=Math.floor(cy)-rad;y<=Math.ceil(cy)+rad;y++)for(let x=Math.floor(cx)-rad;x<=Math.ceil(cx)+rad;x++){
-          if(x<0||y<0||x>=N||y>=N) continue;
-          const d=Math.hypot(x-cx,y-cy),w=smooth(rad,wc*.3,d);if(w<=0) continue;
-          const kk=y*N+x,target=bb-.7+(1-w)*R.depth*1.4;
-          if(target<h[kk]) h[kk]=lerp(h[kk],target,Math.min(1,w*1.1));
-          if(d<=Math.max(1.3,wc*.85)&&bb>.35) water[kk]=Math.max(water[kk],bb+.5);
-        }
+      // capsule carve: distance to the segment k->parent keeps the channel continuous (no beads)
+      const sx=pi-ci,sy=pj-cj,sl=sx*sx+sy*sy||1,rad=Math.ceil(wc+1.5);
+      const x0=Math.max(0,Math.min(ci,pi)-rad),x1=Math.min(N-1,Math.max(ci,pi)+rad),y0=Math.max(0,Math.min(cj,pj)-rad),y1=Math.min(N-1,Math.max(cj,pj)+rad);
+      for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+        const t=clamp(((x-ci)*sx+(y-cj)*sy)/sl,0,1),d=Math.hypot(x-(ci+sx*t),y-(cj+sy*t)),w=smooth(rad,wc*.3,d);
+        if(w<=0) continue;
+        const bb=lerp(b,pb,t),kk=y*N+x,target=bb-.7+(1-w)*R.depth*1.4;
+        if(target<h[kk]) h[kk]=lerp(h[kk],target,Math.min(1,w*1.1));
+        if(d<=Math.max(1.3,wc*.85)&&bb>.35) water[kk]=Math.max(water[kk],bb+.5);
       }
+    }
+  }
+
+  // de-bead rivers: dilate the water ribbon one cell and blur the carved bed so the channel is continuous
+  {
+    for(let rep=0;rep<2;rep++){
+    const w2=Float32Array.from(water);
+    for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
+      const k=j*N+i;if(water[k]>0) continue;
+      let m=0;for(const o of [-1,1,-N,N]) m=Math.max(m,water[k+o]);
+      if(m>0&&h[k]<m-.05) w2[k]=m;
+    }
+    water.set(w2);
+    }
+    for(let pass=0;pass<2;pass++){
+      const t=Float32Array.from(h);
+      for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
+        const k=j*N+i;if(!(water[k]>0)) continue;
+        const a=(h[k-1]+h[k+1]+h[k-N]+h[k+N])*.25;t[k]=Math.min(lerp(h[k],a,.5),water[k]-.35);
+      }
+      h.set(t);
     }
   }
   // plateaus (flat buildable shelves) and river-bank smoothing
@@ -194,6 +229,41 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
     if(v>0&&v<bt){const t=v/bt;h[k]=v*(.38+.62*t*t);}
   }
   smoothNear(h,N,-3,bt+1,2);
+
+  // coast majority smoothing: removes speckle islets and fuzzy single-cell noise at the waterline
+  for(let pass=0;pass<2;pass++){
+    const t=Float32Array.from(h);
+    for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
+      const k=j*N+i,v=h[k];if(v>1.6||v<-1.6) continue;
+      let sea=0;
+      for(const o of [-N-1,-N,-N+1,-1,1,N-1,N,N+1]) if(h[k+o]<=0) sea++;
+      if(v>0&&sea>=6) t[k]=-.25;
+      else if(v<=0&&sea<=2&&water[k]<=0) t[k]=.25;
+    }
+    h.set(t);
+  }
+  // sea stacks: small rock spires standing in the shallows just off the coast
+  const stacks=[];
+  if(preset.stacks){
+    const sr=rng(key+':stacks'),S=preset.stacks;let tries=0;
+    while(stacks.length<S.count&&tries++<3000){
+      const x=(sr()*2-1)*half*.8,z=(sr()*2-1)*half*.8,fi=Math.round((x+half)/cell),fj=Math.round((z+half)/cell),v=h[fj*N+fi];
+      if(v>-1.2||v<-5) continue;
+      let coast=false;
+      for(let a=0;a<8&&!coast;a++){const px=Math.round(fi+Math.cos(a*.785)*14),pz=Math.round(fj+Math.sin(a*.785)*14);if(px>0&&pz>0&&px<N&&pz<N&&h[pz*N+px]>0.3) coast=true;}
+      if(!coast||stacks.some(o=>Math.hypot(o.x-x,o.z-z)<60)) continue;
+      stacks.push({x,z,r:S.r[0]+sr()*(S.r[1]-S.r[0]),h:S.h[0]+sr()*(S.h[1]-S.h[0])});
+    }
+    for(const st of stacks){
+      const rad=Math.ceil(st.r*2.2/cell);
+      const ci=Math.round((st.x+half)/cell),cj=Math.round((st.z+half)/cell);
+      for(let y=cj-rad;y<=cj+rad;y++)for(let x=ci-rad;x<=ci+rad;x++){
+        if(x<0||y<0||x>=N||y>=N) continue;
+        const d=Math.hypot(-half+x*cell-st.x,-half+y*cell-st.z)/st.r;
+        if(d<2.2) h[y*N+x]+=st.h*Math.exp(-d*d*1.6);
+      }
+    }
+  }
 
   // ---------------- 5. terraces on steep ground ----------------
   const T=preset.terrace;
@@ -254,7 +324,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   // stats
   let landCells=0,minH=1e9,maxH=-1e9;
   for(let k=0;k<h.length;k++){if(h[k]>SEA_LEVEL)landCells++;if(h[k]<minH)minH=h[k];if(h[k]>maxH)maxH=h[k];}
-  const stats={landRatio:landCells/h.length,minH,maxH,lakes:lakes.length,rivers:riverMouths,riverCells,lobes:lobes.length};
+  const stats={landRatio:landCells/h.length,minH,maxH,lakes:lakes.length,rivers:riverMouths,riverCells,stacks:stacks.length,lobes:lobes.length};
   // shoreline spot for cameras: march from origin outward along angle until sea
   const shoreAt=(angle)=>{
     for(let d=0;d<half;d+=cell*.5){
@@ -397,7 +467,7 @@ function streamPower(h,N,cell,P){
       const t=Float32Array.from(h);
       for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
         const k=j*N+i;if(h[k]<=SEA_LEVEL+.5) continue;
-        const a=(h[k-1]+h[k+1]+h[k-N]+h[k+N])*.25;t[k]=lerp(h[k],a,P.diff);
+        const a=(h[k-1]+h[k+1]+h[k-N]+h[k+N])*.25;t[k]=lerp(h[k],a,P.diff*(1+2.2*(1-clamp(h[k]/12,0,1))));
       }
       h.set(t);
     }

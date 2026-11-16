@@ -205,6 +205,31 @@
    "dist": 1400,
    "elev": 0.62,
    "az": 0.9
+  },
+  "landRatio": 0.37,
+  "hero": {
+   "r": 150,
+   "h": 62,
+   "dist": 0.35
+  },
+  "stacks": {
+   "count": 6,
+   "r": [
+    12,
+    20
+   ],
+   "h": [
+    14,
+    26
+   ]
+  },
+  "shapeAmp": 0.28,
+  "scatter": {
+   "count": 3,
+   "minR": 110,
+   "maxR": 210,
+   "spread": 840,
+   "avoid": 600
   }
  },
  "pineHighlands": {
@@ -442,6 +467,26 @@
    "dist": 1900,
    "elev": 0.5,
    "az": 0.6
+  },
+  "landRatio": 0.39,
+  "stacks": {
+   "count": 8,
+   "r": [
+    12,
+    22
+   ],
+   "h": [
+    16,
+    32
+   ]
+  },
+  "shapeAmp": 0.3,
+  "scatter": {
+   "count": 3,
+   "minR": 120,
+   "maxR": 230,
+   "spread": 960,
+   "avoid": 700
   }
  },
  "sandbarArchipelago": {
@@ -611,7 +656,25 @@
    "dist": 1450,
    "elev": 0.5,
    "az": 0.4
-  }
+  },
+  "landRatio": 0.16,
+  "hero": {
+   "r": 80,
+   "h": 20,
+   "dist": 0.2
+  },
+  "stacks": {
+   "count": 8,
+   "r": [
+    10,
+    16
+   ],
+   "h": [
+    10,
+    20
+   ]
+  },
+  "shapeAmp": 0.3
  },
  "harborTown": {
   "label": "Harbor Town",
@@ -843,6 +906,31 @@
    "dist": 1450,
    "elev": 0.5,
    "az": 1.4
+  },
+  "landRatio": 0.4,
+  "hero": {
+   "r": 170,
+   "h": 48,
+   "dist": 0.6
+  },
+  "stacks": {
+   "count": 5,
+   "r": [
+    12,
+    20
+   ],
+   "h": [
+    12,
+    22
+   ]
+  },
+  "shapeAmp": 0.24,
+  "scatter": {
+   "count": 2,
+   "minR": 110,
+   "maxR": 180,
+   "spread": 900,
+   "avoid": 620
   }
  }
 }

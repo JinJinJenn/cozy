@@ -22,7 +22,7 @@ for(const id of presets){
   await page.goto(`http://127.0.0.1:4181/index.html?shot=1&preset=${id}&seed=${seed}`);
   await page.waitForFunction(()=>window.__cozy&&window.__cozy.ready,null,{timeout:120000});
   for(const view of ['oblique','top','shore']){
-    await page.evaluate(v=>{window.__cozy.setView(v);window.__cozy.flushChunks();window.__cozy.render(3.2);},view);
+    await page.evaluate(async v=>{window.__cozy.setView(v);await window.__cozy.flushChunks();window.__cozy.render(3.2);},view);
     await page.evaluate(()=>window.__cozy.render(3.2));
     const file=path.join(out,`${id}-${view}.png`);
     await page.screenshot({path:file});

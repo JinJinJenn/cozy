@@ -79,3 +79,14 @@ test('generate() is deterministic and JSON presets are plain data',()=>{
   const a=generate({seed:'d',preset:'harborTown',grid:128,droplets:2000}),b=generate({seed:'d',preset:'harborTown',grid:128,droplets:2000});
   assert.equal(a.island.checksum(),b.island.checksum());
 });
+
+for(const id of PRESET_IDS){
+  test(`${id}: land ratio follows the preset landRatio knob`,()=>{
+    const isl=createIsland('quantile',id,FAST),want=PRESETS[id].landRatio;
+    assert.ok(want>0);
+    assert.ok(Math.abs(isl.stats.landRatio-want)<.07,`${id} got ${isl.stats.landRatio} want ${want}`);
+  });
+}
+test('sea stacks exist where the preset asks for them',()=>{
+  assert.ok(createIsland('stk','pineHighlands',FAST).stats.stacks>=1);
+});
