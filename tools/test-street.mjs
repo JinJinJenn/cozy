@@ -81,10 +81,10 @@ try{
   console.log('Guest crossed the café entrance and received the owner edit');
   // Walk the visitor out of the café and into the chair in Bluebell House.
   // The test steers the orbit camera. Movement still goes through normal guest input.
-  for(const [kind,x,z] of [['cafe',0,7.7],['house',0,6.8],['house',0,.5],['house',.87,.38]]){
-    await guest.evaluate(async([kind,x,z])=>{
+  async function walkTo(page,kind,x,z){
+    await page.evaluate(async([kind,x,z])=>{
       const c=window.__cozy,s=c.street.session,b=s.plots.find(p=>p.kind===kind);
-      const tx=b.x+b.c*x+b.s*z,tz=b.z-b.s*x+b.c*z,end=performance.now()+23000;
+      const tx=b.x+b.c*x+b.s*z,tz=b.z-b.s*x+b.c*z,end=performance.now()+65000;
       const key=type=>document.body.dispatchEvent(new KeyboardEvent(type,{code:'KeyW',bubbles:true}));
       const pause=()=>new Promise(r=>setTimeout(r,45));
       document.activeElement.blur();key('keydown');
@@ -95,6 +95,7 @@ try{
       }finally{key('keyup');}
     },[kind,x,z]);
   }
+  for(const point of [['cafe',0,7.7],['house',0,6.8],['house',0,.5],['house',.87,.38]])await walkTo(guest,...point);
   await guest.getByRole('button',{name:'Sit down'}).click();
   await host.waitForFunction(id=>window.__cozy.street.session.actors.get(id)?.activity==='sit',guestId);
   if(process.argv.includes('--renovation-shot'))await host.setViewportSize({width:1280,height:720});
@@ -147,6 +148,40 @@ try{
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.deepEqual(errors,[]);
   console.log('PASS guest walking and sitting, on-world renovation drag, independent home undo, late join, owner reload and map return');
+  async function joinBand(page,x,part){
+    for(const point of [['cafe',0,8.55],['club',0,7.75],['club',0,1],['club',x,-.8]])await walkTo(page,...point);
+    await page.getByRole('button',{name:'Play '+part,exact:true}).click();
+  }
+  await Promise.all([joinBand(host,-.85,'melody'),joinBand(guest,.85,'bass')]);
+  const performing=wall=>{
+    const {session:s,music}=window.__cozy.street;
+    const parts=[...s.actors.values()].map(a=>a.part);
+    return s.layout.club.wall===wall&&parts.includes('melody')&&parts.includes('bass')&&music.sample&&music.ctx.state==='running';
+  };
+  await guest.waitForFunction(performing,0);
+  await host.locator('#build-open').click();await host.locator('#build-lot').selectOption('l102');
+  await host.locator('#wall-offset').fill('1');await host.locator('#apply-wall').click();
+  await guest.waitForFunction(performing,1);
+  if(process.argv.includes('--club-shot')){
+    const dir=path.join(root,'docs/shots/2026-11-16');await mkdir(dir,{recursive:true});
+    await guest.setViewportSize({width:1280,height:720});
+    // Freeze the follow camera for the stage photograph. Both players reached the seats through live input.
+    await guest.evaluate(()=>{
+      const c=window.__cozy,street=c.street,b=street.plots.find(b=>b.kind==='club'),t=c.controls.target;
+      street.render();street.active=false;
+      t.set(b.x-.87*b.s,b.y+1.20,b.z-.87*b.c);
+      c.camera.position.set(t.x+b.c*1.05+b.s*5.65,t.y+1.69,t.z-b.s*1.05+b.c*5.65);
+      c.controls.update();street.art.update(street.session.actors.get(street.session.id),street.session.layout,c.camera.position);
+    });
+    await guest.screenshot({path:path.join(dir,'moon-room-duet.jpg'),type:'jpeg',quality:89});
+    await guest.evaluate(()=>{window.__cozy.street.active=true;});
+    await host.setViewportSize({width:1280,height:720});
+    await host.locator('#wall-offset').fill('-0.5');await host.waitForTimeout(240);
+    await host.screenshot({path:path.join(dir,'moon-room-renovation.jpg'),type:'jpeg',quality:88});
+  }
+  await host.locator('#undo-wall').click();await guest.waitForFunction(performing,0);
+  assert.deepEqual(errors,[]);
+  console.log('PASS two players walked to the club, loaded the piano and kept melody and bass through renovation and undo');
   await context.close();
   if(!relay){
     const mobile=await testContext({isMobile:true,hasTouch:true,viewport:{width:393,height:852}});

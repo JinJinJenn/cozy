@@ -1,6 +1,6 @@
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
-import {defaultLayout,frontAt,isHome,legalWall,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
+import {defaultLayout,frontAt,hasEditableFront,isHome,legalWall,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const zero={x:0,z:0};
@@ -107,7 +107,7 @@ export class StreetSession {
   persist(){this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
   edit(target,undo=false,lot=this.cafe.id){
     if(!this.owner||!this.ready)return false;
-    const b=this.plots.find(p=>p.id===lot&&(p.cafe||isHome(p)));
+    const b=this.plots.find(p=>p.id===lot&&(p.cafe||hasEditableFront(p)));
     if(!b)return false;
     const state=wallState(this.layout,b),old=state.wall,goal=undo?state.undo.at(-1):target;
     if(!Number.isFinite(goal))return false;
@@ -118,6 +118,7 @@ export class StreetSession {
     if(undo)state.undo.pop();else state.undo=[...state.undo.slice(-31),old];
     state.wall=next;
     if(isHome(b)){this.layout.homes[b.id]=state;this.updatePatrol();}
+    if(b.kind==='club')this.layout.club=state;
     this.layout.revision++;this.persist();this.notice(next===goal?'Wall and doorway moved.':'Wall stopped at its safe limit.');return true;
   }
   near(actor){return this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4});}

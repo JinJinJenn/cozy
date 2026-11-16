@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
-import {floorAt,frontAt,isHome,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
+import {floorAt,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
 import {StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
 
@@ -14,7 +14,7 @@ export class Street {
     if(!this.plots.length)return;
     this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
     this.music=new StreetMusic();this.abort=new AbortController();this.joy={x:0,z:0};this.cafe=this.plots.find(b=>b.cafe);
-    this.editable=this.plots.filter(b=>b.cafe||isHome(b));
+    this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
     $('build-lot').replaceChildren(...this.editable.map(b=>new Option(places[b.kind][0],b.id)));
     this.ray=new THREE.Raycaster();this.plane=new THREE.Plane(new THREE.Vector3(0,1,0));
     this.point=new THREE.Vector3();
@@ -193,7 +193,7 @@ export class Street {
       const y=floorAt(this.island,this.plots,a.x,a.z,s.layout);
       mesh.position.set(a.x,y,a.z);mesh.rotation.y=a.yaw;
       const seated=['sit','dine','relax','piano'].includes(a.activity);
-      mesh.setSeated(seated);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
+      mesh.setSeated(seated,a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
@@ -204,6 +204,7 @@ export class Street {
       target.set(m.position.x,m.position.y+1.1,m.position.z);
     }
     this.art.update(local,s.layout,this.camera.position,this.buildLot?.id);
+    this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';

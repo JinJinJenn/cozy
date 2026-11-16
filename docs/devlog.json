@@ -2,6 +2,21 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 8,
+   "date": "2026-11-16",
+   "slug": "moon-room-duet",
+   "milestone": "M8 waterfront nightclub",
+   "title": "A duet at the Moon Room",
+   "text": [
+    "Follow the waterfront from Jenn's Café to the Moon Room. The left keyboard plays melody and the right plays bass. Two players can sit at the walnut consoles under the crescent moon. Their hands and the two banks of stage lights follow their parts of the score.",
+    "The owner can move the club's front wall during a song. The entrance, marquee and porch travel together. The keyboards and dance floor stay in place. In the playtest both players walked in from the café and kept their parts through a one-metre extension and undo."
+   ],
+   "stills": [
+    {"file": "shots/2026-11-16/moon-room-duet.jpg", "caption": "The bass player's view of both musicians after the entrance moved."},
+    {"file": "shots/2026-11-16/moon-room-renovation.jpg", "caption": "The owner's preview at the same club. Both players are still at the keyboards."}
+   ]
+  },
+  {
    "n": 7,
    "date": "2026-11-16",
    "slug": "waterfront-renovations",

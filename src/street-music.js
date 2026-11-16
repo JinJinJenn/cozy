@@ -12,6 +12,11 @@ function readPart(score) {
   return steps;
 }
 const parts=Object.fromEntries(Object.entries(scores).map(([name,mml])=>[name,readPart(mml)]));
+export const scoreStep=time=>Math.floor(time/.30);
+export function noteAtStep(part,step){
+  const notes=parts[part];
+  return notes?.[step%notes.length]??null;
+}
 export class StreetMusic {
   async unlock(){
     try{
@@ -22,12 +27,11 @@ export class StreetMusic {
     }catch{this.loading=null;}
   }
   play(time,actors){
-    const step=Math.floor(time/.30);
+    const step=scoreStep(time);
     if(step===this.step||!this.sample||this.ctx.state!=='running')return;
     this.step=step;
     for(const part of new Set([...actors].map(a=>a.part))){
-      const notes=parts[part];if(!notes)continue;
-      const note=notes[step%notes.length];if(note===null)continue;
+      const note=noteAtStep(part,step);if(note===null)continue;
       const t=this.ctx.currentTime,s=this.ctx.createBufferSource(),gain=this.ctx.createGain();
       s.buffer=this.sample;s.playbackRate.value=2**((note-57)/12);
       gain.gain.setValueAtTime(.2,t);gain.gain.exponentialRampToValueAtTime(.002,t+.7);

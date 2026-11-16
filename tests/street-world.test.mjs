@@ -28,7 +28,7 @@ test('saved layouts reject corrupt wall and undo values',()=>{
 });
 test('old café saves migrate and per-house history rejects malformed saves',()=>{
   const old={wall:-.5,undo:[1],lights:false,revision:3};
-  assert.deepEqual(readLayout(old),{...old,homes:{}});
+  assert.deepEqual(readLayout(old),{...old,homes:{},club:{wall:0,undo:[]}});
   for(const homes of [null,[],{l108:{wall:7,undo:[]}},{l106:{wall:.5,undo:[null]}},{l105:{wall:0,undo:[]}}])
     assert.equal(readLayout({...old,homes}),null);
 });
@@ -46,6 +46,21 @@ test('home frontage sweeps its open door, respects the parcel, and moves floor a
   const local=[[-5,-5],[5,-5],[5,hd+1.1],[-5,hd+1.1]];
   home.parcel=local.map(([x,z])=>{const p=toWorld(home,x,z);return [p.x,p.z];});
   assert.equal(legalWall(0,1.5,[],home),.5);
+});
+test('club renovation preserves both music parts and blocks undo across an occupied door',()=>{
+  const club={...b,cafe:false,kind:'club',id:'l102',w:6.6,d:6.9};
+  const s=Object.assign(Object.create(StreetSession.prototype),{owner:true,ready:true,layout:defaultLayout(),
+    plots:[club],actors:new Map(),town:{people:[]},persist(){},notice(){}});
+  for(const [id,x] of [['A',-1.7],['B',1.7]]){
+    s.actors.set(id,{id,...toWorld(club,x,-1.1)});s.interact(id);
+  }
+  assert.ok(s.edit(1,false,club.id));
+  assert.equal(s.actors.get('A').part,'melody');assert.equal(s.actors.get('B').part,'bass');
+  assert.deepEqual(readLayout(s.layout).club,{wall:1,undo:[0]});
+  assert.equal(readLayout({...s.layout,club:{wall:1,undo:['broken']}}),null);
+  s.actors.set('C',{id:'C',...toWorld(club,2,club.d/2+.5)});
+  assert.equal(s.edit(0,true,club.id),false);assert.deepEqual(s.layout.club.undo,[0]);
+  s.actors.delete('C');assert.ok(s.edit(0,true,club.id));assert.equal(s.layout.club.wall,0);
 });
 test('all waterfront front doors can be reached from their shared road on the graded island',()=>{
   const result=generate({seed:'petalwood',preset:'harborTown'}),world=result.island;

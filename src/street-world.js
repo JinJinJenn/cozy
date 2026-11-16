@@ -6,7 +6,9 @@ export const radius = .31;
 const homeLots=['l106','l108'];
 const validOffset=v=>Number.isFinite(v)&&Number.isInteger(v*2)&&Math.abs(v)<=1.5;
 const validHistory=h=>Array.isArray(h)&&h.length<=32&&h.every(validOffset);
-export const defaultLayout = () => ({wall:0,lights:true,revision:0,undo:[],homes:{}});
+const emptyFront = () => ({wall:0,undo:[]});
+const validFront = state => state&&validOffset(state.wall)&&validHistory(state.undo);
+export const defaultLayout = () => ({wall:0,lights:true,revision:0,undo:[],homes:{},club:emptyFront()});
 export function readLayout(s) {
   if(!s||!validOffset(s.wall)||!validHistory(s.undo)||typeof s.lights!=='boolean'||
     !Number.isSafeInteger(s.revision)||s.revision<0)return null;
@@ -14,15 +16,21 @@ export function readLayout(s) {
   if(s.homes!==undefined){
     if(!s.homes||typeof s.homes!=='object'||Array.isArray(s.homes))return null;
     for(const [id,state] of Object.entries(s.homes)){
-      if(!homeLots.includes(id)||!state||!validOffset(state.wall)||!validHistory(state.undo))return null;
+      if(!homeLots.includes(id)||!validFront(state))return null;
       homes[id]={wall:state.wall,undo:[...state.undo]};
     }
   }
-  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes};
+  if(s.club!==undefined&&!validFront(s.club))return null;
+  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,
+    club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront()};
 }
 export const isHome=b=>b.kind==='house'||b.kind==='cottage';
-export const wallState=(layout,b)=>b.cafe?layout:(layout.homes?.[b.id]??{wall:0,undo:[]});
-export const frontAt=(b,layout)=>b.d/2+(isHome(b)?wallState(layout,b).wall:0);
+export const hasEditableFront=b=>isHome(b)||b.kind==='club';
+export function wallState(layout={},b){
+  if(b.cafe)return layout;
+  return (b.kind==='club'?layout.club:layout.homes?.[b.id])??emptyFront();
+}
+export const frontAt=(b,layout)=>b.d/2+(hasEditableFront(b)?wallState(layout,b).wall:0);
 export function plotsForStreet(island) {
   if (island.seed !== 'petalwood' || island.presetId !== 'harborTown') return [];
   return [['l106','cottage'],['l107','cafe'],['l108','house'],['l105','spa'],['l109','gym'],['l102','club'],['l104','restaurant']].map(([id,kind]) => {
@@ -54,7 +62,7 @@ export function legalWall(current,wanted,occupants,b) {
   let safe=current;
   for(let z=current+dir*.5;dir && (goal-z)*dir>=0;z+=dir*.5) {
     // Sweep the whole thickness, so a long drag cannot skip a person.
-    if(isHome(b)&&b.parcel&&[-1,1].some(side=>{
+    if(hasEditableFront(b)&&b.parcel&&[-1,1].some(side=>{
       const p=toWorld(b,side*(b.w/2+.38),b.d/2+z+.38);
       return !pointInPoly(p.x,p.z,b.parcel);
     }))break;
@@ -79,7 +87,7 @@ export function walkable(island,plots,layout,pos) {
     const front=frontAt(b,layout),center=(front-hd)/2;
     if(Math.abs(p.x)>hw+.55 || p.z< -hd-.55 || p.z>front+.55) continue;
     if(boxHit(p,-hw,center,.18,hd+front)||boxHit(p,hw,center,.18,hd+front)||boxHit(p,0,-hd,b.w,.18)) return false;
-    if(isHome(b)?facadeHit(p,front,b.w):(Math.abs(p.z-front)<radius+.1&&Math.abs(p.x)>1.05-radius&&Math.abs(p.x)<hw+radius))return false;
+    if(hasEditableFront(b)?facadeHit(p,front,b.w):(Math.abs(p.z-front)<radius+.1&&Math.abs(p.x)>1.05-radius&&Math.abs(p.x)<hw+radius))return false;
     if(b.cafe) {
       if(partitionHit(p,layout.wall) || boxHit(p,-2.95,2.76,1.6,1.05) ||
         boxHit(p,2.95,2.76,1.6,1.05) || boxHit(p,0,-3.14,5,.8)) return false;

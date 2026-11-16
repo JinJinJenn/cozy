@@ -6,7 +6,7 @@ Walk Harbor Town on a continuous island. The waterfront has two homes, Jenn's Ca
 
 Walk with WASD, the arrow keys or the touch pad. Drag to orbit and press E or tap the activity button. Switch the café lanterns, relax at the spa, work out at the gym or play a part at the club. Two people can take melody and bass on the same score.
 
-Open Build and choose Peach Cottage, Bluebell House or Jenn's Café. Drag the wall handle and release it to commit, or set the offset with the slider and choose Move wall and door. Each home can grow or shrink toward the street by up to 1.5 metres. Its doorway, porch, roof and floor follow the front wall. The café has a movable interior partition. Undo applies to the selected property. The owner edits while guests keep playing. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
+Open Build and choose Peach Cottage, Bluebell House, The Moon Room or Jenn's Café. Drag the wall handle and release it to commit, or set the offset with the slider and choose Move wall and door. Each home and the club can grow or shrink toward the street by up to 1.5 metres. Its doorway, porch, roof and floor follow the front wall. The café has a movable interior partition. Undo applies to the selected property. The owner edits while guests keep playing. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
 
 Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Other lots across the island have building exteriors. The seven waterfront buildings have furnished interiors and activities.
 
