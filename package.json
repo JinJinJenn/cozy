@@ -7,7 +7,7 @@
   "scripts": {
     "serve": "node tools/serve.mjs",
     "vendor": "node tools/vendor.mjs",
-    "test": "node --test packages/island-gen/tests/*.test.mjs packages/settlement/tests/*.test.mjs",
+    "test": "node --test packages/island-gen/tests/*.test.mjs packages/settlement/tests/*.test.mjs packages/objects/tests/*.test.mjs packages/sim/tests/*.test.mjs packages/net/test/unit.test.mjs",
     "shots": "node tools/shots.mjs"
   },
   "dependencies": { "three": "0.180.0" },
