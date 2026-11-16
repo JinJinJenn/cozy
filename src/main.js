@@ -25,7 +25,7 @@ const waterMat=new THREE.ShaderMaterial({
   fragmentShader:`uniform float uTime,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;varying float vDist;
     void main(){
       float d=vD; if(d<-0.02) discard;
-      float k=mix(.11,.5,step(.8,vW.y));float t=1.-exp(-max(d,0.)*k);
+      float k=mix(.11,3.,step(.8,vW.y));float t=1.-exp(-max(d,0.)*k);
       vec3 col=mix(uShallow,uDeep,t);
       float w1=sin(uTime*.9+vW.x*.12+vW.z*.07),w2=sin(uTime*1.3-vW.z*.15+vW.x*.05);
       float band=.55+.22*w1+.14*w2;
@@ -94,7 +94,7 @@ function updateChunks(budget=6){
     if(inflight.has(fk)) continue;
     if(inflight.size>=budget){pending++;continue;}
     inflight.add(fk);const myGen=loadGen;
-    client.chunk(w.cx,w.cz,w.res,w.res>=33?65:w.res>=17?49:w.res>=9?33:17).then(r=>{
+    client.chunk(w.cx,w.cz,w.res,w.res>=33?65:w.res>=17?65:w.res>=9?65:49).then(r=>{
       inflight.delete(fk);
       if(!r||myGen!==loadGen) return;
       const old=chunkMap.get(k);if(old) disposeChunk(old);
