@@ -1,0 +1,10 @@
+{
+  "name": "@cozy/objects",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cozy interactive objects: composable interaction layers, co-op edit ops, roles, undo.",
+  "main": "index.js",
+  "scripts": { "test": "node --test tests/*.test.mjs" },
+  "engines": { "node": ">=20" }
+}
