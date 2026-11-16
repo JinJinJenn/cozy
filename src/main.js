@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {IslandClient} from './island-client.js';
+import {SettlementView} from './settlement-view.js';
 const SEA_LEVEL=0;
 import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
 import {drawMarker} from './minimap.js';
@@ -41,7 +42,6 @@ const waterMat=new THREE.ShaderMaterial({
       gl_FragColor=vec4(mix(col,uFog,f),a);
     }`,
 });
-const terrainMat=new THREE.MeshBasicMaterial({vertexColors:true,fog:true});
 
 // open-ocean frame so the world edge fades into fog instead of showing a hard rim
 const oceanMat=new THREE.MeshBasicMaterial({color:0x3f8fb1,fog:true});
@@ -54,6 +54,7 @@ function buildOcean(half){
   ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);ocean.geometry=g;
 }
 let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
+let town=null, captureTime=0;
 let streamRadius=4200;
 
 function lodFor(d){return d<260?33:d<620?17:d<1300?9:5;}
@@ -65,8 +66,8 @@ function makeMesh(data,isWater){
   if(isWater) g.setAttribute('depth',new THREE.BufferAttribute(data.depth,1));
   else g.setAttribute('color',new THREE.BufferAttribute(data.colors,3));
   g.setIndex(new THREE.BufferAttribute(data.indices,1));
-  const m=new THREE.Mesh(g,isWater?waterMat:terrainMat);
-  m.frustumCulled=false;if(isWater)m.renderOrder=2;
+  const m=new THREE.Mesh(g,isWater?waterMat:town.terrainMaterial);
+  if(isWater)m.renderOrder=2;
   return m;
 }
 function wanted(){
@@ -90,7 +91,7 @@ function updateChunks(budget=6){
     const k=chunkKey(w.cx,w.cz);keep.add(k);
     const cur=chunkMap.get(k);
     if(cur&&cur.res===w.res) continue;
-    const fk=k+'|'+w.res;
+    const fk=loadGen+'|'+k+'|'+w.res;
     if(inflight.has(fk)) continue;
     if(inflight.size>=budget){pending++;continue;}
     inflight.add(fk);const myGen=loadGen;
@@ -107,7 +108,9 @@ function updateChunks(budget=6){
   return pending+inflight.size;
 }
 async function flushChunks(){
+  const generation=loadGen;
   for(let i=0;i<4000;i++){
+    if(generation!==loadGen) return;
     const left=updateChunks(24);
     if(left===0) return;
     await new Promise(r=>setTimeout(r,16));
@@ -131,6 +134,9 @@ function setView(name,opts={}){
   let tgt,pos;
   if(name==='top'){
     tgt=new THREE.Vector3(0,0,0);pos=tgt.clone().add(new THREE.Vector3(.001,island.size*1.05,.001));
+  }else if(name==='town'){
+    tgt=town.focus();
+    pos=tgt.clone().add(dir(opts.az??.74,opts.elev??.52).multiplyScalar(opts.dist??48));
   }else if(name==='shore'){
     let best=null;
     const n=Math.round(2*Math.PI/.3),want=opts.az;
@@ -159,24 +165,46 @@ addEventListener('resize',resize);resize();
 
 async function load(presetId,seed,view='oblique',viewOpts){
   $('busy').style.display='grid';
-  loadGen++;inflight.clear();
+  $('busy').textContent='Generating island...';
+  window.__cozy.ready=false;
+  const generation=++loadGen;
+  inflight.clear();
   for(const c of chunkMap.values())disposeChunk(c);chunkMap.clear();
+  if(town){scene.remove(town.group);town.dispose();town=null;}
+  island=null;
   const t0=performance.now();
-  island=await client.load(seed,presetId);
-  const tGen=performance.now()-t0;
-  applyPalette(island.preset.palette);buildOcean(island.half);
-  setView(view,viewOpts);
-  const t1=performance.now();await flushChunks();
-  const tChunks=performance.now()-t1;
-  client.minimap(208,208).then(px=>{const c=$('mapc').getContext('2d'),img=c.createImageData(208,208);img.data.set(px);c.putImageData(img,0,0);updateMarker();});
-  const s=island.stats;
-  $('blurb').textContent=island.preset.blurb;
-  $('info').textContent=`land ${(s.landRatio*100).toFixed(0)}% | peak ${s.maxH.toFixed(0)}m | ${s.rivers} river mouths ${s.lakes} lakes | gen ${tGen.toFixed(0)}ms (worker), first mesh ${tChunks.toFixed(0)}ms`;
-  $('busy').style.display='none';
-  window.__cozy.ready=true;
-  return {stats:s,tGen,tChunks,checksum:island.checksum};
+  try {
+    const loaded=await client.load(seed,presetId);
+    if(generation!==loadGen) return;
+    island=loaded;
+    town=new SettlementView(island,renderer.capabilities);
+    scene.add(town.group);
+    captureTime=0;
+    const tGen=performance.now()-t0;
+    applyPalette(island.preset.palette);buildOcean(island.half);
+    setView(view,viewOpts);
+    const t1=performance.now();await flushChunks();
+    if(generation!==loadGen) return;
+    const tChunks=performance.now()-t1;
+    const px=await client.minimap(208,208);
+    if(generation!==loadGen) return;
+    const c=$('mapc').getContext('2d'),img=c.createImageData(208,208);
+    img.data.set(px);c.putImageData(img,0,0);town.drawMap(c,island.size);updateMarker();
+    const s=island.stats;
+    $('blurb').textContent=island.preset.blurb;
+    $('info').textContent=`${island.plan.stats.roads} road pieces · ${island.plan.lots.length} plots · ${town.people.length} residents | land ${(s.landRatio*100).toFixed(0)}% · peak ${s.maxH.toFixed(0)}m`;
+    $('busy').style.display='none';
+    window.__cozy.ready=true;
+    return {stats:s,tGen,tChunks,checksum:island.checksum};
+  } catch(err) {
+    if(generation!==loadGen) return;
+    $('busy').style.display='none';
+    $('info').textContent='Island load failed. Choose another seed or locale to retry.';
+    console.error(err);
+    throw err;
+  }
 }
-function updateMarker(){if(island)drawMarker($('mapo'),island,controls.target,camera.position);}
+function updateMarker(){if(town)drawMarker($('mapo'),island,controls.target,camera.position,town.people);}
 function randomSeed(){const w=['clover','plum','mint','dune','fern','tide','honey','moss','pearl','lilac','ember','drift','sorbet','wren','cove'];return w[Math.floor(Math.random()*w.length)]+'-'+Math.floor(Math.random()*900+100);}
 
 for(const id of PRESET_IDS){const o=document.createElement('option');o.value=id;o.textContent=PRESETS[id].label;$('preset').appendChild(o);}
@@ -196,8 +224,12 @@ $('mapo').onclick=e=>{
 window.__cozy={ready:false,load,setView,flushChunks,
   async setCamera(p,t){camera.position.set(...p);controls.target.set(...t);camera.lookAt(...t);controls.update();await flushChunks();},
   setSize(w,h){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();},
-  render(time=0){waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderer.render(scene,camera);},
-  info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles};},
+  render(time=0){
+    if(params.has('shot') && time>captureTime){town?.advance(time-captureTime);captureTime=time;}
+    waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderer.render(scene,camera);
+  },
+  info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
+    roads:island?.plan.roads.length,plots:island?.plan.lots.length,residents:town?.current,tick:town?.sim?.tick};},
   get island(){return island;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
 let last=performance.now(),frames=0,acc=0;
@@ -205,6 +237,8 @@ function loop(now){
   requestAnimationFrame(loop);
   if(params.has('shot')) return; // headless capture drives render() itself
   const dt=(now-last)/1000;last=now;
+  if(!window.__cozy.ready) return;
+  town.advance(Math.min(dt,.25));
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}
   waterMat.uniforms.uTime.value=now/1000;
   controls.update();clampCamera();
@@ -212,4 +246,5 @@ function loop(now){
   if(frames%20===0) updateMarker();
   renderer.render(scene,camera);
 }
-load(startPreset,$('seed').value,params.get('view')||'oblique').then(()=>requestAnimationFrame(loop));
+load(startPreset,$('seed').value,params.get('view')||'oblique');
+requestAnimationFrame(loop);

@@ -1,10 +1,9 @@
-// Builds docs/DEVLOG.html and docs/blog/*.html (self-contained, stills inlined as base64).
-import {readFile,writeFile,readdir,mkdir} from 'node:fs/promises';
+// Build both page depths from the same capture paths in devlog.json.
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 const root=path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//,'')),'..');
 const docs=path.join(root,'docs');
 const data=JSON.parse(await readFile(path.join(docs,'devlog.json'),'utf8'));
-const b64=async f=>'data:image/png;base64,'+(await readFile(path.join(docs,f))).toString('base64');
 const css=`:root{--ink:#4a3b4f;--bg:#fff4f8;--card:#fff;--accent:#e98fb0;--mint:#8fd9c0}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 Georgia,'Segoe UI',serif}
 @media(prefers-color-scheme:dark){:root{--ink:#f4e4ee;--bg:#2a2230;--card:#352b3c}}
@@ -18,13 +17,15 @@ const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
 async function entryHtml(e,blog){
   let h=`<article><div class="date">${e.date} &middot; ${esc(e.milestone)}</div><h2>${esc(blog&&e.blogTitle?e.blogTitle:e.title)}</h2>`;
   for(const p of (blog&&e.blog?e.blog:e.text)) h+=`<p>${esc(p)}</p>`;
-  for(const f of e.stills||[]) h+=`<figure><img alt="${esc(f.caption)}" src="${await b64(f.file)}"><figcaption>${esc(f.caption)}</figcaption></figure>`;
-  for(const v of e.videos||[]) h+=`<figure><video controls preload="none" src="${blog?'../':''}${v.file}"></video><figcaption>${esc(v.caption)} (local file: docs/${v.file})</figcaption></figure>`;
+  const prefix=blog?'../':'';
+  for(const f of e.stills||[]) h+=`<figure><img loading="lazy" alt="${esc(f.caption)}" src="${prefix}${f.file}"><figcaption>${esc(f.caption)}</figcaption></figure>`;
+  for(const v of e.videos||[]) h+=`<figure><template class="local-clip"><video controls preload="none" src="${prefix}${v.file}"></video></template><figcaption>${esc(v.caption)} (local file: docs/${v.file})</figcaption></figure>`;
   if(e.bad?.length) h+=`<h3>What still looks bad</h3><ul class="bad">${e.bad.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`;
   if(e.next?.length) h+=`<h3>Next</h3><ul>${e.next.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`;
   return h+'</article>';
 }
-const page=(title,body)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style></head><body><main>${body}</main></body></html>`;
+const localClips=`<script>if (location.protocol === 'file:' || ['localhost','127.0.0.1','[::1]'].includes(location.hostname)) for (const t of document.querySelectorAll('template.local-clip')) t.replaceWith(t.content.cloneNode(true));</script>`;
+const page=(title,body)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style></head><body><main>${body}</main>${localClips}</body></html>`;
 const entries=[...data.entries].sort((a,b)=>b.date.localeCompare(a.date)||b.n-a.n);
 let body=`<h1>Cozy devlog</h1><p>${esc(data.intro)}</p>`;
 for(const e of entries) body+=await entryHtml(e,false);

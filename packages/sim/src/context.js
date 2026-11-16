@@ -11,9 +11,13 @@ export function buildContext({ seed = 'cozy-1', preset = 'harborTown' } = {}, { 
   if (useCache && cache.has(key)) return cache.get(key);
   const island = generate({ seed, preset });
   const plan = generateSettlement(island, { seed, style: preset });
-  const nav = buildNav(plan, island);
-  const lotsById = new Map(plan.lots.map((l) => [l.id, l]));
-  const ctx = { seed, preset, island, plan, nav, lotsById };
+  const ctx = contextFromPlan(island, plan);
   if (useCache) cache.set(key, ctx);
   return ctx;
+}
+
+export function contextFromPlan(island, plan) {
+  const nav = buildNav(plan, island);
+  const lotsById = new Map(plan.lots.map((l) => [l.id, l]));
+  return { seed: island.seed, preset: island.presetId, island, plan, nav, lotsById };
 }

@@ -1,5 +1,5 @@
 {
- "intro": "Building a cozy, seeded island world in the open. Newest entries first. Everything here is local; nothing has been published.",
+ "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
    "n": 1,
@@ -222,6 +222,40 @@
     "Building rules per lot, then massing."
    ],
    "blog": false
+  },
+  {
+   "n": 5,
+   "date": "2026-11-16",
+   "slug": "residents-on-the-map",
+   "milestone": "M5 settlement viewer",
+   "title": "A morning walk through Harbor Town",
+   "text": [
+    "Choose Town to drop down beside a resident. The viewer opens their day at 10 a.m. so you can catch them walking, visiting a seat or stopping to chat. Gold dots follow awake residents on the minimap.",
+    "The petalwood seed lays out 61 road pieces and 534 plots in Harbor Town. The worker grades the road beds and levels the buildable plots before sending the terrain to the viewer. Road markings follow the hillside at every terrain detail level, and short decks carry crossings over inland water."
+   ],
+   "stills": [
+    {
+     "file": "shots/2026-11-16/harborTown-residents.png",
+     "caption": "A resident leaves a home plot on the petalwood seed."
+    },
+    {
+     "file": "shots/2026-11-16/harborTown-streets.png",
+     "caption": "Harbor Town from above. Solid lines mark buildable plots and dashes mark the other plots."
+    }
+   ],
+   "videos": [
+    {
+     "file": "video/2026-11-16/cut-m5-harbor-residents.mp4",
+     "caption": "Five seconds on a Harbor Town street, with a two-second title card."
+    }
+   ],
+   "bad": [
+    "Residents are capsule placeholders. They share space at busy spots, and their seats and homes still have no visible models.",
+    "The lot outlines make short road stubs and awkward corner plots easy to spot."
+   ],
+   "next": [
+    "Playtest the streets at resident height before choosing building footprints and height limits."
+   ]
   }
  ]
 }

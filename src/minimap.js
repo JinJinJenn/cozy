@@ -24,7 +24,7 @@ export function drawMinimap(canvas,island){
   const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d'),img=ctx.createImageData(W,H);
   img.data.set(renderMinimapPixels(island,W,H));ctx.putImageData(img,0,0);
 }
-export function drawMarker(canvas,island,target,cam){
+export function drawMarker(canvas,island,target,cam,people=[]){
   const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,W,H);
   const m=(x,z)=>[(x/island.size+.5)*W,(z/island.size+.5)*H];
@@ -32,4 +32,10 @@ export function drawMarker(canvas,island,target,cam){
   ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(tx,ty);ctx.stroke();
   ctx.fillStyle='#e9558f';ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(tx,ty,3,0,7);ctx.fill();
+  for(const actor of people){
+    if(!actor.visible) continue;
+    const [x,y]=m(actor.position.x,actor.position.z);
+    ctx.beginPath();ctx.arc(x,y,2.2,0,Math.PI*2);
+    ctx.lineWidth=1;ctx.strokeStyle='#463949';ctx.fillStyle='#ffe59e';ctx.fill();ctx.stroke();
+  }
 }

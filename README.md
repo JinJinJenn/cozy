@@ -1,17 +1,23 @@
-# Cozy: island world generator (first slice)
+# Jenn's Cozy Town
 
-A seeded, chunk-streamed heightmap island with several locale presets, a tiny viewer and a headless capture pipeline. Terrain only for now: no streets, lots, gameplay or multiplayer. Work in progress. [Live viewer](https://jinjinjenn.github.io/cozy/) and [devlog](docs/DEVLOG.html).
+Explore a seeded island, choose **Town** to meet its residents, and click the minimap to jump between neighbourhoods. The current playtest shows graded streets and outlined lots across four island presets. [Play Harbor Town](https://jinjinjenn.github.io/cozy/?preset=harborTown&seed=petalwood&view=town) · [Devlog](docs/DEVLOG.html)
+
+## Where the game is going
+
+Jenn's Café contributed the models and building tools. Jenn's Farm informed the rendering and UI. Jenn's Town explored residents and neighbourhood routines. Cozy Town starts with a fresh island and brings those ideas together around live, multiplayer building.
+
+The next playable milestone is one occupied lot on the island. The room owner drags a wall with an attached door while a guest walks through the doorway and a resident continues their routine. The edit should move connected pieces together, preserve a usable passage and resolve contact without trapping a player or cancelling an unrelated interaction. A constrained drag should stop at the last valid position. The host should commit the geometry, collision and navigation change at the same simulation tick. Guests can join from a link and keep playing throughout a drag. A late joiner and an owner undo should see the same resulting layout. The first planned group activity lets players perform different parts of one MML song together.
 
 ## Run
 
 ```bash
 npm install --ignore-scripts      # three 0.180.0 (only needed once)
 npm run vendor                    # copies three + OrbitControls into vendor/
-npm test                          # determinism + sea level / land ratio tests (node --test)
+npm test                          # package and worker regression tests (node --test)
 npm run serve                     # http://127.0.0.1:4180/ (binds localhost, does NOT open a browser)
 ```
 
-Open the printed URL yourself. Drag = orbit, right-drag = pan, wheel = zoom. Panel: locale dropdown, seed box, Re-roll, Oblique / Top / Shore camera buttons. The minimap (bottom right) is clickable to jump.
+Open the printed URL yourself. Drag = orbit, right-drag = pan, wheel = zoom. Panel: locale dropdown, seed box, Re-roll, Oblique / Top / Shore / Town camera buttons. The minimap (bottom right) is clickable to jump.
 URL params: `?preset=pineHighlands&seed=clover-123&view=shore`.
 
 ## Headless captures (no window, no focus steal)
@@ -24,10 +30,10 @@ node tools/video.mjs <preset> [sec] [fps] [seed] [WxH]   # orbit fly-over -> doc
 ## Layout
 
 ```
-src/rng.js        seeded rng, gradient noise, fBm, ridged fBm
-src/presets.js    locale presets = plain data (add a new island type by adding an object)
-src/island.js     generator: base shape -> erosion -> rivers/lakes -> beach -> terraces; sample/slope/paint queries
-src/chunks.js     64 m chunk builders (terrain with baked light, water with depth attribute)
+packages/island-gen/src/rng.js      seeded rng, gradient noise, fBm, ridged fBm
+packages/island-gen/src/presets.js  locale presets = plain data (add a new island type by adding an object)
+packages/island-gen/src/island.js   generator: base shape -> erosion -> rivers/lakes -> beach -> terraces; sample/slope/paint queries
+packages/island-gen/src/chunks.js   64 m chunk builders (terrain with baked light, water with depth attribute)
 src/minimap.js    top-down minimap
 src/main.js       viewer (Three.js, LOD chunk streaming, water shader)
 tools/            serve, vendor, shots, video
@@ -46,4 +52,4 @@ docs/             DEVLOG.html, STORY.md, timeline.json, shots/, video/, blog/
 7. Baked light: lambert + heightfield shadow march + cavity darkening, softly banded, in vertex colours (unlit toon material).
 8. Water: per-chunk surface mesh with a depth attribute -> depth tint, animated shore foam.
 
-Determinism: the same `(seed, preset)` gives identical arrays. Saves only need the seed plus later edits. `flatten: null` in a preset is the hook for the future lot/road flatten mask.
+The same seed and preset reproduce the island. The viewer grades streets and buildable plots before generating chunk meshes.

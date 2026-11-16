@@ -11,8 +11,10 @@ export class IslandClient{
   }
   _req(msg,transfer){return new Promise((resolve,reject)=>{const id=this.nextId++;this.pending.set(id,{resolve,reject});this.worker.postMessage({...msg,id},transfer||[]);});}
   async load(seed,preset,opts){
-    this.gen++;this.cache.clear();
+    const gen=++this.gen;this.cache.clear();
     const m=await this._req({type:'load',seed,preset,opts});
+    if(gen!==this.gen) return null;
+    this.plan=m.plan;
     const meta=m.meta,N=meta.grid,half=meta.half,cell=meta.cell,h=m.h,w=m.water;
     Object.assign(this,meta);this.ms=m.ms;this.h=h;this.water=w;
     const bil=(a,x,z)=>{const fi=Math.min(N-1.0001,Math.max(0,(x+half)/cell)),fj=Math.min(N-1.0001,Math.max(0,(z+half)/cell));const i=Math.floor(fi),j=Math.floor(fj),tx=fi-i,tz=fj-j,k=j*N+i;return (a[k]*(1-tx)+a[k+1]*tx)*(1-tz)+(a[k+N]*(1-tx)+a[k+N+1]*tx)*tz;};

@@ -27,3 +27,7 @@ Raw material for a longer YouTube edit. Newest at the bottom. Keep before/after 
 
 ## 2026-11-16: settlement, objects, sim, net (M4)
 Terrain got a standalone package, a worker and quantile sea level; the river beads were a shader tint, not geometry. Then four helpers built in parallel in separate packages: settlement (sites, roads, blocks, plots), objects (layered interactions, co-op ops), sim (a handful of NPCs on a day routine) and net (invite links, Trystero skeleton). Next is putting it all in the viewer.
+
+## 2026-11-16 (M5)
+
+At street height, eight residents move between the plots on Harbor Town’s petalwood seed. The Town button finds one immediately. Their routes, the street markings and the terrain chunks share the graded island. From above, the empty plots show where the next building pass can fit and where streets run past the last usable lot. The browser check exercises all four locales, resident movement, overlapping loads and the camera, minimap, locale and seed controls.

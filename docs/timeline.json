@@ -129,6 +129,31 @@
     }
    ],
    "clips": []
+  },
+  {
+   "id": "M5",
+   "date": "2026-11-16",
+   "title": "Streets, plots and walking residents in the viewer",
+   "stills": [
+    {
+     "file": "docs/shots/2026-11-16/harborTown-residents.png",
+     "desc": "A resident leaves a home plot on the petalwood seed."
+    },
+    {
+     "file": "docs/shots/2026-11-16/harborTown-streets.png",
+     "desc": "Harbor Town from above. Solid lines mark buildable plots and dashes mark the other plots."
+    }
+   ],
+   "clips": [
+    {
+     "file": "docs/video/2026-11-16/raw/harborTown-town-petalwood-1920x1080-60fps.mp4",
+     "desc": "Harbor Town resident follow, five seconds at 1080p60"
+    },
+    {
+     "file": "docs/video/2026-11-16/cut-m5-harbor-residents.mp4",
+     "desc": "Titled Harbor Town resident cut, seven seconds at 1080p60"
+    }
+   ]
   }
  ]
 }
