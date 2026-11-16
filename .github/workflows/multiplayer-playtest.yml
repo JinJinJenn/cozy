@@ -1,0 +1,44 @@
+name: Waterfront multiplayer playtest
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/multiplayer-playtest.yml'
+      - 'packages/net/**'
+      - 'src/street-session.js'
+      - 'tools/test-street.mjs'
+      - 'tools/test-nostr-relay.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  waterfront:
+    name: WebRTC with ${{ matrix.signalling }} signalling
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        signalling: [local, public]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install headless Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cozy-browser" --no-audit --no-fund playwright@1.58.2
+          "$RUNNER_TEMP/cozy-browser/node_modules/.bin/playwright" install --with-deps chromium --only-shell
+      - name: Walk, renovate, undo and reconnect
+        env:
+          SIGNALLING: ${{ matrix.signalling }}
+        run: |
+          export PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json"
+          if [ "$SIGNALLING" = local ]; then
+            npm run test:street -- --rtc-loopback
+          else
+            npm run test:street -- --relay
+          fi

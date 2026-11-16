@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {readFile,mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
+import {testNostrRelay} from './test-nostr-relay.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -10,9 +11,12 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
   args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-timer-throttling','--mute-audio']});
 const origin='https://cozy.test/cozy/',errors=[];
 try{
-  const relay=process.argv.includes('--relay');
+  const loopback=process.argv.includes('--rtc-loopback');
+  const relay=loopback||process.argv.includes('--relay');
+  const installRelay=loopback&&testNostrRelay();
   const testContext=async(options={})=>{
     const context=await browser.newContext({viewport:{width:720,height:432},...options});
+    if(installRelay)await installRelay(context);
     // Software WebGL shares the test machine across three live tabs.
     await context.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);
       window.requestAnimationFrame=callback=>setTimeout(()=>raf(callback),90);});
@@ -54,8 +58,9 @@ try{
   await host.locator('#list-street').check();
   const guest=await visit(link,relay?await testContext():context);
   try{await guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:relay?45000:25000});}
-  catch(e){if(relay)console.error('Public relay did not connect two independent browser contexts.');throw e;}
+  catch(e){if(relay)console.error('Signalling failed between isolated profiles.',await guest.evaluate(()=>window.__cozy.street.session.transportError));throw e;}
   console.log('Host and guest connected over '+(relay?'WebRTC':'BroadcastChannel'));
+  if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.edit(1)),false);
   await guest.locator('#use-place').click();
