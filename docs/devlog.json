@@ -122,6 +122,60 @@
     "Rivers as clear ribbons, wider and with banks.",
     "Fix the horizon bands, widen colour range, then move on to streets."
    ]
+  },
+  {
+   "n": 3,
+   "date": "2026-11-16",
+   "slug": "stream-power-rivers",
+   "milestone": "M3 research-driven terrain",
+   "title": "Terrain pass 3: stream-power erosion and real river networks",
+   "blogTitle": "We researched terrain and our rivers grew up",
+   "text": [
+    "Research summary: the strongest fast approach in the literature is stream-power erosion on a drainage graph (Cordonnier et al. 2016, with a 2024 analytic follow-up), plus classic droplet hydraulic erosion and flow-accumulation rivers.",
+    "Implemented: every iteration floods the heightfield from the sea with a priority queue (this fills pits so water always reaches the sea and gives each cell a downstream neighbour), accumulates drainage area, and lowers each cell toward its receiver in an implicit, stable update, with a little hillslope diffusion. Rivers are now where drainage area is large, carved with a monotonically falling bed and a water ribbon that follows it.",
+    "Seeds now rotate bays and plateaus so islands differ. A pure-node seeds gallery renders 12 seeds per locale as contact sheets for judging variety."
+   ],
+   "blog": [
+    "After the first islands, we went and read what the terrain people actually do. The big idea we borrowed is simple: let water decide where valleys go.",
+    "So now the whole island is flooded from the sea with a priority queue. That quietly fixes every pit so water can always reach the ocean, and tells every patch of ground which neighbour it drains into. We add up how much land drains through each spot, carve rivers where that number is big, and let the ground sink toward its downstream neighbour a little each round. Valleys branch like real river systems instead of looking like noise.",
+    "We also made each seed spin its bays around, and built a gallery that shows twelve seeds of every locale on one sheet so we can judge variety at a glance."
+   ],
+   "stills": [
+    {
+     "file": "shots/2026-11-16/pineHighlands-oblique.png",
+     "caption": "Pine Highlands with stream-power valleys and river networks."
+    },
+    {
+     "file": "shots/2026-11-16/meadowCove-oblique.png",
+     "caption": "Meadow Cove with drainage-driven rivers."
+    },
+    {
+     "file": "shots/2026-11-16/harborTown-top.png",
+     "caption": "Harbor Town top-down."
+    },
+    {
+     "file": "shots/2026-11-16/gallery/gallery-harborTown.png",
+     "caption": "Seeds gallery: 12 Harbor Town seeds."
+    },
+    {
+     "file": "shots/2026-11-16/gallery/gallery-meadowCove.png",
+     "caption": "Seeds gallery: 12 Meadow Cove seeds (before bay rotation)."
+    }
+   ],
+   "bad": [
+    "Rivers read as pale or dark channels, not yet nice water ribbons with banks; some look like trenches on flat plains.",
+    "Gullied valleys can overdo it near coasts and on hills; needs tuning per locale.",
+    "Silhouettes are still mostly round; Sandbar Archipelago varies most, others need more shape variety (peninsulas, coves, sea stacks).",
+    "Pale stepped bands at the far horizon in the highlands view are still not fixed.",
+    "Sea level is still fixed, not set by height quantile; no moisture field yet.",
+    "Generation takes 1 to 2.5 s on the main thread; no worker or cache yet.",
+    "Not yet extracted into a standalone reusable terrain package."
+   ],
+   "next": [
+    "Extract the generator into a standalone package with generate() API, JSON presets, PNG/JSON export.",
+    "Web Worker generation and chunk mesh cache.",
+    "Landmarks per locale, quantile sea level, moisture field, coast smoothing."
+   ]
   }
  ]
 }

@@ -82,6 +82,26 @@
      "desc": "M2 Harbor Town orbit 1080p60"
     }
    ]
+  },
+  {
+   "id": "M3",
+   "date": "2026-11-16",
+   "title": "Stream-power erosion, drainage rivers, seeds gallery",
+   "stills": [
+    {
+     "file": "docs/shots/2026-11-16/pineHighlands-oblique.png",
+     "desc": "Pine Highlands M3"
+    },
+    {
+     "file": "docs/shots/2026-11-16/meadowCove-oblique.png",
+     "desc": "Meadow Cove M3"
+    },
+    {
+     "file": "docs/shots/2026-11-16/gallery/gallery-harborTown.png",
+     "desc": "Harbor Town 12-seed gallery"
+    }
+   ],
+   "clips": []
   }
  ]
 }

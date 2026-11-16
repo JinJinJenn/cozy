@@ -1,8 +1,8 @@
 import {clamp,lerp} from './rng.js';
 
 // Top-down minimap: depth-tinted water + zone-painted land with hillshade.
-export function drawMinimap(canvas,island){
-  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d'),img=ctx.createImageData(W,H);
+export function renderMinimapPixels(island,W,H){
+  const img={data:new Uint8ClampedArray(W*H*4)};
   const pal=island.preset.palette,hexc=h=>{const n=parseInt(h.slice(1),16);return [n>>16&255,n>>8&255,n&255];};
   const shallow=hexc(pal.shallow),deep=hexc(pal.deep);
   for(let py=0;py<H;py++)for(let px=0;px<W;px++){
@@ -18,7 +18,11 @@ export function drawMinimap(canvas,island){
     }
     const k=(py*W+px)*4;img.data[k]=r;img.data[k+1]=g;img.data[k+2]=b;img.data[k+3]=255;
   }
-  ctx.putImageData(img,0,0);
+  return img.data;
+}
+export function drawMinimap(canvas,island){
+  const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d'),img=ctx.createImageData(W,H);
+  img.data.set(renderMinimapPixels(island,W,H));ctx.putImageData(img,0,0);
 }
 export function drawMarker(canvas,island,target,cam){
   const W=canvas.width,H=canvas.height,ctx=canvas.getContext('2d');

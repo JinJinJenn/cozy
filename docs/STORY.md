@@ -17,3 +17,10 @@ Raw material for a longer YouTube edit. Newest at the bottom. Keep before/after 
 - Added knolls, a flat harbor plateau, bank smoothing, rock strata, lower snow line, thinner foam.
 - Side effect: highland rivers became almost invisible. Needs a ribbon pass next.
 - Edit tool: tools/edit.mjs builds title-card + clip cuts with ffmpeg (1080p60, no audio). First gotchas: fade durations need a leading zero (0.4 not .4), and a drive-letter colon in the drawtext fontfile path breaks the filtergraph, so the font is copied next to the tool.
+
+## 2026-11-16: research-driven pass (M3)
+- Research (stream-power erosion on a drainage graph, Cordonnier 2016 and a 2024 analytic follow-up; flow accumulation rivers; droplet erosion). Chose priority-flood routing + implicit stream power: it fills pits, gives a flow order for free, and produces branching valleys.
+- First result: gullies everywhere and beaded dotted rivers. Tuned K down, diffusion up, raised the river area threshold, and carved river segments between cells (3 samples) so channels are continuous.
+- Rivers went from invisible to trench-like on flat plains; reduced depth for the flat locales.
+- Seeds gallery showed every Meadow Cove had the same south bay; added per-seed rotation of bays and plateaus.
+- Gotcha: the capture folder is dated in UTC, so after 7 pm local the date rolled to 2026-11-16 mid-session.

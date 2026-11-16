@@ -42,7 +42,11 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       lobes.push({x,z,r:rr});
     }
   }
-  const bays=preset.bays||[];
+  // per-seed rotation of bays and plateaus so silhouettes differ between seeds
+  const rotA=rng(key+':rot')()*Math.PI*2,rc=Math.cos(rotA),rs=Math.sin(rotA);
+  const rot=o=>({...o,x:o.x*rc-o.z*rs,z:o.x*rs+o.z*rc});
+  const bays=(preset.bays||[]).map(rot);
+  const plateaus=(preset.plateaus||[]).map(o=>rot(o));
   const knolls=[];
   if(preset.knolls){
     const kr=rng(key+':knolls'),K=preset.knolls;let t=0;
@@ -91,6 +95,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
 
   // ---------------- 2. erosion ----------------
   const E=preset.erosion,er=rng(key+':erosion');
+  if(E.stream&&(opts.stream??true)) streamPower(h,N,cell,E.stream);
   const droplets=opts.droplets??E.droplets;
   if(droplets>0) hydraulic(h,N,droplets,er);
   if(E.thermal>0) thermal(h,N,E.thermal,E.talus*cell*.5);
@@ -131,65 +136,38 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
       }
     }
   }
-  const riverPaths=[];
-  if(preset.rivers&&preset.rivers.count>0){
-    const R=preset.rivers;const cands=[];
-    for(let k=0;k<700;k++){
-      const x=(riverRng()*2-1)*half*.6,z=(riverRng()*2-1)*half*.6,[fi,fj]=gi(x,z),h0=hAt(Math.round(fi),Math.round(fj));
-      if(h0>R.minH) cands.push({x,z,fi,fj,h0});
-    }
-    cands.sort((a,b)=>b.h0-a.h0);
-    const picked=[];
-    for(const c of cands){
-      if(picked.length>=R.count) break;
-      if(picked.some(p=>Math.hypot(p.x-c.x,p.z-c.z)<half*.25)) continue;
-      picked.push(c);
-    }
-    for(const src of picked){
-      let fi=src.fi,fj=src.fj,dx=0,dz=0;const path=[];
-      for(let step=0;step<4000;step++){
-        const ci=Math.round(fi),cj=Math.round(fj);
-        if(ci<1||cj<1||ci>N-2||cj>N-2) break;
-        const here=hAt(ci,cj);
-        if(here<.3) break;
-        path.push([ci,cj,here]);
-        // steepest descent among 8 neighbours with momentum
-        let best=null,bs=1e9;
-        for(let oj=-1;oj<=1;oj++)for(let oi=-1;oi<=1;oi++){
-          if(!oi&&!oj) continue;
-          const nh=hAt(ci+oi,cj+oj)+ (oi*dx+oj*dz)*-.12 + nz.noise((ci+oi)*.3,(cj+oj)*.3)*.05;
-          const dist=Math.hypot(oi,oj);
-          const sc=(nh-here)/dist;
-          if(sc<bs){bs=sc;best=[oi,oj];}
+  // rivers: drainage network from priority-flood routing; channels where drainage area is large
+  let riverMouths=0,riverCells=0;
+  const R=preset.rivers;
+  if(R&&R.minArea>0){
+    const {parent,order,area}=route(h,N,cell);
+    const bed=new Float32Array(N*N).fill(1e9);
+    for(let o=0;o<order.length;o++){
+      const k=order[o],par=parent[k];
+      if(h[k]<=SEA_LEVEL+.05||area[k]<R.minArea||water[k]>0) continue;
+      const a=area[k]/R.minArea,depth=clamp(R.depth*(.5+.28*Math.log(a+1)),.4,R.depth*3);
+      let b=h[k]-depth;
+      if(par>=0&&bed[par]<1e8) b=Math.max(b,bed[par]+.012);
+      if(b>=h[k]) continue;
+      bed[k]=b;riverCells++;
+      if(par>=0&&h[par]<=SEA_LEVEL+.05) riverMouths++;
+      const wc=clamp(R.width/cell*(.55+.22*Math.sqrt(a)),1.1,R.width/cell*3);
+      const ci=k%N,cj=(k/N)|0;
+      const pi=par>=0?par%N:ci,pj=par>=0?(par/N)|0:cj,pb=par>=0&&bed[par]<1e8?bed[par]:b;
+      for(const t of [0,.34,.67]){
+        const cx=lerp(ci,pi,t),cy=lerp(cj,pj,t),bb=lerp(b,pb,t),rad=Math.ceil(wc+1.5);
+        for(let y=Math.floor(cy)-rad;y<=Math.ceil(cy)+rad;y++)for(let x=Math.floor(cx)-rad;x<=Math.ceil(cx)+rad;x++){
+          if(x<0||y<0||x>=N||y>=N) continue;
+          const d=Math.hypot(x-cx,y-cy),w=smooth(rad,wc*.3,d);if(w<=0) continue;
+          const kk=y*N+x,target=bb-.7+(1-w)*R.depth*1.4;
+          if(target<h[kk]) h[kk]=lerp(h[kk],target,Math.min(1,w*1.1));
+          if(d<=Math.max(1.3,wc*.85)&&bb>.35) water[kk]=Math.max(water[kk],bb+.5);
         }
-        if(path.length>3&&path.slice(-12,-1).some(p=>p[0]===ci+best[0]&&p[1]===cj+best[1])){best=[Math.sign(dx)||1,Math.sign(dz)||1];}
-        dx=best[0];dz=best[1];fi=ci+dx;fj=cj+dz;
       }
-      if(path.length<30) continue;
-      riverPaths.push(path);
-      // carve with a monotonically descending bed
-      let bed=1e9;
-      const wCells=R.width/cell;
-      path.forEach((p,idx)=>{
-        const f=idx/path.length;
-        const depth=R.depth*(.45+.9*f);
-        bed=Math.min(bed-.015,p[2]-depth);
-        const rad=Math.ceil(wCells*(1+f*1.2)+1.5);
-        for(let oj=-rad;oj<=rad;oj++)for(let oi=-rad;oi<=rad;oi++){
-          const ci=p[0]+oi,cj=p[1]+oj;
-          if(ci<0||cj<0||ci>=N||cj>=N) continue;
-          const d=Math.hypot(oi,oj),w=smooth(rad,wCells*.35,d);
-          if(w<=0) continue;
-          const k=cj*N+ci,target=bed+(1-w)*(R.depth*1.6);
-          if(target<h[k]) h[k]=lerp(h[k],target,Math.min(1,w*1.15));
-          if(d<=wCells*(1+f*1.2)*.62&&bed>.35) water[k]=Math.max(water[k],bed+.45);
-        }
-      });
     }
   }
-
   // plateaus (flat buildable shelves) and river-bank smoothing
-  for(const pl of preset.plateaus||[]){
+  for(const pl of plateaus){
     for(let j=0;j<N;j++)for(let i=0;i<N;i++){
       const x=-half+i*cell,z=-half+j*cell,d=Math.hypot((x-pl.x)/pl.rx,(z-pl.z)/pl.rz);
       const w=1-smooth(1,1+pl.soft,d);
@@ -276,7 +254,7 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
   // stats
   let landCells=0,minH=1e9,maxH=-1e9;
   for(let k=0;k<h.length;k++){if(h[k]>SEA_LEVEL)landCells++;if(h[k]<minH)minH=h[k];if(h[k]>maxH)maxH=h[k];}
-  const stats={landRatio:landCells/h.length,minH,maxH,lakes:lakes.length,rivers:riverPaths.length,lobes:lobes.length};
+  const stats={landRatio:landCells/h.length,minH,maxH,lakes:lakes.length,rivers:riverMouths,riverCells,lobes:lobes.length};
   // shoreline spot for cameras: march from origin outward along angle until sea
   const shoreAt=(angle)=>{
     for(let d=0;d<half;d+=cell*.5){
@@ -365,5 +343,63 @@ function smoothNear(h,N,lo,hi,passes){
       t[k]=lerp(v,a,.6);
     }
     h.set(t);
+  }
+}
+
+// ------------- drainage routing + stream power -------------
+// Priority-flood from the sea: pop order = every cell's receiver comes before it,
+// parent = the cell it drained into. Depressions are filled so every cell reaches the sea.
+function route(h,N,cell){
+  const n=N*N,parent=new Int32Array(n).fill(-1),order=new Int32Array(n),state=new Uint8Array(n),fill=new Float32Array(n);
+  // binary heap
+  const hk=new Float32Array(n+8),hi=new Int32Array(n+8);let hs=0;
+  const push=(k,key)=>{let i=hs++;while(i>0){const p=(i-1)>>1;if(hk[p]<=key)break;hk[i]=hk[p];hi[i]=hi[p];i=p;}hk[i]=key;hi[i]=k;};
+  const pop=()=>{const k=hi[0],last=hs-1;const key=hk[last],lk=hi[last];hs--;let i=0;while(true){let c=i*2+1;if(c>=hs)break;if(c+1<hs&&hk[c+1]<hk[c])c++;if(hk[c]>=key)break;hk[i]=hk[c];hi[i]=hi[c];i=c;}if(hs>0){hk[i]=key;hi[i]=lk;}return k;};
+  const nb=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.4142],[1,-1,1.4142],[-1,1,1.4142],[-1,-1,1.4142]];
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){
+    const k=j*N+i;
+    if(h[k]>SEA_LEVEL+.05) continue;
+    let coast=false;
+    for(const [dx,dy] of nb){const x=i+dx,y=j+dy;if(x>=0&&y>=0&&x<N&&y<N&&h[y*N+x]>SEA_LEVEL+.05){coast=true;break;}}
+    state[k]=1;fill[k]=h[k];
+    if(coast) push(k,h[k]);
+  }
+  let o=0;
+  while(hs>0){
+    const k=pop();order[o++]=k;
+    const i=k%N,j=(k/N)|0;
+    for(const [dx,dy] of nb){
+      const x=i+dx,y=j+dy;if(x<0||y<0||x>=N||y>=N) continue;
+      const q=y*N+x;if(state[q]) continue;
+      state[q]=1;parent[q]=k;
+      fill[q]=Math.max(h[q],fill[k]+1e-4);
+      push(q,fill[q]);
+    }
+  }
+  const area=new Float32Array(n).fill(1);
+  for(let t=o-1;t>=0;t--){const k=order[t],p=parent[k];if(p>=0)area[p]+=area[k];}
+  return {parent,order:order.subarray(0,o),area,filled:fill};
+}
+function streamPower(h,N,cell,P){
+  const nb=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(let it=0;it<P.iters;it++){
+    const {parent,order,area}=route(h,N,cell);
+    for(let t=0;t<order.length;t++){
+      const k=order[t],p=parent[k];
+      if(p<0||h[k]<=SEA_LEVEL+.05) continue;
+      const di=Math.abs((k%N)-(p%N)),dj=Math.abs(((k/N)|0)-((p/N)|0)),dist=(di+dj>1)?1.4142:1;
+      const f=P.K*Math.pow(area[k],P.m)/dist;
+      const nh=(h[k]+P.uplift+f*h[p])/(1+f);
+      h[k]=Math.max(nh,SEA_LEVEL+.02);
+    }
+    // hillslope diffusion on land
+    if(P.diff>0){
+      const t=Float32Array.from(h);
+      for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){
+        const k=j*N+i;if(h[k]<=SEA_LEVEL+.5) continue;
+        const a=(h[k-1]+h[k+1]+h[k-N]+h[k+N])*.25;t[k]=lerp(h[k],a,P.diff);
+      }
+      h.set(t);
+    }
   }
 }
