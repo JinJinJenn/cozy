@@ -67,13 +67,16 @@ try{
   const link=await host.locator('#invite-url').inputValue();assert.ok(link.includes('visit='));
   await host.locator('#list-street').check();
   const guest=await visit(link,relay?await testContext():context);
-  const joined=()=>guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:relay?45000:25000});
-  try{await joined();}
-  catch(e){
-    if(!relay||loopback)throw e;
-    console.log('Public signalling timed out. Reconnecting through the guest invite.');
-    await guest.getByRole('button',{name:'Reconnect to owner'}).click();await ready(guest);await joined();
+  async function waitForGuest(page){
+    const joined=()=>page.waitForFunction(()=>window.__cozy?.street?.session?.connected,null,{timeout:relay?45000:25000});
+    try{await joined();}
+    catch(e){
+      if(!relay||loopback)throw e;
+      console.log('Public signalling timed out. Reconnecting through the guest invite.');
+      await page.getByRole('button',{name:'Reconnect to owner'}).click();await ready(page);await joined();
+    }
   }
+  await waitForGuest(guest);
   console.log('Host and guest connected over '+(relay?'WebRTC':'BroadcastChannel'));
   if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
@@ -157,6 +160,7 @@ try{
     return s.layout.homes.l108.wall===0&&s.layout.homes.l106.wall===1&&s.actors.get(s.id).activity==='sit';});
   await host.locator('#build-lot').selectOption('l107');
   const late=await visit(link,relay?await testContext():context);
+  await waitForGuest(late);
   await late.waitForFunction(()=>window.__cozy.street.session.connected&&window.__cozy.street.session.layout.wall===1);
   assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.lights),false);
   assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.homes.l106.wall),1);
