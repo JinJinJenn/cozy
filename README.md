@@ -10,7 +10,9 @@ Walk with WASD, the arrow keys or the touch pad. Drag to orbit and press E or ta
 
 Open Build and choose Peach Cottage, Bluebell House, The Moon Room or Jenn's Café. Drag the wall handle and release it to commit, or set the offset with the slider and choose Move wall and door. Each home and the club can grow or shrink toward the street by up to 1.5 metres. Its doorway, porch, roof and floor follow the front wall. The café has a movable interior partition. Undo applies to the selected property. The owner edits while guests keep playing. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
 
-Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Other lots across the island have building exteriors. The seven waterfront buildings have furnished interiors and activities.
+Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Petalwood now has 588 parcels, with 54 new frontage lots and homes on both sides of the waterfront road. All 457 generated residential homes can be entered: click a door or choose a home under Find a place. Inside, the roof cuts away and the sofa can be reserved by a visitor. The seven original waterfront venues retain their activities and building tools. The civic hall and market buildings remain exterior models.
+
+Scroll farther out while walking to see the neighborhood. Graphics at the top right offers Auto, Low, Balanced and High. Low retains the buildings and interiors, caps rendering at one million pixels and turns off shadows. See the [working spec](docs/WORKING-SPEC.md) for the room-editor direction and the remaining visual and performance targets.
 
 ## Run
 

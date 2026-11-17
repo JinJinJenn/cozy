@@ -7,7 +7,7 @@ roof.setAttribute('position',new THREE.Float32BufferAttribute([
   -.5,0,-.5,-.5,0,.5,0,1,.5,-.5,0,-.5,0,1,.5,0,1,-.5,
   .5,0,.5,.5,0,-.5,0,1,-.5,.5,0,.5,0,1,-.5,0,1,.5
 ],3));roof.computeVertexNormals();
-const material=new THREE.MeshLambertMaterial({side:THREE.DoubleSide});
+const material=new THREE.MeshLambertMaterial();
 // A scalloped crown with a shaded underside. The silhouette and leaf colour are
 // shared by street and woodland trees and never change with camera distance.
 const foliage=new THREE.IcosahedronGeometry(.5,2);
@@ -70,14 +70,16 @@ export class Pieces {
     local.batches=this.batches;
     local.matrix=new THREE.Matrix4().makeRotationY(yaw).setPosition(x,y,z);
     if(this.matrix)local.matrix.premultiply(this.matrix);
+    local.visibility=this.visibility;
     return local;
   }
+  tagged(visibility){const local=new Pieces(this.parent);local.batches=this.batches;local.matrix=this.matrix;local.visibility=visibility;return local;}
   put(shape,x,y,z,w,h,d,color,ry=0,rz=0,rx=0){
     let b=this.batches.get(shape);if(!b)this.batches.set(shape,b=[]);
     helper.position.set(x,y,z);helper.scale.set(w,h,d);helper.rotation.set(rx,ry,rz);helper.updateMatrix();
     const matrix=helper.matrix.clone();
     if(this.matrix)matrix.premultiply(this.matrix);
-    b.push([matrix,new THREE.Color(color)]);
+    b.push([matrix,new THREE.Color(color),this.visibility]);
   }
   box(...args){this.put(box,...args);}
   clad(...args){this.put(clapboard,...args);}
@@ -85,5 +87,10 @@ export class Pieces {
   ball(...args){this.put(ball,...args);}
   leaves(...args){this.put(foliage,...args);}
   finish(){for(const [shape,items] of this.batches){const mesh=new THREE.InstancedMesh(shape,shape===clapboard?sidingFinish:shape===foliage?leafMaterial:shape.userData.slate?roofFinish:material,items.length);
-    items.forEach(([m,c],i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,c)});mesh.castShadow=true;mesh.receiveShadow=true;this.parent.add(mesh);}}
+    items.forEach(([m,c,visibility],i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,c);if(visibility)(visibility.instances??=[]).push({mesh,index:i,matrix:m});});mesh.computeBoundingSphere();mesh.castShadow=true;mesh.receiveShadow=true;this.parent.add(mesh);}}
+}
+const hiddenMatrix=new THREE.Matrix4().makeScale(0,0,0);
+export function setPieceVisibility(handle,visible){
+  if(handle.visible===visible)return;handle.visible=visible;
+  for(const {mesh,index,matrix} of handle.instances||[]){mesh.setMatrixAt(index,visible?matrix:hiddenMatrix);mesh.instanceMatrix.needsUpdate=true;}
 }

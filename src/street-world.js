@@ -2,6 +2,7 @@
 // house are metres, with its street entrance on the positive Z side.
 import {pointInPoly,polyCentroid} from '../packages/settlement/src/geom.js';
 import {readTerrace,terraceDefault} from './terrace.js';
+import {homeAt,homeWalkable,homesNear} from './home-plan.js';
 
 export const radius = .31;
 const homeLots=['l106','l108'];
@@ -70,7 +71,7 @@ export function cameraClearance(target,eye,building){
   let enter=0,leave=1;
   const ranges=[[a.x,b.x,-building.w/2-.14,building.w/2+.14],
     [a.z,b.z,-building.d/2-.14,building.d/2+.14],
-    [target.y,eye.y,building.y-.7,building.y+building.height]];
+    [target.y,eye.y,building.y-.7,building.y+(building.roofHeight??building.height)]];
   for(const [start,end,min,max] of ranges){
     const dir=end-start;
     if(Math.abs(dir)<.00001){if(start<min||start>max)return 1;continue;}
@@ -132,6 +133,7 @@ export function legalWall(current,wanted,occupants,b){
   return wallLimit(current,wanted,occupants,b).offset;
 }
 export function floorAt(island,plots,x,z,layout={}) {
+  const home=homeAt(island,{x,z},.16);if(home)return home.y;
   for (const b of plots) {
     const p=toRoom(b,{x,z});
     if(p.x>=-b.w/2-.15&&p.x<=sideAt(b,layout)+.15 && p.z>=-b.d/2-.15 && p.z<=frontAt(b,layout)+.15) return b.y;
@@ -161,6 +163,8 @@ export function walkable(island,plots,layout,pos) {
   }
   const nearby=island.footprintCells?.get(Math.floor(pos.x/32)+','+Math.floor(pos.z/32))||[];
   if(nearby.some(b=>boxHit(toRoom(b,pos),0,0,b.w,b.d)))return false;
+  for(const home of homesNear(island,pos))if(homeWalkable(home,pos)===false)return false;
+  if(homeAt(island,pos))return true;
   const h=island.sample(pos.x,pos.z);
   if(island.deckHeight && island.deckHeight(pos.x,pos.z)>h+.04)return true;
   return h>Math.max(.12,island.waterAt(pos.x,pos.z)-.05) && island.slope(pos.x,pos.z)<.95;

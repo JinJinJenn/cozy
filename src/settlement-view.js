@@ -110,8 +110,8 @@ export class SettlementView {
     this.decal = paintPlan(plan, Math.min(4096, capabilities.maxTextureSize));
     this.terrainMaterial = createRoadSurface(island);
     this.group = new THREE.Group();
-    this.group.add(new THREE.HemisphereLight('#ffeedc', '#b5adb2', 1.52));
-    const sun=this.sun=new THREE.DirectionalLight('#fff0ce',2.45);
+    this.group.add(new THREE.HemisphereLight('#dcebed', '#96947b', 1.12));
+    const sun=this.sun=new THREE.DirectionalLight('#fff0d7',2.65);
     sun.position.set(46,63,-32);
     sun.castShadow=true;
     sun.shadow.mapSize.set(1024,1024);

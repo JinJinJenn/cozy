@@ -6,6 +6,7 @@ import {Street} from './street.js';
 const SEA_LEVEL=0;
 import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
 import {drawMarker} from './minimap.js';
+import {graphicsSettings} from './graphics.js';
 const client=new IslandClient();
 
 const params=new URLSearchParams(location.search);
@@ -15,17 +16,19 @@ const canvas=$('gl');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:params.has('shot')});
 renderer.setPixelRatio(Math.min(devicePixelRatio,params.has('shot')?1:2));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
+const graphics=graphicsSettings(renderer,canvas);
 const scene=new THREE.Scene();
 // Camera-centred dome keeps the horizon stable from the sidewalk to the island view.
 const sky=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.ShaderMaterial({
-  side:THREE.BackSide,depthWrite:false,fog:false,
+  side:THREE.BackSide,depthWrite:false,fog:false,toneMapped:false,
   uniforms:{zenith:{value:new THREE.Color()},haze:{value:new THREE.Color()}},
   vertexShader:`varying vec3 ray;void main(){ray=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
   fragmentShader:`uniform vec3 zenith,haze;varying vec3 ray;
     float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
     void main(){vec3 d=normalize(ray);float e=max(d.y,0.);
-      vec3 c=mix(haze,zenith,smoothstep(-.025,.52,e));
+      vec3 c=mix(haze,zenith,smoothstep(0.,.52,e));
       vec2 p=d.xz/max(e+.12,.14)*vec2(2.1,3.0);
       float clouds=.57*noise2(p)+.28*noise2(2.12*p)+.15*noise2(4.25*p);
       c=mix(c,vec3(1.,.95,.86),smoothstep(.55,.75,clouds)*smoothstep(.01,.16,e)*.7);
@@ -40,13 +43,14 @@ controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Ma
 
 const waterMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,
-  uniforms:{uTime:{value:0},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:900},uFogFar:{value:3600}},
+  uniforms:{uTime:{value:0},uHalf:{value:1000},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:900},uFogFar:{value:3600}},
   vertexShader:`attribute float depth;varying float vD;varying vec3 vW;varying float vDist;
     void main(){vD=depth;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vec4 mv=viewMatrix*w;vDist=length(mv.xyz);gl_Position=projectionMatrix*mv;}`,
-  fragmentShader:`uniform float uTime,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;varying float vDist;
+  fragmentShader:`uniform float uTime,uHalf,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;varying float vDist;
     void main(){
       float d=vD; if(d<-0.02) discard;
       float k=mix(.11,3.,step(.8,vW.y));float t=1.-exp(-max(d,0.)*k);
+      t=mix(t,1.,smoothstep(uHalf*.88,uHalf,max(abs(vW.x),abs(vW.z))));
       vec3 col=mix(uShallow,uDeep,t*mix(1.,.62,step(.8,vW.y)));
       float w1=sin(uTime*.9+vW.x*.12+vW.z*.07),w2=sin(uTime*1.3-vW.z*.15+vW.x*.05);
       float band=.55+.22*w1+.14*w2;
@@ -56,11 +60,13 @@ const waterMat=new THREE.ShaderMaterial({
       // soft stylised glints
       float g=sin(vW.x*.9+uTime*1.1)*sin(vW.z*.8-uTime*.9);
       col+=vec3(.06)*smoothstep(.82,1.,g)*(1.-t*.6);
-      float a=mix(.5,.94,t)*smoothstep(-.02,.1,d);
+      float a=mix(.5,1.,t)*smoothstep(-.02,.1,d);
       a=max(a,foam*.85*smoothstep(-.02,.06,d));
-      float f=smoothstep(uFogNear,uFogFar,vDist);
-      gl_FragColor=vec4(mix(col,uFog,f),a);
+      float f=smoothstep(uFogNear,uFogFar,length(cameraPosition-vW));
+      gl_FragColor=vec4(col,a);
+      #include <tonemapping_fragment>
       #include <colorspace_fragment>
+      gl_FragColor.rgb=mix(gl_FragColor.rgb,linearToOutputTexel(vec4(uFog,1.)).rgb,f);
     }`,
 });
 
@@ -68,11 +74,11 @@ const waterMat=new THREE.ShaderMaterial({
 const oceanMat=new THREE.MeshBasicMaterial({color:0x3f8fb1,fog:true});
 const floorMat=new THREE.MeshBasicMaterial({color:0x2a6f86,fog:true});
 const floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(90000,90000).rotateX(-Math.PI/2),floorMat);floorPlane.position.y=-75;scene.add(floorPlane);
-const ocean=new THREE.Mesh(new THREE.BufferGeometry(),oceanMat);ocean.position.y=-.6;scene.add(ocean);
+const ocean=new THREE.Mesh(new THREE.BufferGeometry(),waterMat);ocean.renderOrder=2;scene.add(ocean);
 function buildOcean(half){
   const B=40000,quads=[[-B,-B,B,-half],[-B,half,B,B],[-B,-half,-half,half],[half,-half,B,half]],pos=[],idx=[];
   for(const [x0,z0,x1,z1] of quads){const o=pos.length/3;pos.push(x0,0,z0,x1,0,z0,x0,0,z1,x1,0,z1);idx.push(o,o+2,o+1,o+1,o+2,o+3);}
-  ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);ocean.geometry=g;
+  ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('depth',new THREE.Float32BufferAttribute(new Float32Array(pos.length/3).fill(80),1));g.setIndex(idx);ocean.geometry=g;waterMat.uniforms.uHalf.value=half;
 }
 let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
 let town=null, street=null, captureTime=0;
@@ -152,12 +158,17 @@ function applyPalette(p){
 }
 function streetLighting(){
   const walking=!!street?.active;
-  const near=walking?145:900,far=walking?585:3600;
+  const distance=camera.position.distanceTo(controls.target);
+  const near=walking?Math.max(210,distance*1.4):900,far=walking?Math.max(1150,distance*4):3600;
+  if(walking)streamRadius=Math.max(900,distance*4);
   scene.fog.near=waterMat.uniforms.uFogNear.value=near;
   scene.fog.far=waterMat.uniforms.uFogFar.value=far;
+  // Fully fogged geometry contributes nothing. Keep the clip beyond that fade,
+  // and expand it with the walking zoom instead of drawing the entire island.
+  const clip=walking?Math.ceil(far*1.12):9000;
+  if(camera.far!==clip){camera.far=clip;camera.updateProjectionMatrix();}
   const sun=town.sun;
-  const distance=camera.position.distanceTo(controls.target);
-  if(!walking&&distance>160){sun.castShadow=false;return;}
+  if(!renderer.shadowMap.enabled||distance>240){sun.castShadow=false;return;}
   sun.castShadow=true;
   const at=controls.target;
   const revision=street?.session?.layout.revision??0;
@@ -165,7 +176,7 @@ function streetLighting(){
   if(town.shadowRevision===revision&&town.shadowRoom===opened&&town.shadowWalking===walking&&
       sun.target.position.distanceToSquared(at)<9&&Math.abs((town.shadowDistance??distance)-distance)<5)return;
   town.shadowRevision=revision;town.shadowRoom=opened;town.shadowWalking=walking;town.shadowDistance=distance;
-  const span=walking?29:Math.max(30,Math.min(82,distance*.74));
+  const span=Math.max(29,Math.min(90,distance*.74));
   const cam=sun.shadow.camera;
   if(cam.right!==span){Object.assign(cam,{left:-span,right:span,top:span,bottom:-span});cam.updateProjectionMatrix();}
   sun.target.position.copy(at);
@@ -228,7 +239,7 @@ function setView(name,opts={}){
 }
 let autoOrbit=false;
 function resize(){
-  const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  const w=innerWidth,h=innerHeight;graphics.resize();camera.aspect=w/h;camera.updateProjectionMatrix();
 }
 addEventListener('resize',resize);resize();
 
@@ -308,7 +319,7 @@ window.__cozy={ready:false,load,setView,flushChunks,
     waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderScene();
   },
   info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
-    roads:island?.plan.roads.length,plots:island?.plan.lots.length,residents:town?.current,tick:town?.sim?.tick};},
+    roads:island?.plan.roads.length,plots:island?.plan.lots.length,homes:island?.homes?.length,graphics:graphics.info(),residents:town?.current,tick:town?.sim?.tick};},
   get island(){return island;},get street(){return street;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
 const streamedAt=new THREE.Vector3(Infinity,Infinity,Infinity),streamedEye=streamedAt.clone();
@@ -318,6 +329,7 @@ function loop(now){
   if(params.has('shot')) return; // headless capture drives render() itself
   const dt=(now-last)/1000;last=now;
   if(!window.__cozy.ready) return;
+  graphics.frame(now);
   if(!street?.session?.ready)town.advance(Math.min(dt,.25));
   street?.advance(now);street?.render(now);
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}

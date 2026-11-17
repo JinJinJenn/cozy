@@ -8,7 +8,7 @@ import {StreetMusic} from './street-music.js';
 import {TerraceEditor} from './terrace-editor.js';
 
 const $=id=>document.getElementById(id);
-const names={wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
+const names={home:'Sit on the sofa',wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
 const directions=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 export class Street {
   constructor(island,scene,camera,controls,town){
@@ -25,8 +25,8 @@ export class Street {
         polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
     this.walkMarker.visible=false;scene.add(this.walkMarker);
     this.point=new THREE.Vector3();this.rayPoint=new THREE.Vector3();
-    this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[])];
-    $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(places[b.kind][0],b.kind)));
+    this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[]),...island.homes];
+    $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(b.name||places[b.kind][0],b.kind==='home'?b.id:b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
     this.terraceEditor=new TerraceEditor(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
@@ -59,7 +59,7 @@ export class Street {
     listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
     listen($('use-place'),'click',()=>this.use());
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
-    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);$('go-place').disabled=!this.destination;
+    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>(b.kind==='home'?b.id:b.kind)===$('destination').value);$('go-place').disabled=!this.destination;
       $('home-invite').hidden=this.destination?.kind!=='house';
       $('dinner-visit').hidden=this.destination?.kind!=='restaurant';this.nextUI=0;});
     listen($('dinner-visit'),'click',()=>{this.session.command({type:'book-dinner'});this.closePanels();});
@@ -67,7 +67,7 @@ export class Street {
     listen($('home-invite'),'click',()=>{this.session.command({type:'visit-bluebell'});this.closePanels();});
     listen($('go-place'),'click',()=>{
       const b=this.destination;if(!b)return;
-      const goal=b.entry??toWorld(b,0,frontAt(b,this.session.layout)+1.4);
+      const goal=b.inside??b.entry??toWorld(b,0,frontAt(b,this.session.layout)+1.4);
       this.session.command({type:'walk',...goal});this.closePanels();
     });
     listen($('coffee-action'),'click',()=>this.session.command({type:this.session.actors.get(this.session.id)?.homeVisit?'cancel':'coffee'}));
@@ -178,6 +178,11 @@ export class Street {
       for(const h of [.55,1.02,1.48])offer(this.point.set(m.position.x,m.position.y+h,m.position.z),.37,command,label);
     }
     const b=this.destinations.find(b=>b.id===this.openRoof);
+    for(const home of this.island.homes){
+      if(home.id===this.openRoof||Math.hypot(home.x-local.x,home.z-local.z)>70)continue;
+      const door=toWorld(home,home.door.x,home.door.z);
+      offer(this.point.set(door.x,home.y+1.1,door.z),1.15,{type:'walk',...home.inside},'Enter '+home.name);
+    }
     if(b?.cafe&&!local?.outing){
       for(const x of [-1.7,0,1.7]){
         const q=toWorld(b,x,-3.14);
@@ -301,12 +306,13 @@ export class Street {
     $('build-open').hidden=!this.session.owner;$('owner-room').hidden=!this.session.owner;$('invite-url').hidden=true;
     const p=this.session.actors.get(this.session.id)||this.session.spawn;
     const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,7.7,7.7);
-    this.controls.minDistance=2.6;this.controls.maxDistance=45;this.controls.enablePan=false;
-    this.camera.far=650;this.camera.near=.13;this.camera.updateProjectionMatrix();
+    this.controls.minDistance=2.6;this.controls.maxDistance=420;this.controls.enablePan=false;
+    this.camera.far=4500;this.camera.near=.13;this.camera.updateProjectionMatrix();
     this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
   deactivate(){if(!this.active)return;this.active=false;this.walkMarker.visible=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+    this.clearExteriors.update({x:Infinity,z:Infinity},{x:0,z:0});
     document.body.classList.remove('in-street');$('street-panel').hidden=true;
     this.controls.enablePan=true;this.controls.minDistance=8;this.controls.maxDistance=4200;
     this.camera.far=9000;this.camera.near=1;this.camera.updateProjectionMatrix();}
@@ -326,8 +332,14 @@ export class Street {
     for(const b of this.plots)limit=Math.min(limit,cameraClearance(at,eye,shellBounds(b,this.session.layout)));
     const x0=Math.floor(Math.min(at.x,eye.x)/32),x1=Math.floor(Math.max(at.x,eye.x)/32);
     const z0=Math.floor(Math.min(at.z,eye.z)/32),z1=Math.floor(Math.max(at.z,eye.z)/32);
-    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++)
-      for(const b of this.island.footprintCells.get(x+','+z)||[])limit=Math.min(limit,cameraClearance(at,eye,b));
+    const tested=new Set();
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+      const key=x+','+z;
+      for(const b of [...this.island.footprintCells.get(key)||[],...this.island.homeCells.get(key)||[]]){
+        if(b.id===this.openRoof||tested.has(b))continue;tested.add(b);
+        limit=Math.min(limit,cameraClearance(at,eye,b));
+      }
+    }
     return limit<1?Math.max(.02,limit-.16/Math.max(1,at.distanceTo(eye))):1;
   }
   render(now=performance.now()){
@@ -352,7 +364,8 @@ export class Street {
       this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.48-target.y;this.camera.position.z+=m.position.z-target.z;
       target.set(m.position.x,m.position.y+1.48,m.position.z);
     }
-    this.openRoof=this.art.update(m.position,s.layout,this.camera.position,this.buildLot?.id);
+    const detailRoof=this.art.update(m.position,s.layout,this.camera.position,this.buildLot?.id);
+    this.openRoof=this.clearExteriors.update(m.position,this.camera.position)||detailRoof;
     this.walkMarker.visible=!this.buildLot&&local.walking===true&&Array.isArray(local.goal);
     if(this.walkMarker.visible){
       const [x,z]=local.goal;this.walkMarker.position.set(x,floorAt(this.island,this.plots,x,z,s.layout)+.20,z);
@@ -363,9 +376,9 @@ export class Street {
     if(this.nextUI>now)return;this.nextUI=now+150;
     if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();
-    $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
+    $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?(near.name||places[near.kind][0]):'Harbor Town';
     $('walk-hint').textContent=this.terraceEditor.active?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
-      'Click ground, people or furniture · WASD to steer · Shift to jog · Drag to orbit';
+      'Click doors, ground or furniture · WASD to steer · Shift to jog · Scroll to zoom';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');
     coffee.hidden=!!this.buildLot||(!outing&&near?.kind!=='cafe')||!!outing&&!['carry','chat','bay'].includes(outing);
     coffee.disabled=!s.ready||(!s.owner&&!s.connected);
@@ -396,7 +409,7 @@ export class Street {
     const waypoint=$('waypoint');waypoint.hidden=!this.destination||this.openRoof===this.destination.id;
     if(this.destination){const b=this.destination,p=b.entry??toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
       const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
-      $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=places[b.kind][0]+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
+      $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=(b.name||places[b.kind][0])+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
     $('party').textContent=s.error?'Room unavailable':s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;

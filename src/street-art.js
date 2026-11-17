@@ -4,13 +4,16 @@ import {toWorld,toRoom,isHome,hasEditableFront,frontAt,sideAt,wallState} from '.
 import {Pieces,box,roof,helper} from './street-pieces.js';
 import {buildCentre,marketFront} from './town-centre.js';
 import {beachLane,furnishRoads,harborGreen,plantWoodlands} from './harbor-garden.js';
-import {coastalHouse,harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
+import {harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {scoreStep,noteAtStep} from './street-music.js';
+import {prepareHomes} from './home-plan.js';
+import {homeShell,HomeInteriors} from './home-art.js';
 
 const clay='#bf6251', wood='#986647', cream='#fff1d3', dark='#334747', glass='#91c9c8', pine='#476b50';
 export const places={
   square:['Town Square'],
+  home:['Neighbourhood home'],
   wayside:['Roadside bench'],
   garden:['Harbor Green'],
   terrace:['Café Terrace'],
@@ -608,17 +611,21 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
 export function townExteriors(island,detail,scene){
   const parent=new THREE.Group(),blocks=new Map(),skip=new Set(detail.map(b=>b.id)),footprints=[],frontPaths=[];
   const roadsById=new Map(island.plan.roads.map(r=>[r.id,r]));
+  const homes=prepareHomes(island,detail),homesById=island.homesById;
   footprints.push(...buildCentre(island,parent));
   for(const [i,l] of island.plan.lots.entries()){
     if(!l.buildable||skip.has(l.id)||l.use==='square'||l.use==='hall')continue;
-    const [x,z]=polyCentroid(l.poly),yaw=Math.PI/2-l.facing;
-    const b={x,z,c:Math.cos(yaw),s:Math.sin(yaw)};
+    const planned=homesById.get(l.id);
+    if(!planned&&l.use!=='shop'&&l.use!=='orchard')continue;
+    const [x,z]=planned?[planned.x,planned.z]:polyCentroid(l.poly),yaw=Math.PI/2-l.facing;
+    const b=planned||{x,z,c:Math.cos(yaw),s:Math.sin(yaw)};
     let w=Math.min(11,Math.sqrt(l.area)*.72),d=w*.84;
     while(w>=3.5&&![-1,1].every(s=>[-1,1].every(t=>{const p=toWorld(b,s*w*.54,t*d*.54);return pointInPoly(p.x,p.z,l.poly)}))){w*=.88;d*=.88;}
-    if(w<3.5)continue;
+    if(w<3.5&&!planned)continue;
+    if(planned){w=planned.w;d=planned.d;}
     const key=Math.floor(x/70)+','+Math.floor(z/70);
     if(!blocks.has(key))blocks.set(key,new Pieces(parent));
-    const y=island.sample(x,z),a=blocks.get(key).frame(x,y,z,yaw);
+    const y=planned?.y??island.sample(x,z),a=blocks.get(key).frame(x,y,z,yaw);
     const random=rng(island.seed+':house:'+l.id);
     if(l.use==='orchard'){
       for(const row of [-1,0,1])for(const col of [-1,1]){
@@ -630,8 +637,8 @@ export function townExteriors(island,detail,scene){
       }
       continue;
     }
-    const house=l.use==='shop'?marketFront(a,w,d,random):coastalHouse(a,w,d,l.district,random);
-    for(const part of house.parts){
+    const house=l.use==='shop'?marketFront(a,w,d,random):homeShell(a,planned);
+    for(const part of planned?[]:house.parts){
       const center=toWorld(b,part.x,part.z);
       footprints.push({...b,...center,y,w:part.w,d:part.d,height:part.height});
     }
@@ -688,7 +695,7 @@ export function townExteriors(island,detail,scene){
     }
   }
   plantWoodlands(island,detail,blocks,parent);
-  const fixtures=furnishRoads(island,detail,blocks,parent,footprints,frontPaths);
+  const fixtures=furnishRoads(island,detail,blocks,parent,[...footprints,...homes],frontPaths);
   for(const block of blocks.values())block.finish();
   scene.add(parent);island.streetFootprints=footprints;
   island.footprintCells=new Map();
@@ -697,5 +704,9 @@ export function townExteriors(island,detail,scene){
       for(let z=Math.floor((b.z-reach)/32);z<=Math.floor((b.z+reach)/32);z++){
         const k=x+','+z;if(!island.footprintCells.has(k))island.footprintCells.set(k,[]);island.footprintCells.get(k).push(b);
       }}
-  return ()=>{scene.remove(parent);disposeGroup(parent);};
+  const interiors=new HomeInteriors(island,parent);
+  const dispose=()=>{scene.remove(parent);disposeGroup(parent);};
+  dispose.update=(pos,eye)=>interiors.update(pos,eye);
+  dispose.interiors=interiors;
+  return dispose;
 }

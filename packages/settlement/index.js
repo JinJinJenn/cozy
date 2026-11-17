@@ -11,6 +11,7 @@ import {rngFor} from './src/rng.js';
 import {r1,r2,polyArea} from './src/geom.js';
 import {planCivicCentre} from './src/civic.js';
 import {finishStreetEnds,addCountryLanes} from './src/street-ends.js';
+import {addFrontageLots} from './src/infill.js';
 export {flattenHeightfield,createFlattenHook,STYLES};
 
 // generateSettlement(island, {seed, style}) -> plain JSON-able plan.
@@ -23,6 +24,7 @@ export function generateSettlement(island,{seed,style}={}){
     finishStreetEnds(plan);
     addCountryLanes(plan,makeTerrain(island,{maxHalf:S.maxHalf}));
     plan.civic=planCivicCentre(plan,['l102','l104','l105','l106','l107','l108','l109']);
+    addFrontageLots(plan,makeTerrain(island,{maxHalf:S.maxHalf}));
     plan.layers=planLayers(plan);
     plan.stats.ms=Date.now()-t0;
     return plan;
@@ -57,6 +59,7 @@ export function generateSettlement(island,{seed,style}={}){
   plan.civic=planCivicCentre(plan);
   finishStreetEnds(plan);
   addCountryLanes(plan,T);
+  addFrontageLots(plan,T);
   plan.layers=planLayers(plan);
   return plan;
 }

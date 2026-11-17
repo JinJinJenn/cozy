@@ -3,6 +3,7 @@ import {chairs,maxTables,tableFeet,tableFit} from './terrace.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
+import {homeAt} from './home-plan.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
@@ -15,6 +16,7 @@ const furniture={
   house:[[1.38,-.14,'sit'],[1.38,-1.80,'sit']],cottage:[[1.38,-.14,'sit']]
 };
 export function stationsFor(b){
+  if(b.kind==='home')return b.seats.map((p,index)=>({...toWorld(b,p.x,p.z),yaw:p.yaw,action:p.action,index,part:''}));
   return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
     yaw:b.yaw+((b.kind==='wayside'||b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
 }
@@ -196,7 +198,7 @@ export class StreetSession {
     this.layout.revision++;this.persist();this.notice(result.reason?'Wall stopped at its safe limit.':oldSide!==nextSide?'Bluebell room resized.':'Wall and doorway moved.');return true;
   }
   near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.waysideNear(actor,1.46)[0]||this.plots.find(b=>{const p=toRoom(b,actor);return p.x> -b.w/2-1&&p.x<sideAt(b,this.layout)+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
-    (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined)||this.squareAt(actor);}
+    (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined)||homeAt(this.island,actor,.6)||this.squareAt(actor);}
   squareAt(actor){
     const square=this.island?.townSquare;if(!square)return;
     const p=toRoom(square,actor);if(Math.abs(p.x)<square.half&&Math.abs(p.z)<square.half)return square;
@@ -217,7 +219,7 @@ export class StreetSession {
     return ![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,spot,.55));
   }
   furnitureAt(lot,index){
-    const b=lot===this.garden?.id?this.garden:this.island?.streetBenches?.get(lot)||this.plots.find(p=>p.id===lot)||this.terraceLots().find(p=>p.id===lot);
+    const b=lot===this.garden?.id?this.garden:this.island?.streetBenches?.get(lot)||this.island?.homesById?.get(lot)||this.plots.find(p=>p.id===lot)||this.terraceLots().find(p=>p.id===lot);
     if(!b||!Number.isInteger(index))return null;
     const spot=stationsFor(b)[index];return spot?{b,spot}:null;
   }
