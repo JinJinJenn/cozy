@@ -38,11 +38,13 @@ export async function playBluebell(host,guest,checkLateJoin,shots){
     await guest.screenshot({path:path.join(shots,'tea-at-bluebell.jpg'),quality:88});
     await guest.setViewportSize(original);
   }
+  await host.setViewportSize(original);
   await checkLateJoin();
   await guest.locator('#coffee-action').click();
   await guest.waitForFunction(()=>!window.__cozy.street.session.actors.get(window.__cozy.street.session.id).homeVisit);
   const old=await guest.evaluate(()=>window.__cozy.street.session.hostBoot);
   await host.reload({waitUntil:'domcontentloaded',timeout:120000});
+  await host.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.owner,null,{polling:200,timeout:120000});
   await guest.waitForFunction(boot=>{const s=window.__cozy.street.session;return s.connected&&s.hostBoot!==boot&&s.layout.homes.l108.side===1.5;},old,{timeout:60000});
   await host.locator('#build-open').click();await host.locator('#build-lot').selectOption('l108');
   await host.locator('#undo-wall').click();await guest.waitForFunction(()=>window.__cozy.street.session.layout.homes.l108.side===1);

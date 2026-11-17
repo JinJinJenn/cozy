@@ -17,7 +17,11 @@ try{
   const relay=loopback||process.argv.includes('--relay');
   const installRelay=loopback&&testNostrRelay();
   const testContext=async(options={})=>{
-    const context=await browser.newContext({viewport:{width:720,height:432},...options});
+    // Keep the CSS viewport intact for pointer tests while three isolated
+    // WebRTC profiles share the CI runner's software rasterizer.
+    const photo=process.argv.some(arg=>arg.endsWith('-shot')||arg==='--shot');
+    const scale=relay && !photo ? 0.6 : 1;
+    const context=await browser.newContext({viewport:{width:720,height:432},deviceScaleFactor:scale,...options});
     if(installRelay)await installRelay(context);
     // Software WebGL shares the test machine across three live tabs.
     await context.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);
@@ -71,12 +75,19 @@ try{
   await host.locator('#list-street').check();
   const guest=await visit(link,relay?await testContext():context);
   async function waitForGuest(page){
-    const joined=()=>page.waitForFunction(()=>window.__cozy?.street?.session?.connected,null,{timeout:relay?45000:25000});
+    const joined=()=>page.waitForFunction(()=>window.__cozy?.street?.session?.connected,null,{polling:200,timeout:relay?45000:25000});
     try{await joined();}
     catch(e){
       if(!relay||loopback)throw e;
-      console.log('Public signalling timed out. Reconnecting through the guest invite.');
-      await page.getByRole('button',{name:'Reconnect to owner'}).click();await ready(page);await joined();
+      // A peer can connect while Playwright waits for the reconnect button,
+      // which then disappears. In that case the existing connection is usable.
+      const reconnect=page.getByRole('button',{name:'Reconnect to owner'});
+      if(await reconnect.isVisible()){
+        try{await reconnect.click({timeout:5000});}catch(error){
+          if(!await page.evaluate(()=>window.__cozy?.street?.session?.connected))throw error;
+        }
+      }
+      await ready(page);await joined();
     }
   }
   await waitForGuest(guest);
@@ -117,7 +128,7 @@ try{
       await waitForGuest(late);
       await late.waitForFunction(()=>{const s=window.__cozy.street.session,h=s.layout.homes.l108;
         return h?.wall===.5&&h.side===1.5&&[...s.actors.values()].some(a=>a.homeVisit&&a.outing==='chat');});
-    }finally{await late.close();}
+    }finally{if(relay)await late.context().close();else await late.close();}
   },process.argv.includes('--bluebell-shot')?path.join(root,'docs/shots/2026-11-16'):null);
   if(process.argv.includes('--bluebell-only')){assert.deepEqual(errors,[]);await browser.close();process.exit(0);}
   await playTerrace(host,guest);
@@ -203,7 +214,7 @@ try{
   await late.waitForFunction(()=>window.__cozy.street.session.connected&&window.__cozy.street.session.layout.wall===1);
   assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.lights),false);
   assert.equal(await late.evaluate(()=>window.__cozy.street.session.layout.homes.l106.wall),1);
-  await late.close();
+  if(relay)await late.context().close();else await late.close();
   console.log('Late join received geometry and lantern state');
   await host.locator('#undo-wall').click();await guest.waitForFunction(()=>window.__cozy.street.session.layout.wall===0);
   await host.locator('#wall-offset').fill('-0.5');await host.locator('#apply-wall').click();
