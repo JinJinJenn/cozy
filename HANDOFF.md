@@ -24,7 +24,9 @@ The host simulates player movement and two waterfront residents against the comm
 
 Bluebell House supports a two-axis corner drag and separate front and right wall sliders. The doorway travels with the front. Both dimensions save and undo together. Find a place → Bluebell House → Visit Bea for tea sends a visitor to the first chair while Bea walks to the kitchen and then to the opposite chair. Both seats are reserved for the visit.
 
-Next, bring room resizing and table service to Bay Kitchen. Extend the resident routines into edited interiors. Test visits across independent networks and exercise host loss before promising a persistent public town. The Moon Room has a furnished two-keyboard stage with note-driven lights. The gym and spa still need more detailed interiors and activities.
+Bay Kitchen has four dining chairs. Choose the restaurant under Find a place and take a table, or click an open chair. Order chowder or grilled fish. A resident walks to the stove and serves the plate. The owner can move the dining-room front wall and door during service. The wall and its undo history persist with the town.
+
+Next, extend the gym and spa interiors and give each a resident activity. Test visits across independent networks and exercise host loss before promising a persistent public town. The Moon Room has a furnished two-keyboard stage with note-driven lights.
 
 ## Reference projects and social play
 

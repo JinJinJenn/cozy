@@ -15,7 +15,7 @@ const furniture={
 };
 export function stationsFor(b){
   return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
-    yaw:b.yaw+((b.kind==='terrace'&&index===0||b.kind==='house'&&index===1)?0:Math.PI)}));
+    yaw:b.yaw+((b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
 }
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -191,7 +191,7 @@ export class StreetSession {
     state.wall=next;
     if(b.kind==='house'&&(nextSide||state.side!==undefined||oldSide!==nextSide))state.side=nextSide;
     if(isHome(b)){this.layout.homes[b.id]=state;this.updatePatrol();}
-    if(b.kind==='club')this.layout.club=state;
+    if(b.kind==='club'||b.kind==='restaurant')this.layout[b.kind]=state;
     this.layout.revision++;this.persist();this.notice(result.reason?'Wall stopped at its safe limit.':oldSide!==nextSide?'Bluebell room resized.':'Wall and doorway moved.');return true;
   }
   near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.plots.find(b=>{const p=toRoom(b,actor);return p.x> -b.w/2-1&&p.x<sideAt(b,this.layout)+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
@@ -218,11 +218,17 @@ export class StreetSession {
   }
   interact(id){
     const a=this.actors.get(id),b=a&&this.near(a);if(!b)return;
+    if(a.dinnerSeat!==undefined&&this.activities){this.activities.finish(a);return;}
     if(a.outing==='chat'||a.outing==='waiting'){this.activities.finish(a);return;}
     if(a.activity){a.activity='';a.part='';return;}
     const spot=this.station(a,b);if(!spot)return;
     if(b.cafe){this.layout.lights=!this.layout.lights;this.layout.revision++;this.persist();}
-    else Object.assign(a,{x:spot.x,z:spot.z,activity:spot.action,part:spot.part,yaw:spot.yaw});
+    else{
+      if(spot.action==='dine'&&this.activities){
+        this.activities.finish(a);a.dinnerSeat=spot.index;a.outing='menu';
+      }
+      Object.assign(a,{x:spot.x,z:spot.z,activity:spot.action,part:spot.part,yaw:spot.yaw});
+    }
   }
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
   command(cmd){
@@ -252,7 +258,7 @@ export class StreetSession {
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.activities.command(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}

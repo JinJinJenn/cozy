@@ -2,6 +2,20 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 14,
+   "date": "2026-11-17",
+   "slug": "bay-kitchen",
+   "milestone": "M14 Bay Kitchen",
+   "title": "Dinner on the waterfront",
+   "text": [
+    "Take a table at Bay Kitchen and order chowder or grilled fish. A neighbor walks in from the street, stops at the stove and carries your plate down the aisle. Another diner can sit opposite you and place a second order.",
+    "The owner can move the dining-room entrance while guests are seated. The doorway travels with the wall. Cooks check their route after each edit, and diners keep their seats until they leave."
+   ],
+   "stills": [
+    {"file":"shots/2026-11-17/bay-kitchen.jpg","caption":"Grilled fish at the window table after the owner moved the dining-room entrance."}
+   ]
+  },
+  {
    "n": 13,
    "date": "2026-11-16",
    "slug": "bluebell-house",

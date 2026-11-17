@@ -27,16 +27,17 @@ export function readLayout(s) {
       if(state.side!==undefined)homes[id].side=state.side;
     }
   }
-  if(s.club!==undefined&&!validFront(s.club))return null;
+  if(s.club!==undefined&&!validFront(s.club)||s.restaurant!==undefined&&!validFront(s.restaurant))return null;
   const terrace=readTerrace(s.terrace);if(!terrace)return null;
   return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,
-    club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace};
+    club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace,
+    ...(s.restaurant?{restaurant:{wall:s.restaurant.wall,undo:[...s.restaurant.undo]}}:{})};
 }
 export const isHome=b=>b.kind==='house'||b.kind==='cottage';
-export const hasEditableFront=b=>isHome(b)||b.kind==='club';
+export const hasEditableFront=b=>isHome(b)||b.kind==='club'||b.kind==='restaurant';
 export function wallState(layout={},b){
   if(b.cafe)return layout;
-  return (b.kind==='club'?layout.club:layout.homes?.[b.id])??emptyFront();
+  return (isHome(b)?layout.homes?.[b.id]:layout[b.kind])??emptyFront();
 }
 export const frontAt=(b,layout)=>b.d/2+(hasEditableFront(b)?wallState(layout,b).wall:0);
 export const sideAt=(b,layout)=>b.w/2+(b.kind==='house'?(layout?.homes?.[b.id]?.side??0):0);
@@ -155,7 +156,7 @@ export function walkable(island,plots,layout,pos) {
     if(isHome(b)&&(boxHit(p,-1.65,-1.74,1.24,2.24)||boxHit(p,1.38,-.94,.9,.9)||
       boxHit(p,.15,-3.06,2.65,.65)||boxHit(p,-.78,-1.85,.12,3.13)))return false;
     if(b.kind==='club' && [-1.7,1.7].some(x=>boxHit(p,x,-2,1.8,.74)))return false;
-    if(b.kind==='restaurant' && [-1.65,1.65].some(x=>boxHit(p,x,-.3,1.15,.85)))return false;
+    if(b.kind==='restaurant' && (boxHit(p,0,-2.8,4.9,.72)||[-1.65,1.65].some(x=>boxHit(p,x,-.3,1.15,.85))))return false;
     return true;
   }
   const nearby=island.footprintCells?.get(Math.floor(pos.x/32)+','+Math.floor(pos.z/32))||[];

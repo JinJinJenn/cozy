@@ -82,6 +82,33 @@ try{
   if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.edit(1)),false);
+  await guest.locator('#directions-open').click();
+  await guest.locator('#destination').selectOption('restaurant');
+  await guest.locator('#dinner-visit').click();
+  await guest.locator('#order-fish').click({timeout:90000});
+  const guestAtDinner=await guest.evaluate(()=>window.__cozy.street.session.id);
+  await host.waitForFunction(id=>{const a=window.__cozy.street.session.actors.get(id);
+    return a?.outing==='preparing'||a?.outing==='ordered';},guestAtDinner);
+  await host.locator('#build-open').click();await host.locator('#build-lot').selectOption('l104');
+  await host.locator('#wall-offset').fill('0.5');await host.locator('#apply-wall').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;
+    return s.layout.restaurant?.wall===.5&&s.actors.get(s.id).outing==='eating';},null,{timeout:90000});
+  await host.waitForFunction(id=>{const a=window.__cozy.street.session.actors.get(id);
+    return a?.activity==='dine'&&a.dish==='fish'&&a.outing==='eating';},guestAtDinner);
+  if(process.argv.includes('--dinner-shot')){
+    const dir=path.join(root,'docs/shots/2026-11-17');await mkdir(dir,{recursive:true});
+    const original=guest.viewportSize();await guest.bringToFront();await guest.setViewportSize({width:1100,height:700});
+    await guest.evaluate(()=>{const c=window.__cozy,b=c.street.plots.find(p=>p.kind==='restaurant'),t=c.controls.target;
+      c.camera.position.set(t.x+b.c*3.8+b.s*3.8,t.y+2.95,t.z-b.s*3.8+b.c*3.8);c.controls.update();c.street.render();});
+    await guest.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await guest.screenshot({path:path.join(dir,'bay-kitchen.jpg'),quality:88});await guest.setViewportSize(original);
+  }
+  await host.locator('#undo-wall').click();await guest.waitForFunction(()=>window.__cozy.street.session.layout.restaurant?.wall===0);
+  await guest.getByRole('button',{name:'Finish meal'}).click();
+  await guest.waitForFunction(()=>!window.__cozy.street.session.actors.get(window.__cozy.street.session.id).outing);
+  await host.locator('#build-open').click();
+  console.log('PASS guest ordered grilled fish, cook delivered, owner moved and restored the dining-room entrance during service');
+  if(process.argv.includes('--dinner-only')){assert.deepEqual(errors,[]);await browser.close();process.exit(0);}
   await playBluebell(host,guest,async()=>{
     const late=await visit(link,relay?await testContext():context);
     try{

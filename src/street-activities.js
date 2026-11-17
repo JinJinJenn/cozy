@@ -16,9 +16,17 @@ export class StreetActivities {
   cancelRoute(actor){this.routes.delete(actor.id);actor.walking=false;delete actor.goal;}
   finish(actor){
     this.cancelRoute(actor);
+    if(actor.dinnerSeat!==undefined){
+      actor.activity='';delete actor.dinnerSeat;delete actor.dish;delete actor.orderTime;
+    }
+    this.releaseNeighbor(actor);
+    if(actor.friend){if(this.benchOwner===actor.id){this.reserved.clear();this.benchOwner=null;}actor.activity='';}
+    actor.outing='';actor.cup=false;delete actor.friend;delete actor.brewUntil;delete actor.counterSlot;delete actor.visits;delete actor.atBeach;delete actor.meetingTable;delete actor.homeVisit;
+  }
+  releaseNeighbor(actor){
     const neighbor=this.s.actors.get(actor.friend);
     if(neighbor?.invitedBy===actor.id){
-      this.cancelRoute(neighbor);delete neighbor.invitedBy;delete neighbor.atBeach;
+      this.cancelRoute(neighbor);delete neighbor.invitedBy;delete neighbor.atBeach;delete neighbor.tray;delete neighbor.cookUntil;
       neighbor.activity='';neighbor.cup=false;
       const patrol=this.s.patrol;
       if(patrol?.length){
@@ -29,8 +37,6 @@ export class StreetActivities {
         this.go(neighbor,patrol[best],'patrol');
       }
     }
-    if(actor.friend){if(this.benchOwner===actor.id){this.reserved.clear();this.benchOwner=null;}actor.activity='';}
-    actor.outing='';actor.cup=false;delete actor.friend;delete actor.brewUntil;delete actor.counterSlot;delete actor.visits;delete actor.atBeach;delete actor.meetingTable;delete actor.homeVisit;
   }
   seatTaken(q,except){
     return [...this.s.actors.values()].some(a=>a.id!==except&&within(a,q,.66));
@@ -44,8 +50,33 @@ export class StreetActivities {
     return this.s.terraceLots().find(b=>(!requested||requested===b.id)&&[0,1].every(i=>this.s.available(actor,b,this.s.furnitureAt(b.id,i).spot)));
   }
   stationClaimed(lot,index,except){
+    if(lot==='l104'&&[...this.s.actors.values()].some(a=>a.id!==except&&a.dinnerSeat===index))return true;
     for(const [id,route] of this.routes)if(id!==except&&route.arrival?.lot===lot&&route.arrival.index===index)return true;
     return false;
+  }
+  bookDinner(actor,index){
+    if(actor.outing)return;
+    const room=this.s.plots.find(b=>b.kind==='restaurant');
+    if(!room)return;
+    const seats=index===undefined?[0,2,1,3]:[index];
+    for(const i of seats){
+      const spot=this.s.furnitureAt(room.id,i)?.spot;
+      if(spot&&this.s.available(actor,room,spot)&&this.go(actor,spot,{lot:room.id,index:i})){
+        actor.dinnerSeat=i;actor.outing='to-dinner';return;
+      }
+    }
+    actor.feedback='There is no free seat you can reach.';
+  }
+  startOrder(actor){
+    const people=[...this.s.actors.values()];
+    if(people.some(a=>a.outing==='preparing')||people.some(a=>a.outing==='ordered'&&a.orderTime<actor.orderTime))return;
+    const cook=people.find(a=>a.id.startsWith('resident')&&!a.invitedBy);
+    if(!cook)return;
+    const room=this.s.plots.find(b=>b.kind==='restaurant');
+    if(!this.go(cook,toWorld(room,0,-1.96),'stove')){
+      actor.outing='menu';actor.feedback='The cook cannot reach the stove.';return;
+    }
+    actor.friend=cook.id;cook.invitedBy=actor.id;actor.outing='preparing';
   }
   visitBluebell(actor){
     if(actor.outing)return;
@@ -85,6 +116,13 @@ export class StreetActivities {
   }
   command(actor,cmd){
     actor.feedback='';
+    if(cmd.type==='book-dinner'){this.bookDinner(actor);return;}
+    if(cmd.type==='order-meal'){
+      if(actor.outing==='menu'&&['chowder','fish'].includes(cmd.dish)){
+        actor.dish=cmd.dish;actor.orderTime=this.s.time;actor.outing='ordered';
+      }
+      return;
+    }
     if(cmd.type==='visit-bluebell'){this.visitBluebell(actor);return;}
     if(cmd.type==='cancel'){this.finish(actor);return;}
     if(cmd.type==='terrace-coffee'&&actor.outing==='carry'){
@@ -129,6 +167,7 @@ export class StreetActivities {
       const {b,spot}=target;
       if(!this.s.available(actor,b,spot)){actor.feedback='Someone else is using that spot.';return;}
       if(actor.outing)this.finish(actor);
+      if(b.kind==='restaurant'){this.bookDinner(actor,spot.index);return;}
       if(!this.go(actor,spot,{lot:b.id,index:spot.index}))actor.feedback='There is no clear route to that spot.';
       return;
     }
@@ -144,6 +183,14 @@ export class StreetActivities {
   }
   arrive(a,arrival){
     const s=this.s;
+    if(arrival==='stove'){a.cookUntil=s.time+2.5;return;}
+    if(arrival==='serve'){
+      const diner=s.actors.get(a.invitedBy);
+      if(diner?.outing==='preparing'){
+        diner.outing='eating';this.releaseNeighbor(diner);delete diner.friend;
+      }
+      return;
+    }
     if(arrival==='kettle'){
       const guest=s.actors.get(a.invitedBy);
       if(!guest?.homeVisit)return;
@@ -155,7 +202,8 @@ export class StreetActivities {
       const target=s.furnitureAt(arrival.lot,arrival.index);
       if(target&&s.available(a,target.b,target.spot)){
         const {spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
-      }else a.feedback='Someone else is using that spot.';
+        if(a.dinnerSeat!==undefined)a.outing='menu';
+      }else{if(a.dinnerSeat!==undefined)this.finish(a);a.feedback='Someone else is using that spot.';}
       return;
     }
     if(arrival==='counter'){a.outing='brewing';a.brewUntil=s.time+1.25;a.yaw=s.cafe.yaw+Math.PI;}
@@ -184,6 +232,18 @@ export class StreetActivities {
     }
   }
   advance(a,dt){
+    if(a.outing==='ordered')this.startOrder(a);
+    if(a.cookUntil!==undefined&&this.s.time>=a.cookUntil){
+      const diner=this.s.actors.get(a.invitedBy),room=this.s.plots.find(b=>b.kind==='restaurant');
+      delete a.cookUntil;
+      if(diner){
+        a.tray=diner.dish;
+        const aisleX=diner.dinnerSeat%2 ? .67 : -.67;
+        if(!this.go(a,toWorld(room,aisleX,-.30),'serve')){
+          this.releaseNeighbor(diner);delete diner.friend;diner.outing='menu';diner.feedback='The aisle is blocked.';
+        }
+      }
+    }
     if(a.outing==='brewing'&&this.s.time>=a.brewUntil){a.outing='carry';a.cup=true;delete a.brewUntil;delete a.counterSlot;}
     const route=this.routes.get(a.id);
     if(!route)return !!a.invitedBy;

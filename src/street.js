@@ -60,7 +60,10 @@ export class Street {
     listen($('use-place'),'click',()=>this.use());
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
     listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);$('go-place').disabled=!this.destination;
-      $('home-invite').hidden=this.destination?.kind!=='house';this.nextUI=0;});
+      $('home-invite').hidden=this.destination?.kind!=='house';
+      $('dinner-visit').hidden=this.destination?.kind!=='restaurant';this.nextUI=0;});
+    listen($('dinner-visit'),'click',()=>{this.session.command({type:'book-dinner'});this.closePanels();});
+    for(const dish of ['chowder','fish'])listen($('order-'+dish),'click',()=>this.session.command({type:'order-meal',dish}));
     listen($('home-invite'),'click',()=>{this.session.command({type:'visit-bluebell'});this.closePanels();});
     listen($('go-place'),'click',()=>{
       const b=this.destination;if(!b)return;
@@ -337,7 +340,7 @@ export class Street {
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
-      mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy);
+      mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
       const seated=['sit','dine','relax','piano'].includes(a.activity);
       mesh.setSeated(seated,a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
@@ -382,8 +385,13 @@ export class Street {
     const status={beach:'Walking to the beach with '+friend,bay:friend+' · "You can see the café from down here."',counter:'Walking to the café counter',brewing:'Preparing two coffees',carry:'Two coffees ready · '+friend+(local.meetingTable?' is meeting you on the terrace':' is meeting you at Harbor Green'),
       garden:'Taking coffee to Harbor Green',terrace:'Meeting '+friend+' on the terrace',waiting:'Waiting for '+friend,chat:friend+(local.visits>1?' · "Our usual spot. Walk to the beach again?"':' · "Want to take the path down to the water?"')};
     const homeStatus=local.homeVisit&&({visiting:'Walking to Bluebell House',waiting:'Bea is making tea',chat:'Tea with Bea at Bluebell House'})[outing];
-    const label=$('live-action'),text=local.feedback||homeStatus||status[outing]||(local.walking?'Walking to your destination':'');
+    const meal=local.dish==='fish'?'grilled fish':'chowder';
+    const dinnerStatus={'to-dinner':'Walking to your table at Bay Kitchen',menu:'What would you like to eat?',
+      ordered:'Your order is in the kitchen',preparing:friend+' is making your '+meal,eating:'Enjoying '+meal+' at Bay Kitchen'};
+    const label=$('live-action'),text=local.feedback||homeStatus||dinnerStatus[outing]||status[outing]||(local.walking?'Walking to your destination':'');
     label.hidden=!text||!!this.buildLot;label.querySelector('span').textContent=text;
+    for(const dish of ['chowder','fish'])$('order-'+dish).hidden=outing!=='menu';
+    $('cancel-action').textContent=outing==='eating'?'Finish meal':outing==='menu'?'Leave table':'Cancel';
     $('cancel-action').hidden=!local.walking&&!outing||outing==='chat'||outing==='bay';
     const waypoint=$('waypoint');waypoint.hidden=!this.destination||this.openRoof===this.destination.id;
     if(this.destination){const b=this.destination,p=b.entry??toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
