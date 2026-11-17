@@ -14,7 +14,26 @@ const $=id=>document.getElementById(id);
 const canvas=$('gl');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:params.has('shot')});
 renderer.setPixelRatio(Math.min(devicePixelRatio,params.has('shot')?1:2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
 const scene=new THREE.Scene();
+// Camera-centred dome keeps the horizon stable from the sidewalk to the island view.
+const sky=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.ShaderMaterial({
+  side:THREE.BackSide,depthWrite:false,fog:false,
+  uniforms:{zenith:{value:new THREE.Color()},haze:{value:new THREE.Color()}},
+  vertexShader:`varying vec3 ray;void main(){ray=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
+  fragmentShader:`uniform vec3 zenith,haze;varying vec3 ray;
+    float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
+    void main(){vec3 d=normalize(ray);float e=max(d.y,0.);
+      vec3 c=mix(haze,zenith,smoothstep(-.025,.52,e));
+      vec2 p=d.xz/max(e+.12,.14)*vec2(2.1,3.0);
+      float clouds=.57*noise2(p)+.28*noise2(2.12*p)+.15*noise2(4.25*p);
+      c=mix(c,vec3(1.,.95,.86),smoothstep(.55,.75,clouds)*smoothstep(.01,.16,e)*.7);
+      gl_FragColor=vec4(c,1.);
+      #include <colorspace_fragment>
+    }`
+}));
+sky.frustumCulled=false;sky.renderOrder=-100;scene.add(sky);
 const camera=new THREE.PerspectiveCamera(48,1,1,9000);
 const controls=new OrbitControls(camera,canvas);
 controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Math.PI/2-.01;controls.minDistance=8;controls.maxDistance=4200;
@@ -41,6 +60,7 @@ const waterMat=new THREE.ShaderMaterial({
       a=max(a,foam*.85*smoothstep(-.02,.06,d));
       float f=smoothstep(uFogNear,uFogFar,vDist);
       gl_FragColor=vec4(mix(col,uFog,f),a);
+      #include <colorspace_fragment>
     }`,
 });
 
@@ -69,6 +89,13 @@ function makeMesh(data,isWater){
   g.setIndex(new THREE.BufferAttribute(data.indices,1));
   const m=new THREE.Mesh(g,isWater?waterMat:town.terrainMaterial);
   if(isWater)m.renderOrder=2;
+  else{
+    // Terrain already carries baked slope lighting. A level receiver normal keeps
+    // the vertical crack skirts from leaving dark seams across grass and sand.
+    const normals=new Float32Array(data.positions.length);
+    for(let i=1;i<normals.length;i+=3)normals[i]=1;
+    g.setAttribute('normal',new THREE.BufferAttribute(normals,3));m.receiveShadow=true;
+  }
   return m;
 }
 function wanted(){
@@ -118,12 +145,41 @@ async function flushChunks(){
   }
 }
 function applyPalette(p){
-  const c=new THREE.Color(p.sky);scene.background=c;
+  sky.material.uniforms.zenith.value.set(p.sky);sky.material.uniforms.haze.value.set(p.fog);
   scene.fog=new THREE.Fog(new THREE.Color(p.fog),900,3600);scene.background=new THREE.Color(p.fog);oceanMat.color.set(p.deep).lerp(new THREE.Color('#8fb9b4'),.22).multiplyScalar(.82);floorMat.color.copy(oceanMat.color);
   waterMat.uniforms.uShallow.value.set(p.shallow);waterMat.uniforms.uDeep.value.set(p.deep);waterMat.uniforms.uFoam.value.set(p.foam);waterMat.uniforms.uFog.value.set(p.fog);
 }
+function streetLighting(){
+  const walking=!!street?.active;
+  const near=walking?145:900,far=walking?585:3600;
+  scene.fog.near=waterMat.uniforms.uFogNear.value=near;
+  scene.fog.far=waterMat.uniforms.uFogFar.value=far;
+  const sun=town.sun;
+  const distance=camera.position.distanceTo(controls.target);
+  if(!walking&&distance>160){sun.castShadow=false;return;}
+  sun.castShadow=true;
+  const at=controls.target,now=performance.now();
+  if(now<(town.nextShadow??0))return;
+  town.nextShadow=now+175;
+  const span=walking?29:Math.max(30,Math.min(82,distance*.74));
+  const cam=sun.shadow.camera;
+  if(cam.right!==span){Object.assign(cam,{left:-span,right:span,top:span,bottom:-span});cam.updateProjectionMatrix();}
+  sun.target.position.copy(at);
+  sun.position.set(at.x+46,at.y+63,at.z-32);
+  sun.shadow.needsUpdate=true;
+}
+const orbitEye=new THREE.Vector3();
+function renderScene(){
+  const fraction=street?.cameraFraction()??1;
+  orbitEye.copy(camera.position);
+  camera.position.lerp(controls.target,1-fraction);
+  renderer.render(scene,camera);
+  camera.position.copy(orbitEye);
+  camera.updateMatrixWorld();
+}
 function clampCamera(){
   if(!island) return;
+  sky.position.copy(camera.position);streetLighting();
   const g=island.sample(camera.position.x,camera.position.z);
   const floor=Math.max(g,SEA_LEVEL)+3;
   if(camera.position.y<floor) camera.position.y=floor;
@@ -239,7 +295,7 @@ window.__cozy={ready:false,load,setView,flushChunks,
   render(time=0){
     if(params.has('shot') && time>captureTime){town?.advance(time-captureTime);captureTime=time;}
     street?.render();
-    waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderer.render(scene,camera);
+    waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderScene();
   },
   info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
     roads:island?.plan.roads.length,plots:island?.plan.lots.length,residents:town?.current,tick:town?.sim?.tick};},
@@ -258,7 +314,7 @@ function loop(now){
   controls.update();clampCamera();
   if(++frames%4===0) updateChunks(8);
   if(frames%20===0) updateMarker();
-  renderer.render(scene,camera);
+  renderScene();
 }
 load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));
 requestAnimationFrame(loop);

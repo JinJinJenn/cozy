@@ -15,7 +15,9 @@ export {createIsland,SEA_LEVEL,PRESETS,PRESET_IDS,buildTerrainChunk,buildWaterCh
 // World coordinates: x,z in [-size/2, size/2]; grid index i = (x + size/2)/cell.
 export function generate({seed='petalwood',preset='meadowCove',grid,droplets,stream}={}){
   const isl=createIsland(seed,preset,{grid,droplets,stream});
-  return {seed:isl.seed,presetId:isl.presetId,preset:isl.preset,seaLevel:SEA_LEVEL,size:isl.size,grid:isl.grid,cell:isl.cell,
+  const publishedLayout=isl.seed==='petalwood'&&isl.presetId==='harborTown'&&
+    grid===undefined&&droplets===undefined&&stream===undefined?'petalwood-v1':null;
+  return {publishedLayout,seed:isl.seed,presetId:isl.presetId,preset:isl.preset,seaLevel:SEA_LEVEL,size:isl.size,grid:isl.grid,cell:isl.cell,
     heightfield:isl.h,water:isl.water,stats:isl.stats,zones:isl.preset.zones,palette:isl.preset.palette,flattenHook:isl.flattenHook,island:isl};
 }
 

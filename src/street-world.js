@@ -42,7 +42,29 @@ export function plotsForStreet(island) {
   });
 }
 export const toWorld = (b,x,z) => ({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
+export function gardenForStreet(cafe){
+  const center=toWorld(cafe,-1,36);
+  return {...center,kind:'garden',id:'harbor-green',yaw:cafe.yaw,c:cafe.c,s:cafe.s,w:6.6,d:6.6,
+    entry:toWorld(cafe,-1,22)};
+}
+export const gardenSeats=[[-1.25,.74,'sit'],[1.25,.74,'sit']];
 export const toRoom = (b,p) => ({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
+// Earliest intersection of the orbit boom with an oriented building. Starting
+// inside is intentional for the occupied room, whose walls already cut away.
+export function cameraClearance(target,eye,building){
+  const a=toRoom(building,target),b=toRoom(building,eye);
+  let enter=0,leave=1;
+  const ranges=[[a.x,b.x,-building.w/2-.14,building.w/2+.14],
+    [a.z,b.z,-building.d/2-.14,building.d/2+.14],
+    [target.y,eye.y,building.y-.7,building.y+building.height]];
+  for(const [start,end,min,max] of ranges){
+    const dir=end-start;
+    if(Math.abs(dir)<.00001){if(start<min||start>max)return 1;continue;}
+    const u=(min-start)/dir,v=(max-start)/dir;
+    enter=Math.max(enter,Math.min(u,v));leave=Math.min(leave,Math.max(u,v));
+  }
+  return enter>0&&enter<=leave?enter:1;
+}
 export const within = (p,q,d) => Math.hypot(p.x-q.x,p.z-q.z) < d;
 const boxHit = (p,x,z,w,d) => Math.abs(p.x-x)<w/2+radius && Math.abs(p.z-z)<d/2+radius;
 export function partitionHit(p,z,travel=0) {

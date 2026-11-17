@@ -1,4 +1,5 @@
 // settlement: seeded, deterministic town/road/plot planner for island-gen heightfields. Pure data out, no drawing.
+import petalwood from './src/petalwood-plan.json' with {type:'json'};
 import {makeTerrain} from './src/terrain.js';
 import {pickSites} from './src/sites.js';
 import {buildRoads} from './src/roads.js';
@@ -14,6 +15,13 @@ export {flattenHeightfield,createFlattenHook,STYLES};
 // island: a generate() result (heightfield, water, size, grid, cell, seaLevel). style: a locale id (default island.presetId).
 export function generateSettlement(island,{seed,style}={}){
   const t0=Date.now(),sd=String(seed??island.seed??'settlement'),S=styleFor(style||island.presetId);
+  // Resident homes and saved multiplayer renovations refer to the issued parcel IDs.
+  if(island.publishedLayout==='petalwood-v1'&&sd===petalwood.seed&&S.id===petalwood.style){
+    const plan=structuredClone(petalwood);
+    plan.layers=planLayers(plan);
+    plan.stats.ms=Date.now()-t0;
+    return plan;
+  }
   const T=makeTerrain(island,{maxHalf:S.maxHalf});
   const sites=pickSites(T,S,sd);
   const {roads,unconnected,stats:rs}=buildRoads(T,sites,S,sd);
@@ -34,19 +42,21 @@ export function generateSettlement(island,{seed,style}={}){
         roadIds:[...new Set(lots.slice(before).map(l=>l.frontageRoadId))]});}
   }
   const outSites=sites.map(s=>({id:s.id,x:r1(s.x),z:r1(s.z),h:r2(s.h),flatFrac:r2(s.flatFrac),flatArea:s.flatArea,coastDist:s.coastDist,riverMouth:s.riverMouth,score:r2(s.score),slopeLevel:s.slopeLevel,landFrac:r2(s.landFrac),radius:S.R}));
-  const flat=pts=>{const o=[];for(const p of pts)o.push(p[0],p[1]);return o;};
   const buildable=lots.filter(l=>l.buildable).length;
   return {
     version:1,seed:sd,style:S.id,size:island.size,seaLevel:island.seaLevel||0,
     params:{slopeLimit:S.slopeLimit,lotW:S.lotW,lotD:S.lotD,type:S.type},
     sites:outSites,roads,blocks,lots,
-    // minimap-ready: flat [x,z,x,z,...] world metres, no drawing in src/
-    layers:{
-      roads:roads.map(r=>({id:r.id,class:r.class,width:r.width,bridge:r.bridge,xz:flat(r.pts)})),
-      plots:lots.map(l=>({id:l.id,buildable:l.buildable,district:l.district,size:l.size,xz:flat(l.poly)})),
-      blocks:blocks.map(b=>({id:b.id,xz:flat(b.poly)})),
-      sites:outSites.map(s=>({id:s.id,x:s.x,z:s.z,radius:s.radius}))},
+    layers:planLayers({roads,lots,blocks,sites:outSites}),
     stats:{sites:sites.length,roads:roads.length,bridges:roads.filter(r=>r.bridge).length,blocks:blocks.length,lots:lots.length,buildable,
       unconnectedSites:unconnected,failedRoutes:rs.failedRoutes,droppedRoadPieces:rs.droppedPieces,relaxedRoutes:rs.relaxedRoutes,ms:Date.now()-t0}};
+}
+function planLayers({roads,lots,blocks,sites}){
+  return {
+    roads:roads.map(r=>({id:r.id,class:r.class,width:r.width,bridge:r.bridge,xz:r.pts.flat()})),
+    plots:lots.map(l=>({id:l.id,buildable:l.buildable,district:l.district,size:l.size,xz:l.poly.flat()})),
+    blocks:blocks.map(b=>({id:b.id,xz:b.poly.flat()})),
+    sites:sites.map(s=>({id:s.id,x:s.x,z:s.z,radius:s.radius}))
+  };
 }
 export const generateTown=generateSettlement;

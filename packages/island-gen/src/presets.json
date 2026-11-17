@@ -787,10 +787,10 @@
   },
   "flatten": null,
   "palette": {
-   "sky": "#ffeadf",
-   "fog": "#f4e2d8",
-   "shallow": "#a0e4d6",
-   "deep": "#4296b0",
+   "sky": "#82b9d5",
+   "fog": "#dfebdf",
+   "shallow": "#66b9b3",
+   "deep": "#377e95",
    "foam": "#ffffff"
   },
   "zones": [
@@ -823,7 +823,7 @@
    },
    {
     "name": "lawn",
-    "color": "#aedcb0",
+    "color": "#98b77c",
     "h": [
      2.4,
      500,
@@ -837,7 +837,7 @@
    },
    {
     "name": "garden pink",
-    "color": "#f4bfd0",
+    "color": "#acc48a",
     "h": [
      3,
      40,
@@ -858,7 +858,7 @@
    },
    {
     "name": "woodland",
-    "color": "#6bb89c",
+    "color": "#759876",
     "h": [
      14,
      500,
@@ -889,7 +889,7 @@
    },
    {
     "name": "rock",
-    "color": "#bdb3c5",
+    "color": "#a5aa9e",
     "slope": [
      0.6,
      9,

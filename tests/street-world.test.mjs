@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultLayout,floorAt,frontAt,legalWall,moveWalker,plotsForStreet,readLayout,toWorld,toRoom,walkable} from '../src/street-world.js';
+import {defaultLayout,floorAt,gardenForStreet,frontAt,legalWall,moveWalker,plotsForStreet,readLayout,toWorld,toRoom,walkable} from '../src/street-world.js';
 import {generate} from '../packages/island-gen/index.js';
 import {createFlattenHook,generateSettlement} from '../packages/settlement/index.js';
 import {pointInPoly} from '../packages/settlement/src/geom.js';
@@ -79,6 +79,11 @@ test('all waterfront front doors can be reached from their shared road on the gr
   const result=generate({seed:'petalwood',preset:'harborTown'}),world=result.island;
   world.plan=generateSettlement(result);result.heightfield.set(createFlattenHook(world.plan)(result));
   const plots=plotsForStreet(world),layout=defaultLayout();assert.equal(plots.length,7);
+  assert.equal(world.plan.lots.length,534);
+  assert.deepEqual(world.plan.lots[107].poly[0],[-138.4,227.5]);
+  const depth=world.waterAt(-190,-54)-world.sample(-190,-54);
+  assert.ok(depth>0&&depth<2,'the graded channel keeps a river bed below the waterline');
+
   for(const p of plots){
     const lot=world.plan.lots.find(l=>l.id===p.id);assert.ok(lot.buildable,p.kind);assert.equal(p.road,plots[0].road);
     for(const x of [-1,1])for(const z of [-1,1]){
@@ -115,4 +120,30 @@ test('the waterfront patrol enters both resized homes and returns to the café',
     if(stops.size===2&&resident.way===3)break;
   }
   assert.deepEqual(stops,new Set([8,14]));assert.equal(resident.way,3);
+});
+
+test('an intervening roof limits the orbit while an open sightline keeps the requested zoom',async()=>{
+  const {cameraClearance}=await import('../src/street-world.js');
+  const house={x:0,z:7,y:0,c:1,s:0,w:4,d:4,height:4.5},at={x:0,y:1.5,z:0};
+  const t=cameraClearance(at,{x:0,y:4,z:14},house);
+  assert.ok(t>.30&&t<.36);
+  assert.equal(cameraClearance(at,{x:9,y:4,z:7},house),1);
+  assert.equal(cameraClearance(at,{x:0,y:18,z:14},house),1);
+  assert.equal(cameraClearance({...at,z:7},{x:0,y:4,z:14},house),1);
+});
+
+test('the garden pavilion reserves each bench and releases it when a visitor stands',()=>{
+  const s=Object.create(StreetSession.prototype);
+  s.plots=[b];s.garden=gardenForStreet({...b,yaw:.7});s.actors=new Map();
+  for(const [id,x] of [['one',-1.25],['two',1.25],['three',-1.25]]){
+    s.actors.set(id,{id,...toWorld(s.garden,x,.11)});
+    s.interact(id);
+  }
+  assert.equal(s.actors.get('one').activity,'sit');
+  assert.equal(s.actors.get('two').activity,'sit');
+  assert.equal(s.actors.get('three').activity,undefined);
+  s.interact('one');
+  Object.assign(s.actors.get('one'),toWorld(s.garden,-1.25,-2));
+  s.interact('three');
+  assert.equal(s.actors.get('three').activity,'sit');
 });

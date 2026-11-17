@@ -1,6 +1,6 @@
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
-import {defaultLayout,frontAt,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
+import {defaultLayout,gardenForStreet,gardenSeats,frontAt,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const zero={x:0,z:0};
@@ -27,7 +27,7 @@ function transports(){
 }
 export class StreetSession {
   constructor(island,plots,notice,town){
-    this.island=island;this.plots=plots;this.cafe=plots.find(b=>b.cafe);this.notice=notice;this.town=town;
+    this.island=island;this.plots=plots;this.cafe=plots.find(b=>b.cafe);this.notice=notice;this.town=town;this.garden=gardenForStreet(this.cafe);
     this.id=crypto.randomUUID();this.boot=crypto.randomUUID();this.actors=new Map();this.controls=new Map();this.peers=new Map();
     this.roomList=new Map();this.connections=[];this.directory=[];this.connecting=null;this.discovery=null;
     this.layout=defaultLayout();this.time=0;this.seq=0;this.lastFrame=0;this.lastSent=0;this.connected=false;this.ready=false;this.listed=false;
@@ -124,12 +124,13 @@ export class StreetSession {
     if(b.kind==='club')this.layout.club=state;
     this.layout.revision++;this.persist();this.notice(next===goal?'Wall and doorway moved.':'Wall stopped at its safe limit.');return true;
   }
-  near(actor){return this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4});}
+  near(actor){return this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
+    (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined);}
   station(actor,b){
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
     const seats={
-      club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
+      garden:gardenSeats,club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
       restaurant:[[-1.65,.57,'dine'],[1.65,.57,'dine'],[-1.65,-1.17,'dine'],[1.65,-1.17,'dine']],
       gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
       house:[[1.38,-.14,'sit']],cottage:[[1.38,-.14,'sit']]

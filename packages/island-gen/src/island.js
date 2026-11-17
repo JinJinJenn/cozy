@@ -206,7 +206,15 @@ export function createIsland(seedValue='petalwood',presetId='meadowCove',opts={}
     for(let j=0;j<N;j++)for(let i=0;i<N;i++){
       const x=-half+i*cell,z=-half+j*cell,d=Math.hypot((x-pl.x)/pl.rx,(z-pl.z)/pl.rz);
       const w=1-smooth(1,1+pl.soft,d);
-      if(w>0&&h[j*N+i]>-1.5) h[j*N+i]=lerp(h[j*N+i],pl.level,w*(pl.amount??1));
+      const k=j*N+i;
+      if(w<=0||h[k]<=-1.5)continue;
+      const weight=w*(pl.amount??1);
+      if(water[k]>0){
+        // Move the channel and its water together when grading a buildable shelf.
+        const surface=lerp(water[k],pl.level,weight);
+        h[k]+=surface-water[k];
+        water[k]=surface;
+      }else h[k]=lerp(h[k],pl.level,weight);
     }
   }
   for(let pass=0;pass<2;pass++){

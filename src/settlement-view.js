@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { contextFromPlan } from '../packages/sim/src/context.js';
 import { NoUsableHomesError, Simulation } from '../packages/sim/src/simulation.js';
 
-const roadFill = { main: '#a99990', street: '#beb0a1', path: '#d3b995' };
-const lotTint = { centre: '#f2c9a8', waterfront: '#a6d3cb', residential: '#d4e5b3', outskirts: '#c9c898' };
+const roadFill = { main: '#777c80', street: '#8d9092', path: '#c8b08a' };
 const coats = ['#e46b66', '#428ca4', '#dfaa43', '#7967a4', '#559784', '#c15a81', '#536da1', '#c77b4b'];
 
 function trace(ctx, xz, close = false) {
@@ -33,24 +32,14 @@ function paintPlan(plan, maxTextureSize) {
   ctx.scale(canvas.width / extent.x, canvas.height / extent.y);
   ctx.translate(-bounds.min.x, -bounds.min.y);
   ctx.lineJoin = ctx.lineCap = 'round';
-  for (const plot of plots) {
-    trace(ctx, plot.xz, true);
-    ctx.fillStyle = lotTint[plot.district] || lotTint.residential;
-    ctx.globalAlpha = plot.buildable ? 0.15 : 0.06;
-    ctx.fill();
-    ctx.globalAlpha = plot.buildable ? 0.8 : 0.45;
-    ctx.strokeStyle = plot.buildable ? '#f8eacb' : '#8d826d';
-    ctx.lineWidth = 0.6;
-    ctx.setLineDash(plot.buildable ? [] : [1.2, 1.2]);
-    ctx.stroke();
-  }
-  ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
-  for (const edge of [true, false]) {
-    for (const road of roads) {
-      trace(ctx, road.xz);
-      ctx.lineWidth = road.width + (edge ? 0.8 : 0);
-      ctx.strokeStyle = edge ? '#978a7d' : roadFill[road.class];
+  // Paint all footways before the carriageways so junction mouths stay open.
+  for(const layer of ['verge','footway','kerb','carriageway']){
+    for(const road of roads){
+      if(road.bridge||road.class==='path'&&layer!=='carriageway')continue;
+      const extra={verge:3.25,footway:2.85,kerb:.42,carriageway:0}[layer];
+      trace(ctx,road.xz);
+      ctx.lineWidth=road.width+extra;
+      ctx.strokeStyle={verge:'#a69e8a',footway:'#d7c9ad',kerb:'#e5d9c3',carriageway:roadFill[road.class]}[layer];
       ctx.stroke();
     }
   }
@@ -123,7 +112,7 @@ export class SettlementView {
     this.decal = paintPlan(plan, Math.min(4096, capabilities.maxTextureSize));
     const { map, bounds, extent } = this.decal;
     map.anisotropy = Math.min(8, capabilities.getMaxAnisotropy());
-    this.terrainMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, fog: true });
+    this.terrainMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, fog: true });
     this.terrainMaterial.onBeforeCompile = shader => {
       shader.uniforms.townMap = { value: map };
       shader.uniforms.townRect = { value: new THREE.Vector4(bounds.min.x, bounds.min.y, extent.x, extent.y) };
@@ -136,10 +125,16 @@ export class SettlementView {
         diffuseColor.rgb = mix(diffuseColor.rgb, street.rgb * light, street.a);`);
     };
     this.group = new THREE.Group();
-    this.group.add(new THREE.HemisphereLight('#fff7e5', '#c2a79a', 1.75));
-    const sun = new THREE.DirectionalLight('#fff1d7', 1.55);
-    sun.position.set(-0.45, 0.72, 0.5);
-    this.group.add(sun);
+    this.group.add(new THREE.HemisphereLight('#ffeedc', '#b5adb2', 1.52));
+    const sun=this.sun=new THREE.DirectionalLight('#fff0ce',2.45);
+    sun.position.set(46,63,-32);
+    sun.castShadow=true;
+    sun.shadow.mapSize.set(1024,1024);
+    Object.assign(sun.shadow.camera,{left:-29,right:29,top:29,bottom:-29,near:1,far:150});
+    sun.shadow.camera.updateProjectionMatrix();
+    sun.shadow.bias=-.00035;sun.shadow.normalBias=.032;sun.shadow.intensity=.68;
+    sun.shadow.autoUpdate=false;
+    this.group.add(sun,sun.target);
     this.decks = bridgeDecks(island, plan.roads);
     this.group.add(this.decks.mesh);
     const ctx = contextFromPlan({ seed: island.seed, presetId: island.presetId, island }, plan);
@@ -193,6 +188,10 @@ export class SettlementView {
   drawMap(ctx, size) {
     const { bounds, extent, canvas } = this.decal;
     const scale = ctx.canvas.width / size;
+    ctx.save();ctx.translate(ctx.canvas.width/2,ctx.canvas.height/2);ctx.scale(scale,scale);
+    ctx.lineWidth=.42/scale;ctx.strokeStyle='rgba(93,109,88,.5)';
+    for(const plot of this.island.plan.layers.plots){trace(ctx,plot.xz,true);ctx.stroke();}
+    ctx.restore();
     ctx.drawImage(canvas, (bounds.min.x + size / 2) * scale, (bounds.min.y + size / 2) * scale, extent.x * scale, extent.y * scale);
   }
   dispose() {
@@ -200,6 +199,7 @@ export class SettlementView {
       obj.geometry?.dispose();
       obj.material?.dispose();
     });
+    this.sun.shadow.dispose();
     this.terrainMaterial.dispose();
     this.decal.map.dispose();
   }

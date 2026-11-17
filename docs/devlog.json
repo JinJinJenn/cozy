@@ -2,6 +2,24 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 10,
+   "date": "2026-11-16",
+   "slug": "harbor-green",
+   "milestone": "M10 island neighborhood",
+   "title": "Across the street from Jenn’s Café",
+   "text": [
+    "Walk from the café terrace to Harbor Green. A crossing lines up with the garden gate, a gravel loop circles the bandstand, and two players can sit on separate benches. A marked sand path beside the gym leads down to the bay.",
+    "Walk around the housing blocks to see porches, projecting wings, shingled roofs, rear windows and paths from front doors to the road. These surrounding houses have solid exteriors. The seven furnished waterfront buildings keep their interiors and activities.",
+    "The harbor shelf now grades the river surface with its bed. The published street and parcel plan is saved with the game so existing homes keep their addresses."
+   ],
+   "stills": [
+    {"file":"shots/2026-11-16/harbor-gardens-street.jpg","caption":"The café entrance and terrace from the starting camera."},
+    {"file":"shots/2026-11-16/harbor-gardens-green.jpg","caption":"The garden gate on the walk from the café to the pavilion."},
+    {"file":"shots/2026-11-16/harbor-gardens-homes.jpg","caption":"Porches and front paths in the residential blocks inland."},
+    {"file":"shots/2026-11-16/harbor-gardens-district.jpg","caption":"The waterfront, public garden and residential streets occupy the same coast."}
+   ]
+  },
+  {
    "n": 9,
    "date": "2026-11-16",
    "slug": "occupied-front-corners",

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
-import {floorAt,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
+import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
 import {StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
 
 const $=id=>document.getElementById(id);
-const names={cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
+const names={garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
 const directions=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 export class Street {
   constructor(island,scene,camera,controls,town){
@@ -18,7 +18,8 @@ export class Street {
     $('build-lot').replaceChildren(...this.editable.map(b=>new Option(places[b.kind][0],b.id)));
     this.ray=new THREE.Raycaster();this.plane=new THREE.Plane(new THREE.Vector3(0,1,0));
     this.point=new THREE.Vector3();
-    $('destination').replaceChildren(new Option('Choose a place',''),...this.plots.map(b=>new Option(places[b.kind][0],b.kind)));
+    this.destinations=[...this.plots,gardenForStreet(this.cafe)];
+    $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(places[b.kind][0],b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
@@ -49,7 +50,7 @@ export class Street {
     listen(window,'keyup',e=>this.keys.delete(e.code));listen(window,'blur',()=>this.clearInput());
     listen($('use-place'),'click',()=>this.use());
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
-    listen($('destination'),'change',()=>{this.destination=this.plots.find(b=>b.kind===$('destination').value);this.nextUI=0;});
+    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);this.nextUI=0;});
     listen($('build-open'),'click',()=>{
       const open=$('build-pane').hidden;this.closePanels();
       if(!open||!this.session?.owner||!this.session.ready)return;
@@ -174,10 +175,10 @@ export class Street {
     document.body.classList.add('in-street');$('street-panel').hidden=false;$('street-note').textContent='';
     $('build-open').hidden=!this.session.owner;$('owner-room').hidden=!this.session.owner;$('invite-url').hidden=true;
     const p=this.session.actors.get(this.session.id)||this.session.spawn;
-    const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,6.5,12);
+    const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,7.7,7.7);
     this.controls.minDistance=2.6;this.controls.maxDistance=45;this.controls.enablePan=false;
     this.camera.near=.13;this.camera.updateProjectionMatrix();
-    this.controls.target.set(p.x,y+1.1,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+5.9,p.z+off.z-this.cafe.z);
+    this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+4.1,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
   deactivate(){if(!this.active)return;this.active=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
@@ -191,6 +192,21 @@ export class Street {
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
     this.session.keys={x:(forward*dx-side*dz)/n,z:(forward*dz+side*dx)/n};
+  }
+  cameraFraction(){
+    if(!this.active||this.buildLot)return 1;
+    const eye=this.camera.position,at=this.controls.target;
+    let limit=1;
+    for(const b of this.plots){
+      const offset=hasEditableFront(b)?wallState(this.session.layout,b).wall:0;
+      const center=toWorld(b,0,offset/2);
+      limit=Math.min(limit,cameraClearance(at,eye,{...b,...center,d:b.d+offset,height:b.cafe?5.42:4.82}));
+    }
+    const x0=Math.floor(Math.min(at.x,eye.x)/32),x1=Math.floor(Math.max(at.x,eye.x)/32);
+    const z0=Math.floor(Math.min(at.z,eye.z)/32),z1=Math.floor(Math.max(at.z,eye.z)/32);
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++)
+      for(const b of this.island.footprintCells.get(x+','+z)||[])limit=Math.min(limit,cameraClearance(at,eye,b));
+    return limit<1?Math.max(.02,limit-.16/Math.max(1,at.distanceTo(eye))):1;
   }
   render(){
     const s=this.session;if(!s||!this.active)return;
@@ -209,8 +225,8 @@ export class Street {
     const m=this.meshes.get(s.id),target=this.controls.target;
     if(this.buildLot)this.positionGrip();
     else{
-      this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.1-target.y;this.camera.position.z+=m.position.z-target.z;
-      target.set(m.position.x,m.position.y+1.1,m.position.z);
+      this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.48-target.y;this.camera.position.z+=m.position.z-target.z;
+      target.set(m.position.x,m.position.y+1.48,m.position.z);
     }
     this.art.update(local,s.layout,this.camera.position,this.buildLot?.id);
     this.art.updateMeters(s.time,s.actors.values());
@@ -220,7 +236,7 @@ export class Street {
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
     $('walk-hint').textContent=this.buildLot?'Drag the wall handle, or set an offset below.':'WASD to walk · Drag to orbit · E to interact';
     const waypoint=$('waypoint');waypoint.hidden=!this.destination;
-    if(this.destination){const b=this.destination,p=toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
+    if(this.destination){const b=this.destination,p=b.entry??toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
       const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
       $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=places[b.kind][0]+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
