@@ -78,10 +78,6 @@ let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
 let town=null, street=null, captureTime=0;
 let streamRadius=4200;
 
-function lodFor(d){
-  if(street?.active)return d<85?33:d<185?17:d<335?9:5;
-  return d<260?33:d<620?17:d<1300?9:5;
-}
 function chunkKey(cx,cz){return cx+','+cz;}
 function disposeChunk(c){group.remove(c.terrain);c.terrain.geometry.dispose();if(c.water){group.remove(c.water);c.water.geometry.dispose();}}
 function makeMesh(data,isWater){
@@ -109,7 +105,7 @@ function wanted(){
     const mx=(cx+.5)*S,mz=(cz+.5)*S;
     const d=Math.min(Math.hypot(mx-tx,mz-tz),Math.hypot(mx-cp.x,mz-cp.z)*.9);
     if(d>streamRadius) continue;
-    list.push({cx,cz,d,res:lodFor(d)});
+    list.push({cx,cz,d});
   }
   list.sort((a,b)=>a.d-b.d);
   return list;
@@ -117,23 +113,24 @@ function wanted(){
 const inflight=new Set();let loadGen=0;
 function updateChunks(budget=6){
   const want=wanted(),keep=new Set();
+  // Every visible tile samples at least once per source heightfield cell.
+  // Orbiting, walking and switching modes never exchange its mesh for a coarser one.
+  const res=Math.ceil(island.chunkSize/island.cell)+1, waterRes=2*(res-1)+1;
   let pending=0;
   for(const w of want){
     const k=chunkKey(w.cx,w.cz);keep.add(k);
-    const cur=chunkMap.get(k);
-    const waterRes=street?.active?w.res:(w.res>=9?65:49);
-    if(cur&&cur.res===w.res&&cur.waterRes===waterRes) continue;
-    const fk=loadGen+'|'+k+'|'+w.res+'|'+waterRes;
+    if(chunkMap.has(k))continue;
+    const fk=loadGen+'|'+k;
     if(inflight.has(fk)) continue;
     if(inflight.size>=budget){pending++;continue;}
     inflight.add(fk);const myGen=loadGen;
-    client.chunk(w.cx,w.cz,w.res,waterRes).then(r=>{
+    client.chunk(w.cx,w.cz,res,waterRes).then(r=>{
       inflight.delete(fk);
       if(!r||myGen!==loadGen) return;
       const old=chunkMap.get(k);if(old) disposeChunk(old);
       const tm=makeMesh(r.terrain,false);group.add(tm);
       let wm=null;if(r.water){wm=makeMesh(r.water,true);group.add(wm);}
-      chunkMap.set(k,{terrain:tm,water:wm,res:w.res,waterRes});
+      chunkMap.set(k,{terrain:tm,water:wm});
     }).catch(err=>{inflight.delete(fk);console.error(err);});
   }
   for(const [k,c] of chunkMap) if(!keep.has(k)){disposeChunk(c);chunkMap.delete(k);}
@@ -177,6 +174,7 @@ function streetLighting(){
 }
 const orbitEye=new THREE.Vector3();
 function renderScene(){
+  town?.posePeople(performance.now());
   const fraction=street?.cameraFraction()??1;
   orbitEye.copy(camera.position);
   camera.position.lerp(controls.target,1-fraction);
@@ -201,6 +199,10 @@ function setView(name,opts={}){
   let tgt,pos;
   if(name==='top'){
     tgt=new THREE.Vector3(0,0,0);pos=tgt.clone().add(new THREE.Vector3(.001,island.size*1.05,.001));
+  }else if(name==='centre'&&island.townSquare){
+    const b=island.townSquare;
+    tgt=new THREE.Vector3(b.x,b.y+1,b.z);
+    pos=tgt.clone().add(dir(opts.az??b.yaw+.66,opts.elev??.90).multiplyScalar(opts.dist??112));
   }else if(name==='town'){
     tgt=town.focus();
     pos=tgt.clone().add(dir(opts.az??.74,opts.elev??.52).multiplyScalar(opts.dist??48));
@@ -249,6 +251,7 @@ async function load(presetId,seed,view='oblique',viewOpts){
     island.deckHeight=town.decks.heightAt;
     scene.add(town.group);
     street=new Street(island,scene,camera,controls,town);
+    $('centre-view').hidden=!island.townSquare;
     captureTime=0;
     const tGen=performance.now()-t0;
     applyPalette(island.preset.palette);buildOcean(island.half);

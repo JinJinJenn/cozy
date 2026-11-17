@@ -100,8 +100,8 @@ export function gardenTree(a,variant,scale){
     const y=(i===4?4.05:3.03+.34*(i%2))*s;
     const limb=a.frame(0,0,0,-ang);
     limb.put(branch,.46*s,2.38*s,0,.17*s,1.68*s,.17*s,'#876849',0,-.56);
-    a.ball(x,y,z,2.18*s,1.71*s,2.11*s,colors[i%3],ang);
-    a.ball(x+.24*s,y+.39*s,z+.21*s,1.50*s,1.23*s,1.50*s,colors[2+i%2],ang+.4);
+    a.leaves(x,y,z,2.18*s,1.71*s,2.11*s,colors[i%3],ang);
+    a.leaves(x+.24*s,y+.39*s,z+.21*s,1.50*s,1.23*s,1.50*s,colors[2+i%2],ang+.4);
   }
 }
 const branch=new THREE.CylinderGeometry(.39,.51,1,7);

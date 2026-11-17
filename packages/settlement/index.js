@@ -9,6 +9,8 @@ import {flattenHeightfield,createFlattenHook} from './src/flatten.js';
 import {styleFor,STYLES} from './src/styles.js';
 import {rngFor} from './src/rng.js';
 import {r1,r2,polyArea} from './src/geom.js';
+import {planCivicCentre} from './src/civic.js';
+import {finishStreetEnds,addCountryLanes} from './src/street-ends.js';
 export {flattenHeightfield,createFlattenHook,STYLES};
 
 // generateSettlement(island, {seed, style}) -> plain JSON-able plan.
@@ -18,6 +20,9 @@ export function generateSettlement(island,{seed,style}={}){
   // Resident homes and saved multiplayer renovations refer to the issued parcel IDs.
   if(island.publishedLayout==='petalwood-v1'&&sd===petalwood.seed&&S.id===petalwood.style){
     const plan=structuredClone(petalwood);
+    finishStreetEnds(plan);
+    addCountryLanes(plan,makeTerrain(island,{maxHalf:S.maxHalf}));
+    plan.civic=planCivicCentre(plan,['l102','l104','l105','l106','l107','l108','l109']);
     plan.layers=planLayers(plan);
     plan.stats.ms=Date.now()-t0;
     return plan;
@@ -43,13 +48,17 @@ export function generateSettlement(island,{seed,style}={}){
   }
   const outSites=sites.map(s=>({id:s.id,x:r1(s.x),z:r1(s.z),h:r2(s.h),flatFrac:r2(s.flatFrac),flatArea:s.flatArea,coastDist:s.coastDist,riverMouth:s.riverMouth,score:r2(s.score),slopeLevel:s.slopeLevel,landFrac:r2(s.landFrac),radius:S.R}));
   const buildable=lots.filter(l=>l.buildable).length;
-  return {
+  const plan={
     version:1,seed:sd,style:S.id,size:island.size,seaLevel:island.seaLevel||0,
     params:{slopeLimit:S.slopeLimit,lotW:S.lotW,lotD:S.lotD,type:S.type},
     sites:outSites,roads,blocks,lots,
-    layers:planLayers({roads,lots,blocks,sites:outSites}),
     stats:{sites:sites.length,roads:roads.length,bridges:roads.filter(r=>r.bridge).length,blocks:blocks.length,lots:lots.length,buildable,
       unconnectedSites:unconnected,failedRoutes:rs.failedRoutes,droppedRoadPieces:rs.droppedPieces,relaxedRoutes:rs.relaxedRoutes,ms:Date.now()-t0}};
+  plan.civic=planCivicCentre(plan);
+  finishStreetEnds(plan);
+  addCountryLanes(plan,T);
+  plan.layers=planLayers(plan);
+  return plan;
 }
 function planLayers({roads,lots,blocks,sites}){
   return {

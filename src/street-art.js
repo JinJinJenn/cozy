@@ -2,13 +2,16 @@ import * as THREE from 'three';
 import {distSeg,polyCentroid,pointInPoly} from '../packages/settlement/src/geom.js';
 import {toWorld,toRoom,isHome,hasEditableFront,frontAt,sideAt,wallState} from './street-world.js';
 import {Pieces,box,roof,helper} from './street-pieces.js';
-import {beachLane,harborGreen,plantWoodlands} from './harbor-garden.js';
+import {buildCentre,marketFront} from './town-centre.js';
+import {beachLane,furnishRoads,harborGreen,plantWoodlands} from './harbor-garden.js';
 import {coastalHouse,harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {scoreStep,noteAtStep} from './street-music.js';
 
 const clay='#bf6251', wood='#986647', cream='#fff1d3', dark='#334747', glass='#91c9c8', pine='#476b50';
 export const places={
+  square:['Town Square'],
+  wayside:['Roadside bench'],
   garden:['Harbor Green'],
   terrace:['Café Terrace'],
   cottage:['Peach Cottage','#edbc96','#ad6556'],house:['Bluebell House','#acc5d4','#596a81'],
@@ -343,53 +346,6 @@ function partition(){
 }
 // Share each sampled cross-section between adjacent segments, including bends.
 // Subdivide across the road so its surface follows the graded elevation on both sides.
-function promenade(island,road,plots){
-  const rows=[],points=road.pts;
-  let distance=0;
-  for(let k=1;k<points.length;k++){
-    const [x,z]=points[k-1],[ex,ez]=points[k],length=Math.hypot(ex-x,ez-z),n=Math.ceil(length/.75);
-    for(let j=0;j<n;j++)rows.push({x:x+(ex-x)*j/n,z:z+(ez-z)*j/n,d:distance+length*j/n});
-    distance+=length;
-  }
-  rows.push({x:points.at(-1)[0],z:points.at(-1)[1],d:distance});
-  for(const [i,r] of rows.entries()){
-    const a=rows[Math.max(0,i-1)],b=rows[Math.min(rows.length-1,i+1)],len=Math.hypot(b.x-a.x,b.z-a.z);
-    r.nx=-(b.z-a.z)/len;r.nz=(b.x-a.x)/len;
-  }
-  const positions=[],colors=[];
-  function vertex(r,offset,lift,color){
-    const x=r.x+r.nx*offset,z=r.z+r.nz*offset;
-    positions.push(x,island.sample(x,z)+lift,z);colors.push(color.r,color.g,color.b);
-  }
-  const half=road.width/2;
-  const bands=[
-    [-half-2,-half-.15,.19,.19,'#d7c8b6'],[-half-.15,-half,.19,.19,'#e8d9c9'],[-half,-half,.19,.08,'#ac9a88'],
-    [-half,-half/2,.08,.08,'#86817d'],[-half/2,-.075,.08,.08,'#86817d'],[-.075,.075,.08,.08,'#86817d'],
-    [.075,half/2,.08,.08,'#86817d'],[half/2,half,.08,.08,'#86817d'],[half,half,.08,.19,'#ac9a88'],
-    [half,half+.15,.19,.19,'#e8d9c9'],[half+.15,half+2,.19,.19,'#d7c8b6']];
-  const cafe=plots.find(b=>b.cafe),gate=toWorld(cafe,-1,cafe.d/2+2);
-  const crossing=rows.reduce((a,b)=>Math.hypot(a.x-gate.x,a.z-gate.z)<Math.hypot(b.x-gate.x,b.z-gate.z)?a:b);
-  const crossBands=bands.filter(([lo,hi])=>hi<=-half||lo>=half);
-  let edge=-half;
-  for(let left=-half+.45;left<half-.45;left+=.89){
-    const right=Math.min(half,left+.43);
-    crossBands.push([edge,left,.08,.08,'#86817d'],[left,right,.08,.08,'#e2ddca']);
-    edge=right;
-  }
-  crossBands.push([edge,half,.08,.08,'#86817d']);
-  for(let i=1;i<rows.length;i++){
-    const a=rows[i-1],b=rows[i];
-    if(!plots.some(p=>Math.hypot(a.x-p.x,a.z-p.z)<32))continue;
-    for(const [left,right,h1,h2,base] of (Math.abs((a.d+b.d)/2-crossing.d)<1.23?crossBands:bands)){
-      const color=new THREE.Color(left===-.075&&Math.floor(a.d/3)%2===0?'#ead8a1':base);
-      for(const [r,o,h] of [[a,left,h1],[b,left,h1],[a,right,h2],[a,right,h2],[b,left,h1],[b,right,h2]])vertex(r,o,h,color);
-    }
-  }
-  const geom=new THREE.BufferGeometry();geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geom.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geom.computeVertexNormals();
-  const street=new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
-  street.receiveShadow=true;return street;
-}
 function terracePaving(cafe,island){
   const positions=[],colors=[];
   function quad(x0,z0,x1,z1,shade,height){
@@ -458,8 +414,6 @@ export function streetArt(island,plots,scene) {
   const lanterns=new THREE.Group();houses[plots.indexOf(cafe)].g.add(lanterns);const L=new Pieces(lanterns);
   for(const x of [-2.6,0,2.6])L.ball(x,2.38,cafe.d/2+.8,.28,.3,.28,'#ffe39a');L.finish();
   const street=new Pieces(g),frontTrees=[];
-  const road=island.plan.roads.find(r=>r.id===cafe.road);
-  if(road)g.add(promenade(island,road,plots));
   for(const b of plots){
     for(const [side,depth] of [[-b.w/2-1.42,.7],[b.w/2+(b.kind==='house'?3.1:1.44),-2.1]]){const p=toWorld(b,side,depth),y=island.sample(p.x,p.z);
       const tree=new THREE.Group();g.add(tree);
@@ -554,7 +508,7 @@ export function streetArt(island,plots,scene) {
 }
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 
-export function avatar(color,skin='#d9a779'){
+export function avatar(color,skin='#d9a779',hair='#62423f'){
   const g=new THREE.Group(),torso=new THREE.Group(),standing=new THREE.Group(),sitting=new THREE.Group();
   const restingArms=new THREE.Group(),hands=[],limbs=[];
   const a=new Pieces(torso),seated=new Pieces(sitting),arms=new Pieces(restingArms);
@@ -586,11 +540,10 @@ export function avatar(color,skin='#d9a779'){
   a.round(0,.68,0,.497,.065,.358,'#985a55');
   a.round(0,1.29,.009,.193,.16,.193,skin);
   a.ball(0,1.51,.012,.44,.49,.416,skin);
-  const hair='#62423f';
   a.ball(0,1.644,-.026,.476,.266,.438,hair);
   a.ball(0,1.496,-.123,.456,.391,.29,hair);
-  a.ball(.047,1.456,-.262,.259,.288,.255,'#62403b');
-  a.ball(.083,1.337,-.30,.188,.208,.177,'#734c42');
+  a.ball(.047,1.456,-.262,.259,.288,.255,hair);
+  a.ball(.083,1.337,-.30,.188,.208,.177,hair);
   a.round(0,1.24,0,.276,.11,.238,'#eed5af');
   for(const side of [-1,1]){
     a.ball(side*.202,1.48,.019,.085,.132,.10,skin);
@@ -653,10 +606,11 @@ export function avatar(color,skin='#d9a779'){
 }
 
 export function townExteriors(island,detail,scene){
-  const parent=new THREE.Group(),blocks=new Map(),skip=new Set(detail.map(b=>b.id)),footprints=[];
+  const parent=new THREE.Group(),blocks=new Map(),skip=new Set(detail.map(b=>b.id)),footprints=[],frontPaths=[];
   const roadsById=new Map(island.plan.roads.map(r=>[r.id,r]));
+  footprints.push(...buildCentre(island,parent));
   for(const [i,l] of island.plan.lots.entries()){
-    if(!l.buildable||skip.has(l.id)||i%7===3)continue;
+    if(!l.buildable||skip.has(l.id)||l.use==='square'||l.use==='hall')continue;
     const [x,z]=polyCentroid(l.poly),yaw=Math.PI/2-l.facing;
     const b={x,z,c:Math.cos(yaw),s:Math.sin(yaw)};
     let w=Math.min(11,Math.sqrt(l.area)*.72),d=w*.84;
@@ -666,7 +620,17 @@ export function townExteriors(island,detail,scene){
     if(!blocks.has(key))blocks.set(key,new Pieces(parent));
     const y=island.sample(x,z),a=blocks.get(key).frame(x,y,z,yaw);
     const random=rng(island.seed+':house:'+l.id);
-    const house=coastalHouse(a,w,d,l.district,random);
+    if(l.use==='orchard'){
+      for(const row of [-1,0,1])for(const col of [-1,1]){
+        const p=toWorld(b,col*w*.30,row*d*.43);
+        if(!pointInPoly(p.x,p.z,l.poly))continue;
+        const ground=island.sample(p.x,p.z),bed=blocks.get(key).frame(p.x,ground,p.z,yaw);
+        bed.round(0,.038,0,1.52,.088,1.51,'#967c5e');
+        gardenTree(bed,(i+row+3)%3,.72+random()*.24);
+      }
+      continue;
+    }
+    const house=l.use==='shop'?marketFront(a,w,d,random):coastalHouse(a,w,d,l.district,random);
     for(const part of house.parts){
       const center=toWorld(b,part.x,part.z);
       footprints.push({...b,...center,y,w:part.w,d:part.d,height:part.height});
@@ -678,6 +642,7 @@ export function townExteriors(island,detail,scene){
       if(!nearest||hit.d<nearest.d)nearest=hit;
     }
     if(nearest&&nearest.d>road.width/2&&nearest.d<24){
+      frontPaths.push([door,nearest]);
       const length=nearest.d-road.width/2,dx=(nearest.x-door.x)/nearest.d,dz=(nearest.z-door.z)/nearest.d;
       const count=Math.ceil(length/.85),slab=length/count,angle=Math.atan2(dx,dz);
       for(let j=0;j<count;j++){
@@ -698,12 +663,36 @@ export function townExteriors(island,detail,scene){
     if(random()<.63&&pointInPoly(yard.x,yard.z,l.poly)){
       gardenTree(blocks.get(key).frame(yard.x,island.sample(yard.x,yard.z),yard.z,yaw),i%4,.74+random()*.48);
     }
+    if(l.use!=='shop'){
+      // Run a hedge or timber fence along the actual rear parcel edge.
+      const back=toWorld(b,0,-d);
+      const edges=l.poly.map((p,i)=>[p,l.poly[(i+1)%l.poly.length]]);
+      edges.sort(([p,q],[r,s])=>distSeg(back.x,back.z,...p,...q).d-distSeg(back.x,back.z,...r,...s).d);
+      const [p,q]=edges[0],dx=q[0]-p[0],dz=q[1]-p[1],span=Math.hypot(dx,dz)*.78;
+      if(span>3){
+        const mx=(p[0]+q[0])*.47+x*.06,mz=(p[1]+q[1])*.47+z*.06,angle=Math.atan2(-dz,dx);
+        const hedge=random()<.61,count=Math.ceil(span/1.6);
+        for(let j=0;j<count;j++){
+          const k=((j+.5)/count-.5)*.78,px=mx+dx*k,pz=mz+dz*k,py=island.sample(px,pz);
+          const f=blocks.get(key).frame(px,py,pz,angle),step=span/count;
+          if(hedge){
+            f.box(0,.47,0,step+.09,.85,.65,'#607b50');
+            f.leaves(0,.84,0,step+.31,.59,.84,'#75915c');
+          }else{
+            for(const level of [.35,.69])f.box(0,level,0,step+.05,.13,.10,'#a18868');
+            f.box(-step*.48,.46,0,.14,.91,.14,'#816f59');
+          }
+          footprints.push({x:px,z:pz,y:py,c:Math.cos(angle),s:Math.sin(angle),w:step,d:hedge?.66:.13,height:hedge?1.1:.91});
+        }
+      }
+    }
   }
   plantWoodlands(island,detail,blocks,parent);
+  const fixtures=furnishRoads(island,detail,blocks,parent,footprints,frontPaths);
   for(const block of blocks.values())block.finish();
   scene.add(parent);island.streetFootprints=footprints;
   island.footprintCells=new Map();
-  for(const b of footprints){const reach=Math.hypot(b.w,b.d)/2+1;
+  for(const b of [...footprints,...fixtures]){const reach=Math.hypot(b.w,b.d)/2+1;
     for(let x=Math.floor((b.x-reach)/32);x<=Math.floor((b.x+reach)/32);x++)
       for(let z=Math.floor((b.z-reach)/32);z<=Math.floor((b.z+reach)/32);z++){
         const k=x+','+z;if(!island.footprintCells.has(k))island.footprintCells.set(k,[]);island.footprintCells.get(k).push(b);

@@ -18,7 +18,7 @@ try {
   const errors = [];
   page.on('pageerror', err => errors.push(err.message));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
-  const origin = 'http://cozy.test/cozy/';
+  const origin = 'https://cozy.test/cozy/';
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css':'text/css' };
   await page.context().route('**/*', async route => {
     const url = route.request().url();
@@ -36,6 +36,66 @@ try {
   await page.goto(origin + '?shot=1&preset=harborTown&seed=petalwood&view=town');
   await ready();
   const initial = await info();
+  if(process.argv.includes('--seed-shot')){
+    await page.goto(origin+'?shot=1&preset=harborTown&seed=willow-bay&view=centre');
+    await ready();
+    const counts=await page.evaluate(async()=>{
+      const c=window.__cozy;
+      c.setView('centre',{dist:249,elev:.83});await c.flushChunks();c.render(4);
+      return {square:c.island.plan.civic.square.id,lanes:c.island.plan.roads.filter(r=>r.id.startsWith('lane-')).length};
+    });
+    assert.ok(counts.square&&counts.lanes>0);assert.deepEqual(errors,[]);
+    await page.screenshot({path:path.join(root,'docs/shots/2026-11-17/willow-bay.jpg'),quality:89});
+    console.log('PASS new Harbor Town seed',counts);await browser.close();process.exit(0);
+  }
+  if(process.argv.includes('--centre-shot')){
+    await page.goto(origin+'?net=local&view=street');
+    await ready();await page.waitForFunction(()=>window.__cozy.street.session?.ready);
+    await page.locator('#directions-open').click();
+    await page.locator('#destination').selectOption('square');await page.locator('#go-place').click();
+    const result=await page.evaluate(()=>{
+      const c=window.__cozy,s=c.street.session,a=s.actors.get(s.id),b=c.island.townSquare;
+      for(let i=0;i<8000&&a.walking;i++)s.tick(.04);
+      return {distance:Math.hypot(a.x-b.entry.x,a.z-b.entry.z),feedback:a.feedback};
+    });
+    assert.ok(result.distance<.22,JSON.stringify(result));
+    const dir=path.join(root,'docs/shots/2026-11-17');
+    await page.evaluate(async()=>{
+      const c=window.__cozy,s=c.street.session,a=s.actors.get(s.id),b=c.island.townSquare,h=c.island.plan.civic.hall;
+      const dx=h.x-a.x,dz=h.z-a.z,length=Math.hypot(dx,dz),y=c.island.sample(a.x,a.z);
+      await c.setCamera([a.x-dx/length*8-dz/length*2,y+4.2,a.z-dz/length*8+dx/length*2],
+        [a.x+dx/length*5,y+2.8,a.z+dz/length*5]);c.render();
+    });
+    await page.screenshot({path:path.join(dir,'square-walk.jpg'),quality:89});
+    await page.locator('#island-map').click();await page.locator('#centre-view').click();
+    await page.evaluate(async()=>{const c=window.__cozy;document.body.classList.add('shot');await c.flushChunks();c.render(4);});
+    await page.screenshot({path:path.join(dir,'town-square.jpg'),quality:90});
+    await page.evaluate(async()=>{const c=window.__cozy;c.setView('centre',{dist:220,elev:1.05});await c.flushChunks();c.render(4);});
+    await page.screenshot({path:path.join(dir,'civic-district.jpg'),quality:90});
+    assert.deepEqual(errors,[]);console.log('PASS waterfront to town square, district and square cameras',result);
+    await browser.close();process.exit(0);
+  }
+  if(process.argv.includes('--road-shot')){
+    await page.goto(origin+'?shot=1&net=local&view=street');
+    await ready();
+    await page.waitForFunction(()=>window.__cozy.street.session?.ready);
+    const destination={x:-86.1,z:266};
+    const arrived=await page.evaluate(goal=>{
+      const c=window.__cozy,s=c.street.session,a=s.actors.get(s.id);
+      s.command({type:'walk',...goal});
+      for(let i=0;i<1600&&a.walking;i++)s.tick(.04);
+      c.render(2);return {x:a.x,z:a.z,feedback:a.feedback};
+    },destination);
+    assert.ok(Math.hypot(arrived.x-destination.x,arrived.z-destination.z)<.2,JSON.stringify(arrived));
+    await page.evaluate(async()=>{
+      const c=window.__cozy,t=c.controls.target;
+      await c.setCamera([t.x+10,t.y+3.5,t.z+8],[t.x,t.y,t.z]);c.render(2);
+    });
+    const output=process.env.COZY_ROAD_SHOT||path.join(root,'docs/shots/2026-11-17/harbor-road.jpg');
+    await page.screenshot({path:output,quality:89});
+    assert.deepEqual(errors,[]);console.log('PASS walked from the café to the far side of Harbor Green',arrived);
+    await browser.close();process.exit(0);
+  }
   const capture = process.argv.includes('--shots');
   const out = path.join(root, 'docs/shots', new Date().toISOString().slice(0, 10));
   if (capture) await mkdir(out, { recursive: true });

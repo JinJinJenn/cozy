@@ -10,7 +10,7 @@ import {playBluebell} from './playtest-bluebell.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
-  args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-timer-throttling','--mute-audio']});
+  args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
 const origin='https://cozy.test/cozy/',errors=[];
 try{
   const loopback=process.argv.includes('--rtc-loopback');
@@ -35,10 +35,12 @@ try{
   async function visit(url,ctx=context){
     const p=await ctx.newPage();p.on('pageerror',err=>{errors.push(err.message);console.error(err.message);});
     await p.goto(url,{waitUntil:'domcontentloaded',timeout:120000});try{await ready(p);}catch(e){
-      console.error(await p.evaluate(()=>({ready:window.__cozy?.ready,session:window.__cozy?.street?.session?.error,info:document.getElementById('info')?.textContent})));throw e;}
+      console.error(await p.evaluate(()=>({viewer:window.__cozy?.ready,street:!!window.__cozy?.street,
+        session:!!window.__cozy?.street?.session,ready:window.__cozy?.street?.session?.ready,
+        visibility:document.visibilityState,notice:document.getElementById('street-notice')?.textContent})));throw e;}
     return p;
   }
-  function ready(p){return p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});}
+  function ready(p){return p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000,polling:100});}
   const host=await visit(relay?origin:origin+'?net=local');
   async function readPace(diagonal,jog){
     if(jog)await host.keyboard.down('Shift');

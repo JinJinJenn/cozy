@@ -50,10 +50,18 @@ export function buildRoads(T,sites,S,seed){
     if(S.type==='grid'){
       let best=0,bd=1e9;for(let a=0;a<32;a++){const ang=a*Math.PI/16;for(let d=8;d<=220;d+=4){if(T.state(cx+Math.cos(ang)*d,cz+Math.sin(ang)*d)!==0){if(d<bd){bd=d;best=ang;}break;}}}
       const ang=bd<1e9?Math.round(best/(Math.PI/36))*(Math.PI/36):0;
-      for(const axis of [0,1]){const a=ang+axis*Math.PI/2,ux=Math.cos(a),uz=Math.sin(a),vx=-uz,vz=ux,m=Math.floor(R/S.streetSpacing);
+      for(const axis of [0,1]){const m=Math.floor(R/S.streetSpacing);
         for(let q=-m;q<=m;q++){const off=q*S.streetSpacing,L=Math.sqrt(Math.max(0,R*R-off*off));let run=[];
           const flush=()=>{if(run.length>=9){const pts=dpOpen(run,0.4);addPolyline(pts,q===0?'main':S.streetClass,q===0?W.main:W.street);}run=[];};
-          for(let s=-L;s<=L;s+=3){const x=cx+ux*s+vx*off,z=cz+uz*s+vz*off;if(T.state(x,z)===0&&T.slopeAt(x,z)<=0.22)run.push([x,z]);else flush();}
+          // Downtown stays compact. Warp the outer grid in a shared coordinate
+          // system so both street families still meet at the same intersections.
+          for(let s=-L;s<=L;s+=3){
+            const gx=axis===0?s:-off,gz=axis===0?off:s;
+            const t=Math.max(0,Math.min(1,(Math.hypot(gx,gz)/R-.30)/.70)),bend=t*t*(3-2*t);
+            const east=gx+bend*R*.15*Math.sin(gz/R*2.7+ang),north=gz+bend*R*.13*Math.sin(gx/R*2.9-ang);
+            const x=cx+Math.cos(ang)*east-Math.sin(ang)*north,z=cz+Math.sin(ang)*east+Math.cos(ang)*north;
+            if(T.state(x,z)===0&&T.slopeAt(x,z)<=0.22)run.push([x,z]);else flush();
+          }
           flush();}}
     }else{
       const n=S.spokes,base=rng()*Math.PI*2,spokes=[];

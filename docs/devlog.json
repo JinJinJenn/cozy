@@ -2,6 +2,24 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 15,
+   "date": "2026-11-17",
+   "slug": "town-square",
+   "milestone": "M15 Town Square",
+   "title": "From the café to the clock hall",
+   "text": [
+    "Walk inland from the café to a fountain square with paths through the flower beds. Across the street is a brick clock hall. Market shops occupy nearby frontages, and farther out, back fences, orchards and wooded lanes give the residential blocks their own shape.",
+    "Island map → Square shows the district from above. The settlement planner finds the square in the road network of each suitable island. New Harbor Town seeds keep straight downtown blocks and bend their outer streets. On Petalwood, 52 street ends now finish at the junction and one new lane joins two outer streets.",
+    "The curb, sidewalk joints and lane markings follow the same road geometry from the waterfront to the edge of town. Roadside benches have two reservable seats."
+   ],
+   "stills": [
+    {"file":"shots/2026-11-17/civic-district.jpg","caption":"The market frontages and residential gardens around the square on Petalwood."},
+    {"file":"shots/2026-11-17/square-walk.jpg","caption":"The clock hall from the visitor’s arrival point on the square."},
+    {"file":"shots/2026-11-17/willow-bay.jpg","caption":"Willow Bay, a second seed with curved approaches between the coast and the river."},
+    {"file":"shots/2026-11-17/harbor-road.jpg","caption":"The coastal road outside Harbor Green, beyond the former pavement cutoff."}
+   ]
+  },
+  {
    "n": 14,
    "date": "2026-11-17",
    "slug": "bay-kitchen",

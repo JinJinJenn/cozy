@@ -23,7 +23,11 @@ export function flattenHeightfield(island,plan,{shoulder=7,smoothWin=24,pads=tru
   }
   if(pads){
     const bestD=new Float32Array(n).fill(1e9),bestT=new Float32Array(n),ra=shoulder-2;
-    for(const l of plan.lots){if(!l.buildable)continue;const p=l.poly;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const v of p){x0=Math.min(x0,v[0]);x1=Math.max(x1,v[0]);z0=Math.min(z0,v[1]);z1=Math.max(z1,v[1]);}
+    const civicPads=[plan.civic?.square,plan.civic?.hall].filter(Boolean).map(b=>{
+      const c=Math.cos(b.yaw),s=Math.sin(b.yaw),r=b.half;
+      return {buildable:true,poly:[[-r,-r],[r,-r],[r,r],[-r,r]].map(([x,z])=>[b.x+c*x+s*z,b.z-s*x+c*z])};
+    });
+    for(const l of [...plan.lots,...civicPads]){if(!l.buildable||l.use==='square'||l.use==='hall')continue;const p=l.poly;let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const v of p){x0=Math.min(x0,v[0]);x1=Math.max(x1,v[0]);z0=Math.min(z0,v[1]);z1=Math.max(z1,v[1]);}
       // pad height: mean of the ORIGINAL terrain inside the plot
       let s=0,c=0;for(let z=z0;z<=z1;z+=2)for(let x=x0;x<=x1;x+=2)if(pointInPoly(x,z,p)){s+=bil(x,z);c++;}if(!c)continue;const target=s/c;
       const ia=Math.max(0,Math.floor((x0-ra+half)/cell)),ib=Math.min(N-1,Math.ceil((x1+ra+half)/cell)),ja=Math.max(0,Math.floor((z0-ra+half)/cell)),jb=Math.min(N-1,Math.ceil((z1+ra+half)/cell));

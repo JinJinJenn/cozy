@@ -6,6 +6,7 @@ import {pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 
 const cap=new THREE.CylinderGeometry(.20,.51,1,8),rail='#f6e5c3',green='#587e76',wood='#a47a5c';
+const bough=new THREE.ConeGeometry(.5,1,11,2);
 function ribbons(group,island,paths){
   const positions=[],colors=[];
   for(const {points,width} of paths){
@@ -110,7 +111,8 @@ export function plantWoodlands(island,detail,blocks,parent){
         reserve.get(key).push(item);
       }
   }
-  for(const lot of island.plan.lots){
+  const civicIds=new Set([island.plan.civic?.square?.id,island.plan.civic?.hall?.id]);
+  for(const lot of [...island.plan.lots,...island.plan.blocks.filter(b=>civicIds.has(b.id))]){
     const xs=lot.poly.map(p=>p[0]),zs=lot.poly.map(p=>p[1]);
     reserveBox(Math.min(...xs),Math.min(...zs),Math.max(...xs),Math.max(...zs),lot);
   }
@@ -119,10 +121,17 @@ export function plantWoodlands(island,detail,blocks,parent){
     reserveBox(Math.min(a[0],b[0])-r,Math.min(a[1],b[1])-r,Math.max(a[0],b[0])+r,Math.max(a[1],b[1])+r,{a,b,r});
   }
   const park=detail.length?gardenForStreet(detail.find(b=>b.cafe)):null;
-  for(let grove=0;grove<270;grove++){
-    const cx=(random()*2-1)*island.half*.91,cz=(random()*2-1)*island.half*.91;
+  const sites=island.plan.sites;
+  for(let grove=0;grove<350+sites.length*14;grove++){
+    let cx,cz;
+    if(grove<350){cx=(random()*2-1)*island.half*.91;cz=(random()*2-1)*island.half*.91;}
+    else{
+      const site=sites[(grove-350)%sites.length],angle=random()*Math.PI*2,r=(.73+random()*.45)*site.radius;
+      cx=site.x+Math.cos(angle)*r;cz=site.z+Math.sin(angle)*r;
+    }
     if(island.sample(cx,cz)<2)continue;
-    const count=5+Math.floor(random()*17),spread=6+random()*29;
+    const count=7+Math.floor(random()*17),spread=8+random()*29;
+    const evergreen=island.sample(cx,cz)>14||grove%4===0;
     for(let n=0;n<count;n++){
       const t=random()*Math.PI*2,r=spread*Math.sqrt(random()),x=cx+r*Math.cos(t),z=cz+r*Math.sin(t);
       const y=island.sample(x,z);if(y<1.7||y<island.waterAt(x,z)+.8||island.slope(x,z)>.75)continue;
@@ -131,12 +140,90 @@ export function plantWoodlands(island,detail,blocks,parent){
       const key=Math.floor(x/70)+','+Math.floor(z/70);
       if(!blocks.has(key))blocks.set(key,new Pieces(parent));
       const a=blocks.get(key).frame(x,y,z,t),s=.81+random()*.9;
+      if(island.slope(x,z)>.24&&n%4===0){
+        for(let b=0;b<3;b++)a.ball((b-1)*1.4*s,.35*s,b%2*.7,2.85*s,(1.18+.22*b)*s,1.9*s,
+          ['#8e8c83','#a39e8e','#777f77'][b],b*.8,.12*b);
+        continue;
+      }
+      if(evergreen){
+        a.round(0,1.60*s,0,.38*s,3.20*s,.36*s,'#766452');
+        for(let k=0;k<4;k++)a.put(bough,k%2*.08*s,(2.80+k*.94)*s,0,(3.45-k*.61)*s,(2.76-k*.21)*s,
+          (3.55-k*.65)*s,['#405f56','#496e60','#567b64','#668a6d'][k],k*.61);
+        continue;
+      }
       a.round(0,1.6*s,0,.38*s,3.2*s,.36*s,'#776a52');
       for(let k=0;k<4;k++){
         const ang=k*2.4,h=k===3?4.4:3.1+.2*k,offset=k===3?.13:1.0;
-        a.ball(Math.cos(ang)*offset*s,h*s,Math.sin(ang)*offset*s,(2.6-k*.1)*s,(2.53+k*.08)*s,2.48*s,
+        a.leaves(Math.cos(ang)*offset*s,h*s,Math.sin(ang)*offset*s,(2.6-k*.1)*s,(2.53+k*.08)*s,2.48*s,
           ['#52755f','#628661','#769568','#87a279'][k],ang);
       }
     }
   }
+}
+
+// Keep the roadside walk clear. Lamps and rest stops sit on the grass side
+// of the paving and leave the junctions and front paths open.
+export function furnishRoads(island,detail,blocks,parent,homes,frontPaths){
+  const fixtures=[],benches=new Map(),roads=island.plan.roads;
+  const segments=roads.flatMap(r=>r.pts.slice(1).map((b,i)=>({road:r,a:r.pts[i],b})));
+  for(const road of roads){
+    if(road.bridge||road.class==='path')continue;
+    const main=road.class==='main',spacing=main?26:43;
+    let chain=0,next=spacing*.47,index=0;
+    for(let i=1;i<road.pts.length;i++){
+      const [ax,az]=road.pts[i-1],[bx,bz]=road.pts[i],length=Math.hypot(bx-ax,bz-az);
+      if(!length)continue;
+      const tx=(bx-ax)/length,tz=(bz-az)/length;
+      for(;next<chain+length;next+=spacing,index++){
+        const along=next-chain,cx=ax+tx*along,cz=az+tz*along;
+        for(const side of [index%2?1:-1,index%2?-1:1]){
+          const across=road.width/2+3.45;
+          const x=cx-side*tz*across,z=cz+side*tx*across,y=island.sample(x,z);
+          if(y<island.waterAt(x,z)+.55||island.slope(x,z)>.24)continue;
+          if(detail.some(b=>Math.hypot(b.x-x,b.z-z)<14))continue;
+          if(homes.some(b=>Math.hypot(x-b.x,z-b.z)<Math.hypot(b.w,b.d)*.5+3.1))continue;
+          if(frontPaths.some(([a,b])=>distSeg(x,z,a.x,a.z,b.x,b.z).d<3.2))continue;
+          if(segments.some(s=>s.road!==road&&distSeg(x,z,...s.a,...s.b).d<s.road.width/2+5))continue;
+          if(fixtures.some(f=>Math.hypot(x-f.x,z-f.z)<8))continue;
+          const key=Math.floor(x/70)+','+Math.floor(z/70);
+          if(!blocks.has(key))blocks.set(key,new Pieces(parent));
+          const yaw=Math.atan2(side*tz,-side*tx),a=blocks.get(key).frame(x,y,z,yaw);
+          const rest=main&&index%3!==1,post=rest?-1.64:0,iron='#405e58',cream='#edddb6';
+          a.round(post,.16,0,.38,.32,.38,iron);a.round(post,1.49,0,.12,2.68,.12,iron);
+          a.round(post,2.78,0,.25,.12,.25,'#b59562');
+          a.round(post,2.92,0,.34,.13,.34,iron);a.ball(post,3.13,0,.40,.46,.40,'#fff0bf');
+          a.round(post,3.38,0,.38,.09,.38,iron);a.ball(post,3.47,0,.11,.16,.11,iron);
+          if(main){
+            a.box(post+.36,2.67,0,.83,.06,.06,iron);
+            const cloth=index%2?'#ba7363':'#538b81';
+            a.box(post+.39,2.17,0,.54,.91,.055,cloth);
+            a.box(post+.39,1.80,.032,.55,.075,.025,cream);
+            a.box(post+.39,2.31,.034,.22,.22,.026,cream,0,Math.PI/4);
+          }
+          if(rest){
+            a.box(.30,.032,0,4.78,.095,2.54,'#b7a992');
+            for(const dx of [-.75,.75]){
+              for(const dz of [-.17,.18])a.box(dx,.23,dz,.10,.45,.10,iron);
+              a.box(dx,.71,-.22,.10,.8,.10,iron);
+              a.box(dx,.69,0,.072,.070,.55,iron);
+            }
+            for(const dz of [-.18,0,.18])a.box(0,.48,dz,1.94,.09,.15,wood);
+            for(const h of [.72,.91,1.08])a.box(0,h,-.22,1.95,.12,.078,wood);
+            flowerBed(a,1.87,-.02,1.02,'quay-'+road.id+index);
+          }
+          const frame={x,z,y,yaw,c:Math.cos(yaw),s:Math.sin(yaw)};
+          fixtures.push({...frame,...toWorld(frame,post,0),w:.34,d:.34,height:3.5});
+          if(rest){
+            fixtures.push({...frame,...toWorld(frame,1.87,-.02),w:1.09,d:.72,height:.85});
+            fixtures.push({...frame,...toWorld(frame,0,-.23),w:1.95,d:.08,height:1.16});
+            const id='bench-'+road.id+'-'+index;
+            benches.set(id,{...frame,id,kind:'wayside',w:2.45,d:2.25});
+          }
+          break;
+        }
+      }
+      chain+=length;
+    }
+  }
+  island.streetBenches=benches;return fixtures;
 }

@@ -8,6 +8,7 @@ const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
 const furniture={
+  wayside:[[-.48,.18,'sit'],[.48,.18,'sit']],
   garden:gardenSeats,terrace:chairs,club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
   restaurant:[[-1.65,.57,'dine'],[1.65,.57,'dine'],[-1.65,-1.17,'dine'],[1.65,-1.17,'dine']],
   gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
@@ -15,7 +16,7 @@ const furniture={
 };
 export function stationsFor(b){
   return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
-    yaw:b.yaw+((b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
+    yaw:b.yaw+((b.kind==='wayside'||b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
 }
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -194,8 +195,12 @@ export class StreetSession {
     if(b.kind==='club'||b.kind==='restaurant')this.layout[b.kind]=state;
     this.layout.revision++;this.persist();this.notice(result.reason?'Wall stopped at its safe limit.':oldSide!==nextSide?'Bluebell room resized.':'Wall and doorway moved.');return true;
   }
-  near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.plots.find(b=>{const p=toRoom(b,actor);return p.x> -b.w/2-1&&p.x<sideAt(b,this.layout)+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
-    (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined);}
+  near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.waysideNear(actor,1.46)[0]||this.plots.find(b=>{const p=toRoom(b,actor);return p.x> -b.w/2-1&&p.x<sideAt(b,this.layout)+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
+    (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined)||this.squareAt(actor);}
+  squareAt(actor){
+    const square=this.island?.townSquare;if(!square)return;
+    const p=toRoom(square,actor);if(Math.abs(p.x)<square.half&&Math.abs(p.z)<square.half)return square;
+  }
   station(actor,b){
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
@@ -212,9 +217,14 @@ export class StreetSession {
     return ![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,spot,.55));
   }
   furnitureAt(lot,index){
-    const b=lot===this.garden?.id?this.garden:this.plots.find(p=>p.id===lot)||this.terraceLots().find(p=>p.id===lot);
+    const b=lot===this.garden?.id?this.garden:this.island?.streetBenches?.get(lot)||this.plots.find(p=>p.id===lot)||this.terraceLots().find(p=>p.id===lot);
     if(!b||!Number.isInteger(index))return null;
     const spot=stationsFor(b)[index];return spot?{b,spot}:null;
+  }
+  waysideNear(actor,distance){
+    const benches=[];
+    for(const b of this.island?.streetBenches?.values()||[])if(within(actor,b,distance))benches.push(b);
+    return benches;
   }
   interact(id){
     const a=this.actors.get(id),b=a&&this.near(a);if(!b)return;

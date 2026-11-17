@@ -7,7 +7,19 @@ export class StreetActivities {
   constructor(session){this.s=session;this.routes=new Map();this.reserved=new Set();}
   go(actor,goal,arrival='walk'){
     const {island,plots,layout}=this.s;
-    const points=walkingRoute(island,plots,layout,actor,goal);
+    let points;
+    if(Math.hypot(goal.x-actor.x,goal.z-actor.z)>65){
+      const trip=this.s.town?.sim?.ctx.nav.findPath([actor.x,actor.z],[goal.x,goal.z]);
+      if(trip){
+        points=[];let start=actor;
+        for(const [x,z] of trip.pts){
+          const end={x,z},leg=walkingRoute(island,plots,layout,start,end);
+          if(!leg){points=null;break;}
+          points.push(...leg);start=end;
+        }
+      }
+    }
+    points??=walkingRoute(island,plots,layout,actor,goal);
     if(!points)return false;
     this.routes.set(actor.id,{points,index:0,goal,arrival,revision:layout.revision});
     actor.walking=true;actor.goal=[goal.x,goal.z];actor.activity='';actor.part='';

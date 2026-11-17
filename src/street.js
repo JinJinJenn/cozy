@@ -8,7 +8,7 @@ import {StreetMusic} from './street-music.js';
 import {TerraceEditor} from './terrace-editor.js';
 
 const $=id=>document.getElementById(id);
-const names={terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
+const names={wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
 const directions=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 export class Street {
   constructor(island,scene,camera,controls,town){
@@ -25,7 +25,7 @@ export class Street {
         polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
     this.walkMarker.visible=false;scene.add(this.walkMarker);
     this.point=new THREE.Vector3();this.rayPoint=new THREE.Vector3();
-    this.destinations=[...this.plots,gardenForStreet(this.cafe)];
+    this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[])];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(places[b.kind][0],b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
     this.terraceEditor=new TerraceEditor(this,listen);
@@ -184,7 +184,7 @@ export class Street {
         offer(this.point.set(q.x,b.y+.93,q.z),1.05,{type:'coffee'},'Order two coffees');
       }
     }
-    for(const place of [b,...s.terraceLots()].filter(Boolean))for(const q of stationsFor(place)){
+    for(const place of [b,...s.terraceLots(),...s.waysideNear(local,30)].filter(Boolean))for(const q of stationsFor(place)){
       const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
       if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;

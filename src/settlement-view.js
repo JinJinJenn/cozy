@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {createRoadSurface} from './road-surface.js';
+import {avatar,disposeGroup} from './street-art.js';
 import { contextFromPlan } from '../packages/sim/src/context.js';
 import { NoUsableHomesError, Simulation } from '../packages/sim/src/simulation.js';
 
@@ -12,8 +14,7 @@ function trace(ctx, xz, close = false) {
   if (close) ctx.closePath();
 }
 
-// One cropped world-space decal follows the actual terrain triangles at every LOD.
-// Use the same drawing in the minimap. Keep a transparent margin for texture clamping.
+// The minimap uses a compact raster of the road plan. The world uses exact road segments.
 function paintPlan(plan, maxTextureSize) {
   const { roads, plots } = plan.layers;
   const bounds = new THREE.Box2();
@@ -52,10 +53,7 @@ function paintPlan(plan, maxTextureSize) {
     trace(ctx, road.xz);
     ctx.stroke();
   }
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.flipY = false;
-  return { canvas, bounds, extent, map };
+  return { canvas, bounds, extent };
 }
 
 function bridgeDecks(island, roads) {
@@ -110,20 +108,7 @@ export class SettlementView {
     this.island = island;
     const plan = island.plan;
     this.decal = paintPlan(plan, Math.min(4096, capabilities.maxTextureSize));
-    const { map, bounds, extent } = this.decal;
-    map.anisotropy = Math.min(8, capabilities.getMaxAnisotropy());
-    this.terrainMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, fog: true });
-    this.terrainMaterial.onBeforeCompile = shader => {
-      shader.uniforms.townMap = { value: map };
-      shader.uniforms.townRect = { value: new THREE.Vector4(bounds.min.x, bounds.min.y, extent.x, extent.y) };
-      shader.vertexShader = 'varying vec2 townUV; uniform vec4 townRect;\n' + shader.vertexShader.replace(
-        '#include <begin_vertex>', '#include <begin_vertex>\ntownUV = (position.xz - townRect.xy) / townRect.zw;');
-      shader.fragmentShader = 'varying vec2 townUV; uniform sampler2D townMap;\n' + shader.fragmentShader.replace(
-        '#include <color_fragment>', `#include <color_fragment>
-        vec4 street = texture2D(townMap, townUV);
-        float light = 0.80 + 0.35 * dot(diffuseColor.rgb, vec3(0.21, 0.72, 0.07));
-        diffuseColor.rgb = mix(diffuseColor.rgb, street.rgb * light, street.a);`);
-    };
+    this.terrainMaterial = createRoadSurface(island);
     this.group = new THREE.Group();
     this.group.add(new THREE.HemisphereLight('#ffeedc', '#b5adb2', 1.52));
     const sun=this.sun=new THREE.DirectionalLight('#fff0ce',2.45);
@@ -148,19 +133,33 @@ export class SettlementView {
     this.elapsed = 0;
     this.people = this.current.map((_, i) => {
       const person = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.64, 4, 10), new THREE.MeshLambertMaterial({ color: coats[i % coats.length] }));
-      body.position.y = 0.71;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8), new THREE.MeshLambertMaterial({ color: ['#e1ac89','#b67856','#f1c5a3','#965e46'][i % 4] }));
-      head.position.y = 1.51;
-      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.277, 12, 6, 0, Math.PI * 2, 0, 1.24),
-        new THREE.MeshLambertMaterial({ color: ['#654237','#453a40','#ab7045','#543f35'][i % 4] }));
-      hair.position.copy(head.position);
-      hair.rotation.z = -0.18;
-      person.add(body, head, hair);
+      const skin=['#e1ac89','#b67856','#f1c5a3','#965e46'][i%4];
+      const hair=['#654237','#453a40','#ab7045','#543f35'][i%4];
+      person.add(avatar(coats[i%coats.length],skin,hair));
       this.group.add(person);
       return person;
     });
     this.advance(0);
+  }
+  posePeople(now){
+    const dt=Math.min(.18,Math.max(0,(now-(this.lastPose??now))/1000));
+    this.lastPose=now;
+    for(const person of this.people){
+      const figure=person.children[0],p=person.position,state=person.userData;
+      const dx=p.x-(state.x??p.x),dz=p.z-(state.z??p.z),distance=Math.hypot(dx,dz);
+      state.x=p.x;state.z=p.z;
+      if(!person.visible)continue;
+      const seated=person.scale.y<.9;
+      // Existing network frames encode sitting in root scale. The rig bends at
+      // the hips and knees while preserving the resident's standing proportions.
+      figure.scale.y=1/person.scale.y;
+      if(distance>.002&&distance<3){
+        const angle=Math.atan2(dx,dz)-figure.rotation.y;
+        figure.rotation.y+=Math.atan2(Math.sin(angle),Math.cos(angle))*(1-Math.exp(-dt*15));
+      }
+      figure.setStride(distance<3?distance:0,dt,seated,false,false);
+      figure.setSeated(seated);
+    }
   }
   advance(dt) {
     if (!this.sim) return;
@@ -195,12 +194,12 @@ export class SettlementView {
     ctx.drawImage(canvas, (bounds.min.x + size / 2) * scale, (bounds.min.y + size / 2) * scale, extent.x * scale, extent.y * scale);
   }
   dispose() {
+    for(const person of this.people){this.group.remove(person);disposeGroup(person);}
     this.group.traverse(obj => {
       obj.geometry?.dispose();
       obj.material?.dispose();
     });
     this.sun.shadow.dispose();
     this.terrainMaterial.dispose();
-    this.decal.map.dispose();
   }
 }

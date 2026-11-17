@@ -10,7 +10,9 @@ The street advances on rendered frames, with a timer fallback for hidden tabs. G
 
 Click Robin or Bea to invite that resident for coffee. Inside a venue, clicking a chair, a keyboard or another activity spot offers its action where you clicked. The host holds the spot while the player walks over and checks occupancy again on arrival.
 
-The island viewer generates terrain, settlements and graded lots from a seed and locale. Town view finds a resident. Capsule residents follow the town simulation and appear on the minimap. The petalwood Harbor Town seed has 61 road pieces, 534 plots and eight residents.
+The island viewer generates terrain, settlements and graded lots from a seed and locale. Town view finds a resident. Eight animated residents follow the town simulation and appear on the minimap. The published Petalwood seed has 62 road pieces and 534 plots.
+
+The settlement planner reserves a full block for a landscaped square, fits a clock hall to a nearby block when one is available, and selects market frontages and orchard parcels. On newly generated Harbor Town islands the outer streets bend around the central grid. Spare ends can join by a country lane where grades, water and existing lots permit. Roads, curbs and sidewalks are drawn from the actual road centrelines across the island. Island map → Square frames the district. In Petalwood, Find a place → Town Square routes a walker there from the waterfront. The hall and market buildings currently have exterior models.
 
 Harbor Town now opens at the café, with seven furnished venues occupying real waterfront parcels. The island has additional street-facing exteriors on buildable lots. Find a place gives a direction and distance to each venue. The terrain inspector remains available under Island map.
 

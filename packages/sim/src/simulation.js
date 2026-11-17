@@ -88,7 +88,7 @@ export class Simulation {
     const nav = ctx.nav;
     const cand = [];
     for (const lot of ctx.plan.lots) {
-      if (!lot.buildable) continue;
+      if (!lot.buildable||lot.use) continue;
       const c = centroid(lot.poly);
       if (!nav.land(c[0], c[1])) continue;
       const node = nav.nearestNode(c[0], c[1], 80);
