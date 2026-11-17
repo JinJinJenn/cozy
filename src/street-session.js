@@ -1,9 +1,20 @@
+import {StreetActivities} from './street-activities.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
+const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
+const furniture={
+  garden:gardenSeats,club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
+  restaurant:[[-1.65,.57,'dine'],[1.65,.57,'dine'],[-1.65,-1.17,'dine'],[1.65,-1.17,'dine']],
+  gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
+  house:[[1.38,-.14,'sit']],cottage:[[1.38,-.14,'sit']]
+};
+export function stationsFor(b){
+  return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index}));
+}
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
@@ -35,6 +46,7 @@ export class StreetSession {
     this.visit=new URLSearchParams(location.search).get('visit');this.owner=!this.visit;
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
     this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:''});
+    this.activities=new StreetActivities(this);this.commandSeq=0;this.motion=0;
     this.start=this.init();
   }
   updatePatrol(){
@@ -59,6 +71,7 @@ export class StreetSession {
         this.layout=readLayout(stored(project+'.layout.'+this.pub))||defaultLayout();this.saved=id.persistent!==false;
       }
       if(this.owner){
+        this.coffeeVisits=stored(project+'.coffee.'+this.pub)||{};
         this.updatePatrol();
         for(let i=0;i<2;i++)this.actors.set('resident'+i,{id:'resident'+i,...this.patrol[i*6],yaw:0,activity:'',part:'',way:i*6,dwell:1+i*3});
       }else{
@@ -105,6 +118,12 @@ export class StreetSession {
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
   persist(){this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
+  rememberCoffee(id){
+    const last=this.coffeeVisits[id];
+    const count=Number.isSafeInteger(last)?Math.min(9999,last+1):1;
+    this.coffeeVisits[id]=count;save(project+'.coffee.'+this.pub,this.coffeeVisits);
+    return count;
+  }
   limitFor(b,goal){
     const people=[...this.actors.values(),...this.town.people.filter(p=>p.visible).map(p=>p.position)];
     return wallLimit(wallState(this.layout,b).wall,goal,people,b);
@@ -129,27 +148,42 @@ export class StreetSession {
   station(actor,b){
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
-    const seats={
-      garden:gardenSeats,club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
-      restaurant:[[-1.65,.57,'dine'],[1.65,.57,'dine'],[-1.65,-1.17,'dine'],[1.65,-1.17,'dine']],
-      gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
-      house:[[1.38,-.14,'sit']],cottage:[[1.38,-.14,'sit']]
-    };
     const p=toRoom(b,actor);
     if(Math.abs(p.x)>b.w/2-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
-    return seats[b.kind].map(([x,z,action,part=''])=>({...toWorld(b,x,z),action,part,dist:Math.hypot(x-p.x,z-p.z)}))
-      .filter(q=>q.dist<=1.35&&![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,q,.55)))
+    return stationsFor(b).filter(q=>this.available(actor,b,q)).map(q=>({...q,dist:Math.hypot(q.x-actor.x,q.z-actor.z)}))
+      .filter(q=>q.dist<=1.35)
       .sort((a,c)=>a.dist-c.dist)[0];
+  }
+  available(actor,b,spot){
+    if(b.kind==='garden'&&this.activities?.reserved.has(spot.index))return false;
+    if(this.activities?.stationClaimed(b.id,spot.index,actor.id))return false;
+    return ![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,spot,.55));
+  }
+  furnitureAt(lot,index){
+    const b=lot===this.garden?.id?this.garden:this.plots.find(p=>p.id===lot);
+    if(!b||!Number.isInteger(index))return null;
+    const spot=stationsFor(b)[index];return spot?{b,spot}:null;
   }
   interact(id){
     const a=this.actors.get(id),b=a&&this.near(a);if(!b)return;
+    if(a.outing==='chat'||a.outing==='waiting'){this.activities.finish(a);return;}
     if(a.activity){a.activity='';a.part='';return;}
     const spot=this.station(a,b);if(!spot)return;
     if(b.cafe){this.layout.lights=!this.layout.lights;this.layout.revision++;this.persist();}
     else Object.assign(a,{x:spot.x,z:spot.z,activity:spot.action,part:spot.part,yaw:b.yaw+Math.PI});
   }
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
-  sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq};
+  command(cmd){
+    if(!this.ready||(!this.owner&&!this.connected))return;
+    if(this.owner)this.activities.command(this.actors.get(this.id),cmd);
+    else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
+  }
+  setInput(x,z){
+    if(Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
+    this.keys={x,z};this.motion++;
+    if(!this.owner&&this.connected)this.sendInput();
+  }
+  sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
@@ -162,6 +196,13 @@ export class StreetSession {
         this.actors.set(m.id,{id:m.id,...this.spawn,yaw:this.cafe.yaw,activity:'',part:''});}
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
+      state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
+      const cmd=m.cmd,actor=this.actors.get(m.id);
+      if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
+        state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
+        if(['coffee','cancel','beach','furniture'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+          Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.activities.command(actor,cmd);
+      }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
     }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<18000&&typeof m.sig==='string'&&m.sig.length<140){
       try{
@@ -172,8 +213,10 @@ export class StreetSession {
           !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
+        if(this.hostBoot!==f.boot)this.poseEpoch=(this.poseEpoch??0)+1;
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
+        if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(Array.isArray(f.residents)&&f.residents.length===this.town.people.length)
           f.residents.forEach((r,i)=>{if(!Array.isArray(r)||r.length!==5||!r.every(Number.isFinite))return;
             const m=this.town.people[i];m.position.set(r[0],r[1],r[2]);m.visible=!!r[3];m.scale.y=r[4];});
@@ -181,7 +224,7 @@ export class StreetSession {
     }
   }
   async broadcast(){
-    if(this.sending||!this.connections.length||!this.privateKey)return;
+    if(this.sending||!this.peers.size||!this.connections.length||!this.privateKey)return;
     this.sending=true;
     try{const residents=this.town.people.map(m=>[m.position.x,m.position.y,m.position.z,Number(m.visible),m.scale.y]);
       const body=JSON.stringify({room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents});
@@ -195,14 +238,21 @@ export class StreetSession {
       this.town.advance(dt);
       for(const [id,a] of this.actors){
         if(id.startsWith('resident')){
+          if(this.activities?.advance(a,dt))continue;
           if(a.dwell>0){a.dwell-=dt;continue;}const dst=this.patrol[(a.way+1)%this.patrol.length];
           if(within(a,dst,.23)){a.way=(a.way+1)%this.patrol.length;a.dwell=a.way===3?3:.3;continue;}
           const dx=dst.x-a.x,dz=dst.z-a.z,len=Math.hypot(dx,dz);
           moveWalker(this.island,this.plots,this.layout,a,{x:dx/len*.32,z:dz/len*.32},dt);continue;
         }
-        const remote=this.controls.get(id);if(remote&&now-remote.at>7000){this.controls.delete(id);this.actors.delete(id);continue;}
+        const remote=this.controls.get(id);if(remote&&now-remote.at>7000){this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);continue;}
         const input=id===this.id?this.keys:remote&&now-remote.at<600?remote:zero;
-        if(input.x||input.z){a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);}
+        const oldX=a.x,oldZ=a.z;
+        if(input.x||input.z){
+          if(a.walking||a.outing&&a.outing!=='carry')this.activities?.manual(a);
+          a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);
+        }else this.activities?.advance(a,dt);
+        a.motion=id===this.id?this.motion:remote?.motion??0;
+        a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);
       }
     }else if(now-this.lastFrame>4000)this.connected=false;
     if(now-this.lastSent>=85){this.lastSent=now;if(this.owner)void this.broadcast();else this.sendInput();}

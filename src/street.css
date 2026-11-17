@@ -25,3 +25,7 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 @media(pointer:coarse){#street-panel.building #walk-pad{display:none}
   #street-panel.building .street-actions{left:10px;max-width:unset}
   #street-panel.building .street-drawer{max-width:100%}}
+
+#live-action{display:flex;align-items:center;gap:.7em;margin:0 0 .45em;padding:.25em .3em;color:var(--charcoal);font-size:14px}
+#live-action button{padding:.25em .55em;font-size:12px}
+#world-choice{position:absolute;z-index:3;pointer-events:auto;display:flex;gap:3px;padding:4px;border:1px solid #9c947a;border-radius:12px;background:var(--paper);box-shadow:0 2px 10px #233b3155}

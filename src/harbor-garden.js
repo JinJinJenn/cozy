@@ -46,11 +46,14 @@ export function harborGreen(pieces,group,island,cafe){
     const next=t+Math.PI/4,ex=Math.cos(next)*2.51,ez=Math.sin(next)*2.51;
     a.box((x+ex)/2,2.74,(z+ez)/2,1.99,.21,.16,rail,-Math.atan2(ez-z,ex-x));
   }
-  a.put(cap,0,3.24,0,6.42,.91,6.42,green,Math.PI/8);
-  a.round(0,3.87,0,1.87,.47,1.87,rail);
-  for(let n=0;n<8;n++){const t=n*Math.PI/4;a.box(Math.cos(t)*.92,3.88,Math.sin(t)*.92,.10,.35,.10,green);}
-  a.put(cap,0,4.32,0,2.40,.51,2.40,green,Math.PI/8);
-  a.round(0,4.69,0,.11,.40,.11,wood);a.ball(0,4.92,0,.21,.23,.21,'#e4c68a');
+  const canopy=new THREE.Group();group.add(canopy);const roofPieces=new Pieces(canopy);
+  const top=roofPieces.frame(park.x,base,park.z,park.yaw);
+  top.put(cap,0,3.24,0,6.42,.91,6.42,green,Math.PI/8);
+  top.round(0,3.87,0,1.87,.47,1.87,rail);
+  for(let n=0;n<8;n++){const t=n*Math.PI/4;top.box(Math.cos(t)*.92,3.88,Math.sin(t)*.92,.10,.35,.10,green);}
+  top.put(cap,0,4.32,0,2.40,.51,2.40,green,Math.PI/8);
+  top.round(0,4.69,0,.11,.40,.11,wood);top.ball(0,4.92,0,.21,.23,.21,'#e4c68a');
+  roofPieces.finish();
   for(const [x,z] of gardenSeats){
     for(const s of [-1,1]){
       a.box(x+s*.41,.21,z,.11,.41,.41,green);
@@ -77,6 +80,7 @@ export function harborGreen(pieces,group,island,cafe){
       fence.ball(x,.90,0,.15,.12,.14,rail);
     }
   }
+  return {park,canopy};
 }
 
 export function beachLane(pieces,group,island,gym){

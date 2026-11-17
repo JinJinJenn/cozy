@@ -96,7 +96,15 @@ try{
     },[kind,x,z]);
   }
   for(const point of [['cafe',0,7.7],['house',0,6.8],['house',0,.5],['house',.87,.38]])await walkTo(guest,...point);
-  await guest.getByRole('button',{name:'Sit down'}).click();
+  const chair=await guest.evaluate(async()=>{
+    const {Vector3}=await import('three'),{toWorld}=await import('./src/street-world.js');
+    const c=window.__cozy,b=c.street.plots.find(p=>p.kind==='house'),q=toWorld(b,1.38,-.14);
+    const camera=c.camera.clone();camera.position.lerp(c.controls.target,1-c.street.cameraFraction());camera.updateMatrixWorld();
+    const point=new Vector3(q.x,b.y+.55,q.z).project(camera);
+    return {x:(1+point.x)*innerWidth/2,y:(1-point.y)*innerHeight/2};
+  });
+  await guest.mouse.click(chair.x,chair.y);
+  await guest.getByRole('button',{name:'Sit down',exact:true}).and(guest.locator('#world-action')).click();
   await host.waitForFunction(id=>window.__cozy.street.session.actors.get(id)?.activity==='sit',guestId);
   if(process.argv.includes('--renovation-shot'))await host.setViewportSize({width:1280,height:720});
   await host.locator('#build-lot').selectOption('l106');
@@ -148,6 +156,25 @@ try{
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.deepEqual(errors,[]);
   console.log('PASS guest walking and sitting, on-world renovation drag, independent home undo, late join, owner reload and map return');
+  await guest.locator('#coffee-action').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).outing==='carry';},null,{timeout:45000});
+  await guest.locator('#coffee-action').click();
+  await host.locator('#build-open').click();
+  await host.locator('#build-lot').selectOption('l108');
+  await host.locator('#wall-offset').fill('0.5');await host.locator('#apply-wall').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);
+    return s.layout.homes.l108?.wall===.5&&a.outing==='chat'&&s.actors.get(a.friend)?.cup;
+  },null,{timeout:65000});
+  await host.waitForFunction(id=>window.__cozy.street.session.actors.get(id)?.activity==='sit',guestId);
+  await host.locator('#undo-wall').click();await host.locator('#build-open').click();
+  await guest.locator('#beach-action').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).outing==='bay';},null,{timeout:65000});
+  await guest.locator('#coffee-action').click();
+  await guest.locator('#directions-open').click();await guest.locator('#destination').selectOption('cafe');
+  await guest.locator('#go-place').click();
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);
+    return !a.walking&&s.near(a)?.cafe&&!a.outing;},null,{timeout:65000});
+  console.log('PASS guest coffee pickup, two reserved benches during renovation, beach walk and return to café');
   async function joinBand(page,x,part){
     for(const point of [['cafe',0,8.55],['club',0,7.75],['club',0,1],['club',x,-.8]])await walkTo(page,...point);
     await page.getByRole('button',{name:'Play '+part,exact:true}).click();

@@ -78,7 +78,10 @@ let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
 let town=null, street=null, captureTime=0;
 let streamRadius=4200;
 
-function lodFor(d){return d<260?33:d<620?17:d<1300?9:5;}
+function lodFor(d){
+  if(street?.active)return d<85?33:d<185?17:d<335?9:5;
+  return d<260?33:d<620?17:d<1300?9:5;
+}
 function chunkKey(cx,cz){return cx+','+cz;}
 function disposeChunk(c){group.remove(c.terrain);c.terrain.geometry.dispose();if(c.water){group.remove(c.water);c.water.geometry.dispose();}}
 function makeMesh(data,isWater){
@@ -118,18 +121,19 @@ function updateChunks(budget=6){
   for(const w of want){
     const k=chunkKey(w.cx,w.cz);keep.add(k);
     const cur=chunkMap.get(k);
-    if(cur&&cur.res===w.res) continue;
-    const fk=loadGen+'|'+k+'|'+w.res;
+    const waterRes=street?.active?w.res:(w.res>=9?65:49);
+    if(cur&&cur.res===w.res&&cur.waterRes===waterRes) continue;
+    const fk=loadGen+'|'+k+'|'+w.res+'|'+waterRes;
     if(inflight.has(fk)) continue;
     if(inflight.size>=budget){pending++;continue;}
     inflight.add(fk);const myGen=loadGen;
-    client.chunk(w.cx,w.cz,w.res,w.res>=33?65:w.res>=17?65:w.res>=9?65:49).then(r=>{
+    client.chunk(w.cx,w.cz,w.res,waterRes).then(r=>{
       inflight.delete(fk);
       if(!r||myGen!==loadGen) return;
       const old=chunkMap.get(k);if(old) disposeChunk(old);
       const tm=makeMesh(r.terrain,false);group.add(tm);
       let wm=null;if(r.water){wm=makeMesh(r.water,true);group.add(wm);}
-      chunkMap.set(k,{terrain:tm,water:wm,res:w.res});
+      chunkMap.set(k,{terrain:tm,water:wm,res:w.res,waterRes});
     }).catch(err=>{inflight.delete(fk);console.error(err);});
   }
   for(const [k,c] of chunkMap) if(!keep.has(k)){disposeChunk(c);chunkMap.delete(k);}
@@ -158,9 +162,12 @@ function streetLighting(){
   const distance=camera.position.distanceTo(controls.target);
   if(!walking&&distance>160){sun.castShadow=false;return;}
   sun.castShadow=true;
-  const at=controls.target,now=performance.now();
-  if(now<(town.nextShadow??0))return;
-  town.nextShadow=now+175;
+  const at=controls.target;
+  const revision=street?.session?.layout.revision??0;
+  const opened=street?.openRoof??'';
+  if(town.shadowRevision===revision&&town.shadowRoom===opened&&town.shadowWalking===walking&&
+      sun.target.position.distanceToSquared(at)<9&&Math.abs((town.shadowDistance??distance)-distance)<5)return;
+  town.shadowRevision=revision;town.shadowRoom=opened;town.shadowWalking=walking;town.shadowDistance=distance;
   const span=walking?29:Math.max(30,Math.min(82,distance*.74));
   const cam=sun.shadow.camera;
   if(cam.right!==span){Object.assign(cam,{left:-span,right:span,top:span,bottom:-span});cam.updateProjectionMatrix();}
@@ -301,19 +308,22 @@ window.__cozy={ready:false,load,setView,flushChunks,
     roads:island?.plan.roads.length,plots:island?.plan.lots.length,residents:town?.current,tick:town?.sim?.tick};},
   get island(){return island;},get street(){return street;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
-let last=performance.now(),frames=0,acc=0;
+const streamedAt=new THREE.Vector3(Infinity,Infinity,Infinity),streamedEye=streamedAt.clone();
+let last=performance.now(),frames=0,streamPending=true;
 function loop(now){
   requestAnimationFrame(loop);
   if(params.has('shot')) return; // headless capture drives render() itself
   const dt=(now-last)/1000;last=now;
   if(!window.__cozy.ready) return;
   if(!street?.session?.ready)town.advance(Math.min(dt,.25));
-  street?.render();
+  street?.advance(now);street?.render(now);
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}
   waterMat.uniforms.uTime.value=now/1000;
   controls.update();clampCamera();
-  if(++frames%4===0) updateChunks(8);
-  if(frames%20===0) updateMarker();
+  if(++frames%4===0&&(streamPending||streamedAt.distanceToSquared(controls.target)>25||streamedEye.distanceToSquared(camera.position)>25)){
+    streamPending=updateChunks(8)>0;streamedAt.copy(controls.target);streamedEye.copy(camera.position);
+  }
+  if(frames%20===0&&!street?.active) updateMarker();
   renderScene();
 }
 load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));

@@ -1,7 +1,9 @@
+import {neighborName} from './street-activities.js';
+import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
 import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
-import {StreetSession} from './street-session.js';
+import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
 
 const $=id=>document.getElementById(id);
@@ -17,7 +19,11 @@ export class Street {
     this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
     $('build-lot').replaceChildren(...this.editable.map(b=>new Option(places[b.kind][0],b.id)));
     this.ray=new THREE.Raycaster();this.plane=new THREE.Plane(new THREE.Vector3(0,1,0));
-    this.point=new THREE.Vector3();
+    this.walkMarker=new THREE.Mesh(new THREE.RingGeometry(.37,.45,32).rotateX(-Math.PI/2),
+      new THREE.MeshBasicMaterial({color:'#fff1bd',side:THREE.DoubleSide,depthWrite:false,
+        polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
+    this.walkMarker.visible=false;scene.add(this.walkMarker);
+    this.point=new THREE.Vector3();this.rayPoint=new THREE.Vector3();
     this.destinations=[...this.plots,gardenForStreet(this.cafe)];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(places[b.kind][0],b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
@@ -42,15 +48,41 @@ export class Street {
     },{signal:this.abort.signal,passive:false});
     listen(window,'keydown',e=>{
       if(!this.active)return;
+      if(e.code==='ShiftLeft'||e.code==='ShiftRight')this.sprint=true;
       if(e.code==='Escape'){this.closePanels();return;}
       if(e.target.matches('input,select,textarea'))return;
-      if(directions.has(e.code)){e.preventDefault();this.keys.add(e.code);}
+      if(directions.has(e.code)){e.preventDefault();$('world-choice').hidden=true;this.keys.add(e.code);this.input();}
       if(e.code==='KeyE'&&!e.repeat&&!this.buildLot){e.preventDefault();this.use();}
     });
-    listen(window,'keyup',e=>this.keys.delete(e.code));listen(window,'blur',()=>this.clearInput());
+    listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
     listen($('use-place'),'click',()=>this.use());
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
-    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);this.nextUI=0;});
+    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);$('go-place').disabled=!this.destination;this.nextUI=0;});
+    listen($('go-place'),'click',()=>{
+      const b=this.destination;if(!b)return;
+      const goal=b.entry??toWorld(b,0,frontAt(b,this.session.layout)+1.4);
+      this.session.command({type:'walk',...goal});this.closePanels();
+    });
+    listen($('coffee-action'),'click',()=>this.session.command({type:'coffee'}));
+    listen($('beach-action'),'click',()=>this.session.command({type:'beach'}));
+    listen($('cancel-action'),'click',()=>this.session.command({type:'cancel'}));
+    listen($('world-action'),'click',()=>{
+      $('world-choice').hidden=true;
+      if(this.choice){void this.music.unlock();this.session.command(this.choice);this.choice=null;}
+    });
+    listen($('world-dismiss'),'click',()=>{$('world-choice').hidden=true;this.choice=null;});
+    const canvas=this.controls.domElement;
+    let press=null;
+    listen(canvas,'pointerdown',e=>{
+      if(!e.isPrimary||e.button!==0){press=null;return;}
+      if(this.active&&!this.buildLot)press={id:e.pointerId,x:e.clientX,y:e.clientY};
+    });
+    listen(canvas,'pointermove',e=>{if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>5)press=null;});
+    listen(canvas,'pointercancel',()=>{press=null;});
+    listen(canvas,'pointerup',e=>{
+      const tap=press;press=null;
+      if(tap&&tap.id===e.pointerId&&this.active&&!this.buildLot)this.walkAtPointer(e);
+    });
     listen($('build-open'),'click',()=>{
       const open=$('build-pane').hidden;this.closePanels();
       if(!open||!this.session?.owner||!this.session.ready)return;
@@ -90,6 +122,66 @@ export class Street {
     listen(pad,'pointerdown',e=>{pad.setPointerCapture(e.pointerId);steer(e);});
     listen(pad,'pointermove',e=>{if(pad.hasPointerCapture(e.pointerId))steer(e);});
     listen(pad,'lostpointercapture',()=>{this.joy={x:0,z:0};stick.style.transform='';});
+  }
+  walkAtPointer(e){
+    if(!this.session?.ready)return;
+    $('world-choice').hidden=true;this.choice=null;
+    const rect=this.controls.domElement.getBoundingClientRect();
+    const eye=this.camera.position.clone(),t=this.cameraFraction();
+    this.camera.position.lerp(this.controls.target,1-t);this.camera.updateMatrixWorld();
+    this.ray.setFromCamera({x:2*(e.clientX-rect.left)/rect.width-1,y:1-2*(e.clientY-rect.top)/rect.height},this.camera);
+    this.camera.position.copy(eye);this.camera.updateMatrixWorld();
+    const ray=this.ray.ray,pt=this.rayPoint;
+    const pick=this.pickAction(ray);
+    if(pick){
+      this.choice=pick.command;
+      const menu=$('world-choice');$('world-action').textContent=pick.label;menu.hidden=false;
+      menu.style.left=Math.max(6,Math.min(innerWidth-menu.offsetWidth-6,e.clientX+6))+'px';
+      menu.style.top=Math.max(6,Math.min(innerHeight-menu.offsetHeight-6,e.clientY-menu.offsetHeight-5))+'px';
+      return;
+    }
+    // Intersect the sampled island floor. The aim ignores scenery above it.
+    let lo=0;
+    for(let hi=.5;hi<Math.min(1000,this.island.size);hi+=Math.max(.5,hi*.025)){
+      ray.at(hi,pt);
+      if(pt.y>floorAt(this.island,this.plots,pt.x,pt.z,this.session.layout)){lo=hi;continue;}
+      let end=hi;for(let j=0;j<12;j++){const mid=(lo+end)/2;ray.at(mid,pt);
+        if(pt.y>floorAt(this.island,this.plots,pt.x,pt.z,this.session.layout))lo=mid;else end=mid;}
+      ray.at(end,pt);this.session.command({type:'walk',x:pt.x,z:pt.z});return;
+    }
+  }
+  pickAction(ray){
+    const s=this.session,local=s.actors.get(s.id);let best=null,depth=Infinity;
+    const offer=(p,radius,command,label)=>{
+      if(ray.distanceSqToPoint(p)>radius*radius)return;
+      const distance=ray.origin.distanceTo(p);if(distance>=depth)return;
+      if(this.plots.some(b=>b.id!==this.openRoof&&cameraClearance(ray.origin,p,{...b,height:5})<1))return;
+      depth=distance;best={command,label};
+    };
+    if(!local?.outing)for(const [id,m] of this.meshes){
+      if(!id.startsWith('resident'))continue;
+      const a=s.actors.get(id);if(!a||a.invitedBy)continue;
+      const command={type:'coffee',friend:id},label='Invite '+neighborName(id)+' for coffee';
+      for(const h of [.55,1.02,1.48])offer(this.point.set(m.position.x,m.position.y+h,m.position.z),.37,command,label);
+    }
+    const b=this.destinations.find(b=>b.id===this.openRoof);
+    if(b?.cafe&&!local?.outing){
+      for(const x of [-1.7,0,1.7]){
+        const q=toWorld(b,x,-3.14);
+        offer(this.point.set(q.x,b.y+.93,q.z),1.05,{type:'coffee'},'Order two coffees');
+      }
+    }
+    if(b)for(const q of stationsFor(b)){
+      const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
+      const label=q.part?'Play '+q.part:q.action==='dance'?'Dance':names[b.kind];
+      offer(this.point.set(q.x,y+.55,q.z),.70,{type:'furniture',lot:b.id,index:q.index},label);
+    }
+    return best;
+  }
+  advance(now=performance.now()){
+    if(!this.session)return;
+    const dt=Math.min(.15,Math.max(0,(now-this.lastAdvance)/1000));this.lastAdvance=now;
+    if(this.active)this.input();this.session.tick(dt);
   }
   notice(text){$('street-note').textContent=text;}
   showRooms(){
@@ -154,7 +246,7 @@ export class Street {
     grip.style.left=(r.left+(projected.x+1)*r.width/2)+'px';grip.style.top=(r.top+(1-projected.y)*r.height/2)+'px';
   }
   closePanels(){
-    for(const id of ['build-pane','social-pane','directions-pane','wall-grip'])$(id).hidden=true;
+    for(const id of ['build-pane','social-pane','directions-pane','wall-grip','world-choice'])$(id).hidden=true;
     if(this.buildLot){
       this.drag=null;this.buildLot=null;this.art.preview(null,0,false);
       $('street-panel').classList.remove('building');
@@ -162,14 +254,16 @@ export class Street {
       this.camera.position.copy(this.controls.target).add(this.returnOffset);this.controls.update();
     }
   }
-  clearInput(){this.keys?.clear();this.joy={x:0,z:0};if(this.session)this.session.keys={x:0,z:0};}
+  clearInput(){this.sprint=false;this.keys?.clear();this.joy={x:0,z:0};this.session?.setInput(0,0);}
   use(){if(!this.session?.ready)return;void this.music.unlock();this.session.use();}
   activate(){
     if(!this.art)return false;
     if(!this.session){
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
-      let last=performance.now();this.timer=setInterval(()=>{const now=performance.now(),dt=Math.min((now-last)/1000,.15);last=now;
-        if(this.active)this.input();this.session.tick(dt);},35);
+      this.lastAdvance=performance.now();
+      this.timer=setInterval(()=>{const now=performance.now();
+        if(document.hidden||now-this.lastAdvance>120)this.advance(now);
+      },60);
     }
     this.active=true;this.closePanels();this.clearInput();this.nextUI=0;
     document.body.classList.add('in-street');$('street-panel').hidden=false;$('street-note').textContent='';
@@ -177,21 +271,22 @@ export class Street {
     const p=this.session.actors.get(this.session.id)||this.session.spawn;
     const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,7.7,7.7);
     this.controls.minDistance=2.6;this.controls.maxDistance=45;this.controls.enablePan=false;
-    this.camera.near=.13;this.camera.updateProjectionMatrix();
-    this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+4.1,p.z+off.z-this.cafe.z);
+    this.camera.far=650;this.camera.near=.13;this.camera.updateProjectionMatrix();
+    this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
-  deactivate(){if(!this.active)return;this.active=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+  deactivate(){if(!this.active)return;this.active=false;this.walkMarker.visible=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
     document.body.classList.remove('in-street');$('street-panel').hidden=true;
     this.controls.enablePan=true;this.controls.minDistance=8;this.controls.maxDistance=4200;
-    this.camera.near=1;this.camera.updateProjectionMatrix();}
+    this.camera.far=9000;this.camera.near=1;this.camera.updateProjectionMatrix();}
   input(){
-    if(this.buildLot){this.session.keys.x=0;this.session.keys.z=0;return;}
+    if(this.buildLot){this.session.setInput(0,0);return;}
     const keys=this.keys,down=(a,b)=>Number(keys.has(a)||keys.has(b));
     const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+this.joy.z;
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
-    this.session.keys={x:(forward*dx-side*dz)/n,z:(forward*dz+side*dx)/n};
+    const pace=this.sprint?1:.73;
+    this.session.setInput(pace*(forward*dx-side*dz)/n,pace*(forward*dz+side*dx)/n);
   }
   cameraFraction(){
     if(!this.active||this.buildLot)return 1;
@@ -208,15 +303,17 @@ export class Street {
       for(const b of this.island.footprintCells.get(x+','+z)||[])limit=Math.min(limit,cameraClearance(at,eye,b));
     return limit<1?Math.max(.02,limit-.16/Math.max(1,at.distanceTo(eye))):1;
   }
-  render(){
+  render(now=performance.now()){
     const s=this.session;if(!s||!this.active)return;
     const local=s.actors.get(s.id);if(!local)return;
-    const now=performance.now();
+    const dt=Math.max(0,Math.min(.18,(now-(this.lastRender??now))/1000));this.lastRender=now;
     for(const [id,a] of s.actors){
       let mesh=this.meshes.get(id);
-      if(!mesh){const npc=id.startsWith('resident');mesh=avatar(id===s.id?'#c55b61':npc?'#729581':'#6687bd',id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
-      const y=floorAt(this.island,this.plots,a.x,a.z,s.layout);
-      mesh.position.set(a.x,y,a.z);mesh.rotation.y=a.yaw;
+      if(!mesh){const npc=id.startsWith('resident');mesh=avatar(id===s.id?'#c55b61':npc?(id==='resident1'?'#94799b':'#659681'):'#6687bd',id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
+      const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
+      const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
+      mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
+      mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy);
       const seated=['sit','dine','relax','piano'].includes(a.activity);
       mesh.setSeated(seated,a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
@@ -228,13 +325,29 @@ export class Street {
       this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.48-target.y;this.camera.position.z+=m.position.z-target.z;
       target.set(m.position.x,m.position.y+1.48,m.position.z);
     }
-    this.art.update(local,s.layout,this.camera.position,this.buildLot?.id);
+    this.openRoof=this.art.update(m.position,s.layout,this.camera.position,this.buildLot?.id);
+    this.walkMarker.visible=!this.buildLot&&local.walking===true&&Array.isArray(local.goal);
+    if(this.walkMarker.visible){
+      const [x,z]=local.goal;this.walkMarker.position.set(x,floorAt(this.island,this.plots,x,z,s.layout)+.20,z);
+      this.walkMarker.scale.setScalar(1+.075*Math.sin(now*.007));
+    }
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
     if(this.buildLot&&Number($('wall-offset').value)!==wallState(s.layout,this.buildLot).wall)this.preview();
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
-    $('walk-hint').textContent=this.buildLot?'Drag the wall handle, or set an offset below.':'WASD to walk · Drag to orbit · E to interact';
+    $('walk-hint').textContent=this.buildLot?'Drag the wall handle, or set an offset below.':
+      'Click ground, people or furniture · WASD to steer · Shift to jog · Drag to orbit';
+    const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');
+    coffee.hidden=!!this.buildLot||(!outing&&near?.kind!=='cafe')||!!outing&&!['carry','chat','bay'].includes(outing);
+    coffee.disabled=!s.ready||(!s.owner&&!s.connected);
+    coffee.textContent=outing==='carry'?'Join '+friend+' at Harbor Green':outing==='bay'?'Finish visit':outing==='chat'?'Finish coffee':'Coffee with a neighbor';
+    $('beach-action').hidden=!!this.buildLot||outing!=='chat';
+    const status={beach:'Walking to the beach with '+friend,bay:friend+' · “You can see the café from down here.”',counter:'Walking to the café counter',brewing:'Preparing two coffees',carry:'Two coffees ready · '+friend+' is meeting you at Harbor Green',
+      garden:'Taking coffee to Harbor Green',waiting:'Waiting for '+friend,chat:friend+(local.visits>1?' · “Our usual spot. Walk to the beach again?”':' · “Want to take the path down to the water?”')};
+    const label=$('live-action'),text=local.feedback||status[outing]||(local.walking?'Walking to your destination':'');
+    label.hidden=!text||!!this.buildLot;label.querySelector('span').textContent=text;
+    $('cancel-action').hidden=!local.walking&&!outing||outing==='chat'||outing==='bay';
     const waypoint=$('waypoint');waypoint.hidden=!this.destination;
     if(this.destination){const b=this.destination,p=b.entry??toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
       const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
@@ -242,11 +355,11 @@ export class Street {
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
     $('party').textContent=s.error?'Room unavailable':s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
     $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
-    const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
+    const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing'}[local.activity]||local.activity):spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind];
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }
   dispose(){this.deactivate();clearInterval(this.timer);this.abort?.abort();this.music?.dispose();this.session?.dispose();
-    for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();this.clearExteriors();}
+    for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();if(this.walkMarker){this.scene.remove(this.walkMarker);disposeGroup(this.walkMarker);}this.clearExteriors();}
 }

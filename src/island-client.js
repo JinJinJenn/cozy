@@ -25,7 +25,7 @@ export class IslandClient{
     return this;
   }
   async chunk(cx,cz,res,wres){
-    const key=`${this.gen}|${cx},${cz},${res}`,hit=this.cache.get(key);
+    const key=`${this.gen}|${cx},${cz},${res},${wres}`,hit=this.cache.get(key);
     if(hit){this.cache.delete(key);this.cache.set(key,hit);return hit;}
     const gen=this.gen,m=await this._req({type:'chunk',cx,cz,res,wres});
     if(gen!==this.gen) return null;

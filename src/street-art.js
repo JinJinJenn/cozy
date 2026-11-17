@@ -306,12 +306,15 @@ export function streetArt(island,plots,scene) {
   for(const frame of ghosts.values()){frame.traverse(m=>{if(m.isMesh){m.material=outline;m.castShadow=false;}});frame.visible=false;}
   const lanterns=new THREE.Group();houses[plots.indexOf(cafe)].g.add(lanterns);const L=new Pieces(lanterns);
   for(const x of [-2.6,0,2.6])L.ball(x,2.38,cafe.d/2+.8,.28,.3,.28,'#ffe39a');L.finish();
-  const street=new Pieces(g);
+  const street=new Pieces(g),frontTrees=[];
   const road=island.plan.roads.find(r=>r.id===cafe.road);
   if(road)g.add(promenade(island,road,plots));
   for(const b of plots){
     for(const [side,depth] of [[-b.w/2-1.42,.7],[b.w/2+1.44,-2.1]]){const p=toWorld(b,side,depth),y=island.sample(p.x,p.z);
-      gardenTree(street.frame(p.x,y,p.z,b.yaw),side>0?1:2,b.cafe ? .86 : 1);}
+      const tree=new THREE.Group();g.add(tree);
+      const branches=new Pieces(tree),scale=b.cafe ? .86 : 1;
+      gardenTree(branches.frame(p.x,y,p.z,b.yaw),side>0?1:2,scale);branches.finish();
+      frontTrees.push({tree,x:p.x,y:y+3.2*scale,z:p.z});}
     const q=toWorld(b,b.w/2+.72,b.d/2+2.6),y=island.sample(q.x,q.z);
     const lamp=street.frame(q.x,y,q.z,b.yaw);
     lamp.round(0,.18,0,.30,.36,.30,dark);lamp.round(0,1.41,0,.105,2.6,.105,dark);
@@ -319,7 +322,7 @@ export function streetArt(island,plots,scene) {
     lamp.round(0,3.08,0,.39,.09,.39,dark);lamp.ball(0,3.17,0,.12,.17,.12,dark);
   }
   coastPlanting(street,island,plots);
-  harborGreen(street,g,island,cafe);
+  const {park,canopy}=harborGreen(street,g,island,cafe);
   beachLane(street,g,island,plots.find(b=>b.kind==='gym'));
   street.finish();
   return {g,wall,lanterns,updateMeters(time,actors){
@@ -333,27 +336,43 @@ export function streetArt(island,plots,scene) {
     }
   },preview(b,value,show){
     for(const [id,frame] of ghosts){frame.visible=show&&b?.id===id;if(frame.visible)frame.position.z=value;}
-  },update(pos,layout,camera=pos,buildLot){wall.position.z=layout.wall;lanterns.visible=layout.lights;
+  },update(pos,layout,camera=pos,buildLot){let opened;wall.position.z=layout.wall;lanterns.visible=layout.lights;
     houses.forEach((h,i)=>{const b=plots[i],p=toRoom(b,pos),eye=toRoom(b,camera);
       if(hasEditableFront(b))h.resize(wallState(layout,b).wall);
       const cut=(Math.abs(p.x)<=b.w/2+.28&&p.z>=-b.d/2-.28&&p.z<=frontAt(b,layout)+.28)||buildLot===b.id;
-      h.top.visible=!cut;const sides=[eye.x<0,eye.x>0,eye.z<0,eye.z>0];
-      h.faces.forEach((f,k)=>f.visible=!cut||!sides[k]);});},
+      if(cut)opened=b.id;h.top.visible=!cut;const sides=[eye.x<0,eye.x>0,eye.z<0,eye.z>0];
+      h.faces.forEach((f,k)=>f.visible=!cut||!sides[k]);});
+    canopy.visible=Math.hypot(pos.x-park.x,pos.z-park.z)>3.2;
+    if(!canopy.visible)opened=park.id;
+    const c=toRoom(cafe,pos),e=toRoom(cafe,camera);
+    wall.visible=!!buildLot||opened!==cafe.id||(c.z-layout.wall)*(e.z-layout.wall)>=0;
+    for(const t of frontTrees){
+      t.tree.visible=true;if(!Number.isFinite(pos.x))continue;
+      const eyeY=(pos.y??0)+1.25,dx=camera.x-pos.x,dy=camera.y-eyeY,dz=camera.z-pos.z;
+      const u=Math.min(1,Math.max(0,((t.x-pos.x)*dx+(t.y-eyeY)*dy+(t.z-pos.z)*dz)/(dx*dx+dy*dy+dz*dz||1)));
+      t.tree.visible=Math.hypot(pos.x+u*dx-t.x,eyeY+u*dy-t.y,pos.z+u*dz-t.z)>2.15;
+    }
+    return opened;},
     dispose(){disposeGroup(g);outline.dispose();for(const m of meters)m.mat.dispose();scene.remove(g);}};
 }
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 
 export function avatar(color,skin='#d9a779'){
   const g=new THREE.Group(),torso=new THREE.Group(),standing=new THREE.Group(),sitting=new THREE.Group();
-  const restingArms=new THREE.Group(),hands=[];
-  const a=new Pieces(torso),legs=new Pieces(standing),seated=new Pieces(sitting),arms=new Pieces(restingArms);
+  const restingArms=new THREE.Group(),hands=[],limbs=[];
+  const a=new Pieces(torso),seated=new Pieces(sitting),arms=new Pieces(restingArms);
   for(const s of [-1,1]){
-    legs.round(s*.134,.39,0,.199,.46,.215,'#587083');
-    legs.round(s*.147,.151,.007,.168,.23,.176,'#435869');
-    legs.ball(s*.147,.084,.066,.21,.148,.34,'#8f6248');
-    legs.ball(s*.281,1.052,0,.215,.33,.245,color,0,s*.16);
-    legs.ball(s*.32,.871,.003,.142,.245,.161,skin,0,s*.09);
-    legs.ball(s*.326,.742,.027,.144,.161,.151,skin);
+    const leg=new THREE.Group(),armPivot=new THREE.Group();
+    leg.position.set(s*.135,.59,0);armPivot.position.set(s*.276,1.17,0);
+    standing.add(leg,armPivot);limbs.push({side:s,leg,arm:armPivot});
+    const shin=new Pieces(leg),sleeve=new Pieces(armPivot);
+    shin.round(0,-.20,0,.199,.46,.215,'#587083');
+    shin.round(s*.012,-.439,.007,.168,.23,.176,'#435869');
+    shin.ball(s*.012,-.506,.066,.21,.148,.34,'#8f6248');
+    sleeve.ball(s*.005,-.118,0,.215,.33,.245,color,0,s*.16);
+    sleeve.ball(s*.044,-.299,.003,.142,.245,.161,skin,0,s*.09);
+    sleeve.ball(s*.05,-.428,.027,.144,.161,.151,skin);
+    shin.finish();sleeve.finish();
     seated.box(s*.14,.50,.13,.22,.20,.38,'#46566a');seated.box(s*.14,.28,.31,.18,.34,.18,'#46566a');
     seated.ball(s*.14,.105,.37,.23,.17,.33,dark);
     arms.ball(s*.31,.85,.03,.18,.39,.18,color);arms.ball(s*.31,.705,.17,.145,.14,.30,skin);
@@ -384,17 +403,50 @@ export function avatar(color,skin='#d9a779'){
   a.ball(0,1.47,.210,.09,.095,.086,skin);
   a.box(0,1.408,.202,.074,.015,.013,'#ad7767');
   for(const s of [-1,1])a.ball(s*.09,1.48,.207,.037,.049,.028,dark);
-  a.finish();legs.finish();seated.finish();arms.finish();sitting.add(restingArms);g.add(torso,standing,sitting);
+  a.finish();seated.finish();arms.finish();sitting.add(restingArms);g.add(torso,standing,sitting);
+  const serving=new THREE.Group(),drinks=[];
+  torso.add(serving);
+  for(const side of [-1,1]){
+    const hand=new THREE.Group(),cup=new Pieces(hand);serving.add(hand);drinks.push(hand);
+    cup.ball(side*.285,1.04,.055,.205,.31,.22,color);
+    cup.ball(side*.288,.93,.207,.135,.16,.31,skin);
+    cup.round(side*.27,1.02,.34,.164,.192,.164,'#f2e4cb');
+    cup.round(side*.27,1.034,.34,.168,.078,.168,side>0?'#698e80':'#b67667');
+    cup.round(side*.27,1.111,.34,.171,.020,.171,'#fef0d9');
+    cup.round(side*.27,1.123,.34,.136,.011,.136,'#84553d');cup.finish();
+  }
+  let phase=0,strength=0,bob=0,carrying=false;
+  g.setStride=(distance,dt,seated,cup,chat)=>{
+    carrying=cup;serving.visible=cup;
+    drinks[0].visible=!chat;drinks[1].visible=true;
+    if(chat)serving.rotation.x=-.10-.15*Math.max(0,Math.sin(performance.now()*.0018));
+    else serving.rotation.x=0;
+    phase+=Math.min(distance,.50)*Math.PI/.54;
+    const pace=seated||dt<=0?0:Math.min(1,distance/dt/2.1);
+    strength+=(pace-strength)*(1-Math.exp(-dt*18));
+    bob=.027*strength*Math.abs(Math.sin(phase));
+    for(const limb of limbs){
+      limb.leg.rotation.x=-limb.side*Math.sin(phase)*.48*strength;
+      limb.arm.rotation.x=limb.side*Math.sin(phase)*.31*strength;
+      limb.arm.visible=!cup;
+    }
+  };
   g.setSeated=(value,part,time=0)=>{
-    standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:0;
-    restingArms.visible=!part;
+    standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
+    restingArms.visible=!part&&!carrying;
     for(const [i,arm] of hands.entries()){
       arm.visible=!!part;
       if(part){const beat=time/.30,step=Math.floor(beat);
         arm.rotation.x=noteAtStep(part,step)!==null&&i===step%2?.13*Math.sin((beat-step)*Math.PI):0;}
     }
   };
-  g.setSeated(false);return g;
+  g.traverse(m=>{if(m.isMesh)m.castShadow=false;});
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(.95,.76).rotateX(-Math.PI/2),new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,
+    vertexShader:'varying vec2 pos;void main(){pos=uv*2.-1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'varying vec2 pos;void main(){float a=1.-smoothstep(.12,1.,dot(pos,pos));gl_FragColor=vec4(.14,.12,.10,.24*a);}'
+  }));shadow.position.y=.06;shadow.renderOrder=1;g.add(shadow);
+  g.setStride(0,0,false,false,false);g.setSeated(false);return g;
 }
 
 export function townExteriors(island,detail,scene){
