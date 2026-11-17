@@ -213,13 +213,21 @@ export class StreetSession {
           !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
-        if(this.hostBoot!==f.boot)this.poseEpoch=(this.poseEpoch??0)+1;
+        const newHost=this.hostBoot!==f.boot;
+        if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
+        this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
-        if(Array.isArray(f.residents)&&f.residents.length===this.town.people.length)
-          f.residents.forEach((r,i)=>{if(!Array.isArray(r)||r.length!==5||!r.every(Number.isFinite))return;
-            const m=this.town.people[i];m.position.set(r[0],r[1],r[2]);m.visible=!!r[3];m.scale.y=r[4];});
+        if(Array.isArray(f.residents)&&f.residents.length===this.town.people.length){
+          this.residentTargets=f.residents.map((r,i)=>{
+            if(!Array.isArray(r)||r.length!==5||!r.every(Number.isFinite))return null;
+            const m=this.town.people[i],p=m.position,visible=!!r[3];
+            if(newHost||m.visible!==visible||Math.hypot(r[0]-p.x,r[2]-p.z)>3)p.set(r[0],r[1],r[2]);
+            m.visible=visible;m.scale.y=r[4];
+            return {x:p.x,y:p.y,z:p.z,to:r};
+          });
+        }
       }catch{}
     }
   }
@@ -254,7 +262,13 @@ export class StreetSession {
         a.motion=id===this.id?this.motion:remote?.motion??0;
         a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);
       }
-    }else if(now-this.lastFrame>4000)this.connected=false;
+    }else{
+      if(now-this.lastFrame>4000)this.connected=false;
+      const blend=Math.min(1,(now-this.lastFrame)/this.residentInterval);
+      this.residentTargets?.forEach((r,i)=>{
+        if(r)this.town.people[i].position.set(r.x+(r.to[0]-r.x)*blend,r.y+(r.to[1]-r.y)*blend,r.z+(r.to[2]-r.z)*blend);
+      });
+    }
     if(now-this.lastSent>=85){this.lastSent=now;if(this.owner)void this.broadcast();else this.sendInput();}
     if(this.listed&&now-(this.adAt||0)>3000){this.adAt=now;this.advertise();}
   }

@@ -38,6 +38,15 @@ try{
   }
   function ready(p){return p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});}
   const host=await visit(relay?origin:origin+'?net=local');
+  async function readPace(diagonal,jog){
+    if(jog)await host.keyboard.down('Shift');
+    await host.keyboard.down('w');if(diagonal)await host.keyboard.down('d');
+    try{return await host.evaluate(()=>{const {x,z}=window.__cozy.street.session.keys;return Math.hypot(x,z);});}
+    finally{if(diagonal)await host.keyboard.up('d');await host.keyboard.up('w');if(jog)await host.keyboard.up('Shift');}
+  }
+  const walk=await readPace(false,false),jog=await readPace(false,true);
+  assert.ok(walk>.7&&jog>walk&&Math.abs(await readPace(true,false)-walk)<.00001&&Math.abs(await readPace(true,true)-jog)<.00001);
+  console.log('PASS stride length is consistent across straight and diagonal walking and jogging');
   const town=await host.evaluate(()=>{const {island,street}=window.__cozy;return {plots:island.plan.lots.length,exteriors:island.streetFootprints.length,places:street.plots.map(p=>p.kind),roads:island.plan.roads.length};});
   assert.deepEqual(town.places,['cottage','cafe','house','spa','gym','club','restaurant']);assert.ok(town.exteriors>50);
   console.log('Island',JSON.stringify(town));

@@ -11,6 +11,7 @@
     "Order two coffees at Jenn's Café. Robin or Bea walks across to Harbor Green to save a seat while the drinks are brewing. Carry the cups over, share a bench-side conversation and choose whether to walk to the bay together. A neighbor remembers the next time you meet for coffee in this town.",
     "Click a patch of ground to walk there, choose a venue under Find a place, or take over with WASD. Shift breaks into a jog. Guests respond to movement keys immediately and the host checks their path against the same walls. If the owner renovates during a visit, both walkers check their route again.",
     "Click Robin or Bea to invite them by name. Indoors you can click a chair to sit, choose a keyboard part at the club, or order from the café counter. A player walking to a chair or keyboard holds that spot until they arrive or cancel.",
+    "Straight and diagonal movement cover the same distance at either pace. On guest screens, distant residents also keep walking between updates from the host.",
     "On the same 2.4-second walk at 960 × 540 on an RTX 5070 Ti, the previous build held the character still on 75 of 143 measured frames. The new build moved on all 142 measured frames. Both walks covered about 10.4 metres."
    ],
    "stills": [

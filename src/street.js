@@ -285,7 +285,7 @@ export class Street {
     const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+this.joy.z;
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
-    const pace=this.sprint?1:.73;
+    const pace=(this.sprint?1:.73)/Math.max(1,Math.hypot(forward,side));
     this.session.setInput(pace*(forward*dx-side*dz)/n,pace*(forward*dz+side*dx)/n);
   }
   cameraFraction(){
