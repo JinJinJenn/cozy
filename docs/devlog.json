@@ -2,6 +2,22 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 13,
+   "date": "2026-11-16",
+   "slug": "bluebell-house",
+   "milestone": "M13 Bluebell House",
+   "title": "Tea at Bea's while the house gets wider",
+   "text": [
+    "Choose Bluebell House under Find a place and select Visit Bea for tea. You walk in from the street. Bea goes to the kitchen, brings tea to the table and takes the chair opposite yours.",
+    "The owner can drag Bluebell's front-right corner or use the two wall sliders while guests stay seated. The doorway follows the front wall. The side wall carries its windows, and the floor and roof cover the new footprint. The preview checks the lot boundary, people in the way and space for the table.",
+    "Each corner drag is one undo step. Front-wall edits from older towns still load. The two-player test checks both seats during a renovation and restores both house dimensions after an owner reload."
+   ],
+   "stills": [
+    {"file":"shots/2026-11-16/bluebell-remodel.jpg","caption":"The owner widened Bluebell while a guest and Bea were seated inside."},
+    {"file":"shots/2026-11-16/tea-at-bluebell.jpg","caption":"The same visit from the guest's seat opposite Bea."}
+   ]
+  },
+  {
    "n": 12,
    "date": "2026-11-16",
    "slug": "tables-for-two",

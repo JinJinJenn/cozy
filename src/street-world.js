@@ -17,8 +17,14 @@ export function readLayout(s) {
   if(s.homes!==undefined){
     if(!s.homes||typeof s.homes!=='object'||Array.isArray(s.homes))return null;
     for(const [id,state] of Object.entries(s.homes)){
-      if(!homeLots.includes(id)||!validFront(state))return null;
-      homes[id]={wall:state.wall,undo:[...state.undo]};
+      if(!homeLots.includes(id)||!state||!validOffset(state.wall))return null;
+      if(id==='l108'){
+        const pair=v=>Array.isArray(v)&&v.length===2&&v.every(validOffset);
+        if(state.side!==undefined&&!validOffset(state.side)||!Array.isArray(state.undo)||state.undo.length>32||
+          !state.undo.every(v=>validOffset(v)||pair(v)))return null;
+      }else if(!validFront(state)||state.side!==undefined)return null;
+      homes[id]={wall:state.wall,undo:state.undo.map(v=>Array.isArray(v)?[...v]:v)};
+      if(state.side!==undefined)homes[id].side=state.side;
     }
   }
   if(s.club!==undefined&&!validFront(s.club))return null;
@@ -33,6 +39,11 @@ export function wallState(layout={},b){
   return (b.kind==='club'?layout.club:layout.homes?.[b.id])??emptyFront();
 }
 export const frontAt=(b,layout)=>b.d/2+(hasEditableFront(b)?wallState(layout,b).wall:0);
+export const sideAt=(b,layout)=>b.w/2+(b.kind==='house'?(layout?.homes?.[b.id]?.side??0):0);
+export function shellBounds(b,layout){
+  const side=sideAt(b,layout)-b.w/2,front=frontAt(b,layout)-b.d/2;
+  return {...b,...toWorld(b,side/2,front/2),w:b.w+side,d:b.d+front,height:b.cafe?5.42:4.82};
+}
 export function plotsForStreet(island) {
   if (island.seed !== 'petalwood' || island.presetId !== 'harborTown') return [];
   return [['l106','cottage'],['l107','cafe'],['l108','house'],['l105','spa'],['l109','gym'],['l102','club'],['l104','restaurant']].map(([id,kind]) => {
@@ -74,27 +85,45 @@ export function partitionHit(p,z,travel=0) {
   return (Math.abs(p.z-z)<radius+.11+travel/2 && Math.abs(p.x)<4.6+radius && Math.abs(p.x)>.95-radius) ||
     boxHit(p,1.02,z-.53,.13,1.06+travel);
 }
-function facadeHit(p,z,w,travel=0){
-  return (Math.abs(p.z-z)<radius+.10+travel/2&&Math.abs(p.x)<w/2+radius&&Math.abs(p.x)>1.05-radius)||
+function facadeHit(p,z,w,travel=0,right=w/2){
+  return (Math.abs(p.z-z)<radius+.10+travel/2&&p.x> -w/2-radius&&p.x<right+radius&&Math.abs(p.x)>1.05-radius)||
     boxHit(p,1.035,z-.5,.12,1+travel)||
-    (Math.abs(Math.abs(p.x)-w/2)<.09+radius&&Math.abs(p.z-z)<radius+travel/2);
+    ((Math.abs(p.x+w/2)<.09+radius||Math.abs(p.x-right)<.09+radius)&&Math.abs(p.z-z)<radius+travel/2);
 }
-export function wallLimit(current,wanted,occupants,b) {
+export function wallLimit(current,wanted,occupants,b,right=b.w/2) {
   const goal=Math.max(-1.5,Math.min(1.5,Math.round(wanted*2)/2));
   if (!Number.isFinite(goal)) return {offset:current,reason:'invalid'};
   const pts=occupants.map(p=>toRoom(b,p));
   const dir=Math.sign(goal-current);
   let safe=current;
   for(let z=current+dir*.5;dir && (goal-z)*dir>=0;z+=dir*.5) {
-    if(hasEditableFront(b)&&b.parcel&&[-1,1].some(side=>{
-      const p=toWorld(b,side*(b.w/2+.38),b.d/2+z+.38);
+    if(hasEditableFront(b)&&b.parcel&&[-b.w/2-.38,right+.38].some(x=>{
+      const p=toWorld(b,x,b.d/2+z+.38);
       return !pointInPoly(p.x,p.z,b.parcel);
     }))return {offset:safe,reason:'parcel'};
     // A straight translation sweeps each rectangle over exactly its length plus travel.
     const middle=(safe+z)/2,travel=Math.abs(z-safe);
-    if(pts.some(p=>b.cafe?partitionHit(p,middle,travel):facadeHit(p,b.d/2+middle,b.w,travel)))
+    if(pts.some(p=>b.cafe?partitionHit(p,middle,travel):facadeHit(p,b.d/2+middle,b.w,travel,right)))
       return {offset:safe,reason:'occupied'};
     safe=z;
+  }
+  return {offset:safe,reason:null};
+}
+// Sweep the entire moving side, including both corners. The entry stays on its original axis.
+export function sideLimit(b,current,wanted,front,occupants){
+  const goal=Math.max(-1.5,Math.min(1.5,Math.round(wanted*2)/2));
+  const dir=Math.sign(goal-current),back=-b.d/2,points=occupants.map(p=>toRoom(b,p));
+  let safe=current;
+  for(let s=current+dir*.5;dir&&(goal-s)*dir>=0;s+=dir*.5){
+    const right=b.w/2+s;
+    if(b.parcel&&[back-.38,front+.38].some(z=>{
+      const p=toWorld(b,right+.38,z);return !pointInPoly(p.x,p.z,b.parcel);
+    }))return {offset:safe,reason:'parcel'};
+    // Leave the kitchen, sofa and both seat approaches usable.
+    if(right<2.30)return {offset:safe,reason:'furniture'};
+    if(points.some(p=>boxHit(p,b.w/2+(safe+s)/2,(back+front)/2,.18+Math.abs(s-safe),front-back+.18)))
+      return {offset:safe,reason:'occupied'};
+    safe=s;
   }
   return {offset:safe,reason:null};
 }
@@ -104,7 +133,7 @@ export function legalWall(current,wanted,occupants,b){
 export function floorAt(island,plots,x,z,layout={}) {
   for (const b of plots) {
     const p=toRoom(b,{x,z});
-    if(Math.abs(p.x)<=b.w/2+.15 && p.z>=-b.d/2-.15 && p.z<=frontAt(b,layout)+.15) return b.y;
+    if(p.x>=-b.w/2-.15&&p.x<=sideAt(b,layout)+.15 && p.z>=-b.d/2-.15 && p.z<=frontAt(b,layout)+.15) return b.y;
   }
   return island.deckHeight?.(x,z)??island.sample(x,z);
 }
@@ -113,10 +142,10 @@ export function walkable(island,plots,layout,pos) {
   for (const b of plots) {
     const p=toRoom(b,pos), hw=b.w/2,hd=b.d/2;
     if(b.cafe&&p.z>hd&&layout.terrace?.tables.some(t=>Math.hypot(t.x-p.x,t.z-p.z)<.48+radius))return false;
-    const front=frontAt(b,layout),center=(front-hd)/2;
-    if(Math.abs(p.x)>hw+.55 || p.z< -hd-.55 || p.z>front+.55) continue;
-    if(boxHit(p,-hw,center,.18,hd+front)||boxHit(p,hw,center,.18,hd+front)||boxHit(p,0,-hd,b.w,.18)) return false;
-    if(hasEditableFront(b)?facadeHit(p,front,b.w):(Math.abs(p.z-front)<radius+.1&&Math.abs(p.x)>1.05-radius&&Math.abs(p.x)<hw+radius))return false;
+    const front=frontAt(b,layout),right=sideAt(b,layout),center=(front-hd)/2;
+    if(p.x< -hw-.55||p.x>right+.55 || p.z< -hd-.55 || p.z>front+.55) continue;
+    if(boxHit(p,-hw,center,.18,hd+front)||boxHit(p,right,center,.18,hd+front)||boxHit(p,(right-hw)/2,-hd,hw+right,.18)) return false;
+    if(hasEditableFront(b)?facadeHit(p,front,b.w,0,right):(Math.abs(p.z-front)<radius+.1&&Math.abs(p.x)>1.05-radius&&Math.abs(p.x)<hw+radius))return false;
     if(b.cafe) {
       if(partitionHit(p,layout.wall) || boxHit(p,-2.95,2.76,1.6,1.05) ||
         boxHit(p,2.95,2.76,1.6,1.05) || boxHit(p,0,-3.14,5,.8)) return false;

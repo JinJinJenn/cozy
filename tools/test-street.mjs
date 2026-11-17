@@ -5,6 +5,7 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playTerrace} from './playtest-terrace.mjs';
+import {playBluebell} from './playtest-bluebell.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -81,6 +82,15 @@ try{
   if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.edit(1)),false);
+  await playBluebell(host,guest,async()=>{
+    const late=await visit(link,relay?await testContext():context);
+    try{
+      await waitForGuest(late);
+      await late.waitForFunction(()=>{const s=window.__cozy.street.session,h=s.layout.homes.l108;
+        return h?.wall===.5&&h.side===1.5&&[...s.actors.values()].some(a=>a.homeVisit&&a.outing==='chat');});
+    }finally{await late.close();}
+  },process.argv.includes('--bluebell-shot')?path.join(root,'docs/shots/2026-11-16'):null);
+  if(process.argv.includes('--bluebell-only')){assert.deepEqual(errors,[]);await browser.close();process.exit(0);}
   await playTerrace(host,guest);
   await guest.locator('#use-place').click();
   await host.waitForFunction(()=>!window.__cozy.street.session.layout.lights);

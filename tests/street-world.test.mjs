@@ -75,6 +75,29 @@ test('extending either front corner stops before its side wall traps a walker',(
     assert.equal(walkable(island,[home],layout,p),false);
   }
 });
+test('Bluebell corner edits sweep the side, fit the parcel and preserve occupied undo history',()=>{
+  const home={...b,id:'l108',cafe:false,kind:'house',w:6.6,d:6.9};
+  const s=Object.assign(Object.create(StreetSession.prototype),{owner:true,ready:true,layout:defaultLayout(),
+    plots:[home],actors:new Map(),town:{people:[]},updatePatrol(){},persist(){},notice(){}});
+  const point=toWorld(home,3.95,0);
+  s.actors.set('guest',point);
+  assert.equal(s.edit(0,false,home.id,1.5),false);
+  assert.ok(walkable(island,[home],s.layout,point));
+  s.actors.clear();
+  assert.ok(s.edit(.5,false,home.id,1.5));assert.ok(walkable(island,[home],s.layout,point));
+  assert.equal(floorAt(island,[home],point.x,point.z,s.layout),home.y);
+  assert.equal(walkable(island,[home],s.layout,toWorld(home,4.8,1)),false);
+  s.layout=readLayout(s.layout);assert.deepEqual(s.layout.homes.l108.undo,[[0,0]]);
+  s.town.people=[{visible:true,position:point}];
+  assert.equal(s.edit(0,true,home.id),false);assert.deepEqual(s.layout.homes.l108.undo,[[0,0]]);
+  s.town.people=[];assert.ok(s.edit(0,true,home.id));
+  assert.equal(s.layout.homes.l108.side,0);assert.equal(floorAt(island,[home],point.x,point.z,s.layout),3);
+  home.parcel=[[-5,-5],[4.5,-5],[4.5,6],[-5,6]].map(([x,z])=>{const p=toWorld(home,x,z);return [p.x,p.z];});
+  assert.equal(s.limitFor(home,0,1.5).side,.5);assert.equal(s.limitFor(home,0,1.5).reason,'parcel');
+  assert.equal(s.limitFor(home,0,-1.5).reason,'furniture');
+  assert.equal(readLayout({...s.layout,homes:{l108:{wall:0,side:1,undo:[[0,5]]}}}),null);
+  s.owner=false;assert.equal(s.edit(.5,false,home.id,.5),false);
+});
 test('all waterfront front doors can be reached from their shared road on the graded island',()=>{
   const result=generate({seed:'petalwood',preset:'harborTown'}),world=result.island;
   world.plan=generateSettlement(result);result.heightfield.set(createFlattenHook(world.plan)(result));

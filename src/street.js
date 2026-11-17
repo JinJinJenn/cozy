@@ -2,7 +2,7 @@ import {neighborName} from './street-activities.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
-import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
+import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,shellBounds,toRoom,toWorld,wallState} from './street-world.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
 import {TerraceEditor} from './terrace-editor.js';
@@ -59,13 +59,15 @@ export class Street {
     listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
     listen($('use-place'),'click',()=>this.use());
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
-    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);$('go-place').disabled=!this.destination;this.nextUI=0;});
+    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>b.kind===$('destination').value);$('go-place').disabled=!this.destination;
+      $('home-invite').hidden=this.destination?.kind!=='house';this.nextUI=0;});
+    listen($('home-invite'),'click',()=>{this.session.command({type:'visit-bluebell'});this.closePanels();});
     listen($('go-place'),'click',()=>{
       const b=this.destination;if(!b)return;
       const goal=b.entry??toWorld(b,0,frontAt(b,this.session.layout)+1.4);
       this.session.command({type:'walk',...goal});this.closePanels();
     });
-    listen($('coffee-action'),'click',()=>this.session.command({type:'coffee'}));
+    listen($('coffee-action'),'click',()=>this.session.command({type:this.session.actors.get(this.session.id)?.homeVisit?'cancel':'coffee'}));
     listen($('beach-action'),'click',()=>this.session.command({type:'beach'}));
     listen($('patio-coffee'),'click',()=>this.session.command({type:'terrace-coffee',lot:$('patio-destination').value}));
     listen($('cancel-action'),'click',()=>this.session.command({type:'cancel'}));
@@ -99,20 +101,21 @@ export class Street {
     });
     listen($('build-lot'),'change',()=>this.selectLot(this.editable.find(b=>b.id===$('build-lot').value)));
     listen($('wall-offset'),'input',()=>{this.notice('');this.preview();});
+    listen($('side-offset'),'input',()=>{this.notice('');this.preview();});
     listen($('apply-wall'),'click',()=>this.commitWall());
     listen($('undo-wall'),'click',()=>this.commitWall(true));
     const grip=$('wall-grip');
     listen(grip,'pointerdown',e=>{
       if(!this.buildLot||this.drag||e.button!==0)return;
-      const start=this.pointerZ(e);if(start===null)return;
+      const start=this.pointerRoom(e);if(start===null)return;
       e.preventDefault();this.notice('');grip.setPointerCapture(e.pointerId);
-      this.drag={id:e.pointerId,start,offset:Number($('wall-offset').value)};
+      this.drag={id:e.pointerId,start,offset:Number($('wall-offset').value),side:Number($('side-offset').value)};
     });
     listen(grip,'pointermove',e=>this.dragWall(e));
     listen(grip,'pointerup',e=>{
       if(this.drag?.id!==e.pointerId)return;
       this.dragWall(e);this.drag=null;
-      if(Number($('wall-offset').value)!==wallState(this.session.layout,this.buildLot).wall)this.commitWall();
+      if(this.previewChanged())this.commitWall();
     });
     listen(grip,'lostpointercapture',()=>{if(this.drag){this.drag=null;this.resetPreview();}});
     listen($('social-open'),'click',()=>{const open=$('social-pane').hidden;this.closePanels();$('social-pane').hidden=!open;});
@@ -162,7 +165,7 @@ export class Street {
     const offer=(p,radius,command,label)=>{
       if(ray.distanceSqToPoint(p)>radius*radius)return;
       const distance=ray.origin.distanceTo(p);if(distance>=depth)return;
-      if(this.plots.some(b=>b.id!==this.openRoof&&cameraClearance(ray.origin,p,{...b,height:5})<1))return;
+      if(this.plots.some(b=>b.id!==this.openRoof&&cameraClearance(ray.origin,p,shellBounds(b,s.layout))<1))return;
       depth=distance;best={command,label};
     };
     if(!local?.outing)for(const [id,m] of this.meshes){
@@ -206,6 +209,10 @@ export class Street {
     $('street-panel').classList.add('building');
     $('build-open').textContent='Done building';this.nextUI=0;
     $('wall-label').textContent=b.cafe?'Partition':'Front wall';this.notice('');
+    const corner=b.kind==='house',handle=corner?'Drag corner':'Drag wall';
+    $('side-tools').hidden=!corner;$('wall-grip').querySelector('span').textContent=handle;
+    $('wall-grip').setAttribute('aria-label',handle);$('wall-grip').title=handle;
+    $('apply-wall').textContent=corner?'Resize room':'Move wall and door';
     const eye=toWorld(b,4,-8);
     this.controls.target.set(b.x,b.y+.35,b.z);this.camera.position.set(eye.x,b.y+11,eye.z);
     const fit=Math.max(1,.89/this.camera.aspect);
@@ -216,42 +223,51 @@ export class Street {
     if(!this.buildLot)return;
     const state=wallState(this.session.layout,this.buildLot);
     $('wall-offset').value=state.wall;
+    $('side-offset').value=state.side??0;
     $('undo-wall').disabled=!state.undo.length;
     this.preview();
   }
   commitWall(undo=false){
     if(!this.buildLot)return;
-    this.session.edit(Number($('wall-offset').value),undo,this.buildLot.id);this.resetPreview();
+    this.session.edit(Number($('wall-offset').value),undo,this.buildLot.id,Number($('side-offset').value));this.resetPreview();
   }
-  pointerZ(e){
+  pointerRoom(e){
     const rect=this.controls.domElement.getBoundingClientRect();
     this.ray.setFromCamera({x:(e.clientX-rect.left)*2/rect.width-1,y:1-(e.clientY-rect.top)*2/rect.height},this.camera);
     this.plane.constant=-(this.buildLot.y+2.25);
     const p=this.ray.ray.intersectPlane(this.plane,this.point);
-    return p?toRoom(this.buildLot,p).z:null;
+    return p?toRoom(this.buildLot,p):null;
   }
   dragWall(e){
     if(!this.drag||this.drag.id!==e.pointerId)return;
-    const z=this.pointerZ(e);if(z===null)return;
-    $('wall-offset').value=Math.round((this.drag.offset+z-this.drag.start)*2)/2;this.preview();
+    const p=this.pointerRoom(e);if(!p)return;
+    $('wall-offset').value=Math.round((this.drag.offset+p.z-this.drag.start.z)*2)/2;
+    if(this.buildLot.kind==='house')$('side-offset').value=Math.round((this.drag.side+p.x-this.drag.start.x)*2)/2;
+    this.preview();
+  }
+  previewChanged(){
+    const state=wallState(this.session.layout,this.buildLot);
+    return Number($('wall-offset').value)!==state.wall||Number($('side-offset').value)!==(state.side??0);
   }
   preview(){
     const lot=this.buildLot;if(!lot)return;
-    const value=Number($('wall-offset').value),current=wallState(this.session.layout,lot).wall;
-    const {offset,reason}=value===current?{offset:current}:this.session.limitFor(lot,value);
+    const value=Number($('wall-offset').value),wantedSide=Number($('side-offset').value),state=wallState(this.session.layout,lot);
+    const {offset,side=0,reason}=this.previewChanged()?this.session.limitFor(lot,value,wantedSide):{offset:state.wall,side:state.side};
     $('wall-readout').textContent=value.toFixed(1)+' m';
+    $('side-readout').textContent=wantedSide.toFixed(1)+' m';
     const limit=$('wall-limit');limit.hidden=!reason;
     if(reason){
-      const message=(reason==='parcel'?'Lot boundary':'Someone is in the way')+' · Wall stops at '+offset.toFixed(1)+' m';
+      const cause=reason==='parcel'?'Lot boundary':reason==='furniture'?'Leave space for the seats':'Someone is in the way';
+      const message=cause+' · '+(lot.kind==='house'?'Front '+offset.toFixed(1)+' m, right '+side.toFixed(1)+' m':'Wall stops at '+offset.toFixed(1)+' m');
       if(limit.textContent!==message)limit.textContent=message;
     }
-    this.previewOffset=offset;
-    this.art.preview(lot,offset,offset!==current);
+    this.previewOffset=offset;this.previewSide=side;
+    this.art.preview(lot,offset,offset!==state.wall||side!==(state.side??0),side);
     this.positionGrip();
   }
   positionGrip(){
     const b=this.buildLot,offset=this.previewOffset;
-    const p=toWorld(b,-b.w*.25,(b.cafe?0:b.d/2)+offset);
+    const p=toWorld(b,b.kind==='house'?b.w/2+this.previewSide:-b.w*.25,(b.cafe?0:b.d/2)+offset);
     const projected=this.point.set(p.x,b.y+2.25,p.z).project(this.camera),r=this.controls.domElement.getBoundingClientRect();
     const grip=$('wall-grip');grip.hidden=projected.z< -1||projected.z>1;
     grip.style.left=(r.left+(projected.x+1)*r.width/2)+'px';grip.style.top=(r.top+(1-projected.y)*r.height/2)+'px';
@@ -304,11 +320,7 @@ export class Street {
     if(!this.active||this.buildLot)return 1;
     const eye=this.camera.position,at=this.controls.target;
     let limit=1;
-    for(const b of this.plots){
-      const offset=hasEditableFront(b)?wallState(this.session.layout,b).wall:0;
-      const center=toWorld(b,0,offset/2);
-      limit=Math.min(limit,cameraClearance(at,eye,{...b,...center,d:b.d+offset,height:b.cafe?5.42:4.82}));
-    }
+    for(const b of this.plots)limit=Math.min(limit,cameraClearance(at,eye,shellBounds(b,this.session.layout)));
     const x0=Math.floor(Math.min(at.x,eye.x)/32),x1=Math.floor(Math.max(at.x,eye.x)/32);
     const z0=Math.floor(Math.min(at.z,eye.z)/32),z1=Math.floor(Math.max(at.z,eye.z)/32);
     for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++)
@@ -347,15 +359,16 @@ export class Street {
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
     if(this.terraceEditor.active)this.terraceEditor.refresh();
-    else if(this.buildLot&&Number($('wall-offset').value)!==wallState(s.layout,this.buildLot).wall)this.preview();
+    else if(this.buildLot&&this.previewChanged())this.preview();
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
-    $('walk-hint').textContent=this.terraceEditor.active?'':this.buildLot?'Drag the wall handle, or set an offset below.':
+    $('walk-hint').textContent=this.terraceEditor.active?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
       'Click ground, people or furniture · WASD to steer · Shift to jog · Drag to orbit';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');
     coffee.hidden=!!this.buildLot||(!outing&&near?.kind!=='cafe')||!!outing&&!['carry','chat','bay'].includes(outing);
     coffee.disabled=!s.ready||(!s.owner&&!s.connected);
     coffee.textContent=outing==='carry'?'Join '+friend+(local.meetingTable?' on the terrace':' at Harbor Green'):outing==='bay'?'Finish visit':outing==='chat'?'Finish coffee':'Coffee with a neighbor';
-    $('beach-action').hidden=!!this.buildLot||outing!=='chat';
+    if(local.homeVisit)$('coffee-action').textContent='Finish visit';
+    $('beach-action').hidden=!!this.buildLot||outing!=='chat'||!!local.homeVisit;
     $('patio-coffee').hidden=!!this.buildLot||outing!=='carry'||!!local.meetingTable||!s.terraceLots().length;
     const selection=$('patio-destination');selection.hidden=$('patio-coffee').hidden||s.terraceLots().length<2;
     if(!selection.hidden){
@@ -368,10 +381,11 @@ export class Street {
     }else{selection.value='';selection.dataset.ids='';}
     const status={beach:'Walking to the beach with '+friend,bay:friend+' · "You can see the café from down here."',counter:'Walking to the café counter',brewing:'Preparing two coffees',carry:'Two coffees ready · '+friend+(local.meetingTable?' is meeting you on the terrace':' is meeting you at Harbor Green'),
       garden:'Taking coffee to Harbor Green',terrace:'Meeting '+friend+' on the terrace',waiting:'Waiting for '+friend,chat:friend+(local.visits>1?' · "Our usual spot. Walk to the beach again?"':' · "Want to take the path down to the water?"')};
-    const label=$('live-action'),text=local.feedback||status[outing]||(local.walking?'Walking to your destination':'');
+    const homeStatus=local.homeVisit&&({visiting:'Walking to Bluebell House',waiting:'Bea is making tea',chat:'Tea with Bea at Bluebell House'})[outing];
+    const label=$('live-action'),text=local.feedback||homeStatus||status[outing]||(local.walking?'Walking to your destination':'');
     label.hidden=!text||!!this.buildLot;label.querySelector('span').textContent=text;
     $('cancel-action').hidden=!local.walking&&!outing||outing==='chat'||outing==='bay';
-    const waypoint=$('waypoint');waypoint.hidden=!this.destination;
+    const waypoint=$('waypoint');waypoint.hidden=!this.destination||this.openRoof===this.destination.id;
     if(this.destination){const b=this.destination,p=b.entry??toWorld(b,0,frontAt(b,s.layout)+1.6),dx=p.x-local.x,dz=p.z-local.z,dist=Math.hypot(dx,dz);
       const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
       $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=places[b.kind][0]+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}

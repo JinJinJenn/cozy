@@ -30,7 +30,7 @@ export class StreetActivities {
       }
     }
     if(actor.friend){if(this.benchOwner===actor.id){this.reserved.clear();this.benchOwner=null;}actor.activity='';}
-    actor.outing='';actor.cup=false;delete actor.friend;delete actor.brewUntil;delete actor.counterSlot;delete actor.visits;delete actor.atBeach;delete actor.meetingTable;
+    actor.outing='';actor.cup=false;delete actor.friend;delete actor.brewUntil;delete actor.counterSlot;delete actor.visits;delete actor.atBeach;delete actor.meetingTable;delete actor.homeVisit;
   }
   seatTaken(q,except){
     return [...this.s.actors.values()].some(a=>a.id!==except&&within(a,q,.66));
@@ -46,6 +46,21 @@ export class StreetActivities {
   stationClaimed(lot,index,except){
     for(const [id,route] of this.routes)if(id!==except&&route.arrival?.lot===lot&&route.arrival.index===index)return true;
     return false;
+  }
+  visitBluebell(actor){
+    if(actor.outing)return;
+    const home=this.s.plots.find(b=>b.kind==='house'),bea=this.s.actors.get('resident1');
+    if(!home||!bea||bea.invitedBy||this.tableBooked(home.id)||
+      ![0,1].every(i=>this.s.available(i?bea:actor,home,this.s.furnitureAt(home.id,i).spot))){
+      actor.feedback='Bea or her table is busy.';return;
+    }
+    const guestSeat=this.s.furnitureAt(home.id,0).spot;
+    if(!this.go(actor,guestSeat,'share')){actor.feedback='The path to Bluebell is blocked.';return;}
+    if(!this.go(bea,toWorld(home,.2,-2.18),'kettle')){
+      this.cancelRoute(actor);actor.feedback='Bea cannot reach her kitchen.';return;
+    }
+    actor.friend=bea.id;actor.meetingTable=home.id;actor.homeVisit=true;actor.outing='visiting';
+    bea.invitedBy=actor.id;
   }
   start(actor,friend){
     if(actor.outing)return;
@@ -70,6 +85,7 @@ export class StreetActivities {
   }
   command(actor,cmd){
     actor.feedback='';
+    if(cmd.type==='visit-bluebell'){this.visitBluebell(actor);return;}
     if(cmd.type==='cancel'){this.finish(actor);return;}
     if(cmd.type==='terrace-coffee'&&actor.outing==='carry'){
       const b=this.freeTable(actor,cmd.lot),friend=this.s.actors.get(actor.friend);
@@ -81,7 +97,7 @@ export class StreetActivities {
       if(this.benchOwner===actor.id){this.reserved.clear();this.benchOwner=null;}
       actor.outing='terrace';return;
     }
-    if(cmd.type==='coffee'){
+    if(cmd.type==='coffee'&&!actor.homeVisit){
       if(!actor.outing){this.start(actor,cmd.friend);return;}
       if(actor.outing==='chat'||actor.outing==='bay'){this.finish(actor);return;}
       if(actor.outing==='carry'){
@@ -90,7 +106,7 @@ export class StreetActivities {
       }
       return;
     }
-    if(cmd.type==='beach'&&actor.outing==='chat'){
+    if(cmd.type==='beach'&&actor.outing==='chat'&&!actor.homeVisit){
       const friend=this.s.actors.get(actor.friend),gym=this.s.plots.find(b=>b.kind==='gym');
       if(!friend||!gym)return;
       // Both walkers follow the marked lane to the last dry strip that fits the pair.
@@ -128,10 +144,17 @@ export class StreetActivities {
   }
   arrive(a,arrival){
     const s=this.s;
+    if(arrival==='kettle'){
+      const guest=s.actors.get(a.invitedBy);
+      if(!guest?.homeVisit)return;
+      a.cup=true;
+      if(!this.go(a,this.seat(1,guest),'neighbor')){this.finish(guest);guest.feedback='The path from the kitchen is blocked.';}
+      return;
+    }
     if(typeof arrival==='object'){
       const target=s.furnitureAt(arrival.lot,arrival.index);
       if(target&&s.available(a,target.b,target.spot)){
-        const {b,spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:b.yaw+(b.kind==='terrace'&&spot.index===0?0:Math.PI),activity:spot.action,part:spot.part});
+        const {spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
       }else a.feedback='Someone else is using that spot.';
       return;
     }
@@ -142,15 +165,15 @@ export class StreetActivities {
       if(!owner)return;
       const seat=this.seat(i,owner);
       if(this.seatTaken(seat,a.id)){
-        this.finish(owner);owner.feedback='Someone is at the bench. The coffee visit ended.';return;
+        this.finish(owner);owner.feedback='Someone is already sitting here.';return;
       }
-      const yaw=owner.meetingTable?s.furnitureAt(owner.meetingTable,i).b.yaw+(i===0?0:Math.PI):s.garden.yaw+Math.PI+(i===1?.45:-.45);
+      const yaw=owner.meetingTable?s.furnitureAt(owner.meetingTable,i).spot.yaw:s.garden.yaw+Math.PI+(i===1?.45:-.45);
       Object.assign(a,{x:seat.x,z:seat.z,yaw,activity:'sit'});
       if(arrival==='share')a.outing='waiting';
       const friend=s.actors.get(owner.friend);
       if(owner.outing==='waiting'&&friend?.activity==='sit'){
         owner.outing='chat';owner.cup=true;friend.cup=true;
-        owner.visits=s.rememberCoffee?.(friend.id)??1;
+        if(!owner.homeVisit)owner.visits=s.rememberCoffee?.(friend.id)??1;
       }
     }
     if(arrival==='shore'){

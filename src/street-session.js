@@ -2,7 +2,7 @@ import {StreetActivities} from './street-activities.js';
 import {chairs,maxTables,tableFeet,tableFit} from './terrace.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
-import {defaultLayout,gardenForStreet,gardenSeats,frontAt,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
+import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
@@ -11,10 +11,11 @@ const furniture={
   garden:gardenSeats,terrace:chairs,club:[[-1.7,-1.1,'piano','melody'],[1.7,-1.1,'piano','bass'],[0,1,'dance']],
   restaurant:[[-1.65,.57,'dine'],[1.65,.57,'dine'],[-1.65,-1.17,'dine'],[1.65,-1.17,'dine']],
   gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
-  house:[[1.38,-.14,'sit']],cottage:[[1.38,-.14,'sit']]
+  house:[[1.38,-.14,'sit'],[1.38,-1.80,'sit']],cottage:[[1.38,-.14,'sit']]
 };
 export function stationsFor(b){
-  return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index}));
+  return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
+    yaw:b.yaw+((b.kind==='terrace'&&index===0||b.kind==='house'&&index===1)?0:Math.PI)}));
 }
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -125,9 +126,13 @@ export class StreetSession {
     this.coffeeVisits[id]=count;save(project+'.coffee.'+this.pub,this.coffeeVisits);
     return count;
   }
-  limitFor(b,goal){
+  limitFor(b,goal,side=sideAt(b,this.layout)-b.w/2){
     const people=[...this.actors.values(),...this.town.people.filter(p=>p.visible).map(p=>p.position)];
-    return wallLimit(wallState(this.layout,b).wall,goal,people,b);
+    const state=wallState(this.layout,b),currentSide=state.side??0;
+    const front=wallLimit(state.wall,goal,people,b,b.w/2+currentSide);
+    if(b.kind!=='house')return front;
+    const lateral=sideLimit(b,currentSide,side,b.d/2+front.offset,people);
+    return {...front,side:lateral.offset,reason:front.reason||lateral.reason};
   }
   terraceLots(){
     const tables=this.layout?.terrace?.tables;
@@ -168,34 +173,40 @@ export class StreetSession {
     state.tables.sort((a,b)=>a.id-b.id);this.layout.revision++;this.persist();
     this.notice(undo?'Terrace edit undone.':next?'Table and chairs placed.':'Table removed.');return true;
   }
-  edit(target,undo=false,lot=this.cafe.id){
+  edit(target,undo=false,lot=this.cafe.id,side){
     if(!this.owner||!this.ready)return false;
     const b=this.plots.find(p=>p.id===lot&&(p.cafe||hasEditableFront(p)));
     if(!b)return false;
-    const state=wallState(this.layout,b),old=state.wall,goal=undo?state.undo.at(-1):target;
-    if(!Number.isFinite(goal))return false;
-    const {offset:next,reason}=this.limitFor(b,goal);
-    if(goal===old){this.notice('The wall is already there.');return false;}
-    if(next===old||(undo&&next!==goal)){this.notice(reason==='parcel'?'Wall held at the lot boundary.':'Wall held. Someone is in its path.');return false;}
-    if(undo)state.undo.pop();else state.undo=[...state.undo.slice(-31),old];
+    const state=wallState(this.layout,b),old=state.wall,oldSide=state.side??0;
+    const prior=state.undo.at(-1);
+    const goal=undo?(Array.isArray(prior)?prior[0]:prior):target;
+    const wantedSide=undo?(Array.isArray(prior)?prior[1]:0):(side??oldSide);
+    if(!Number.isFinite(goal)||!Number.isFinite(wantedSide)||b.kind!=='house'&&wantedSide!==0)return false;
+    const result=this.limitFor(b,goal,wantedSide),next=result.offset,nextSide=result.side??0;
+    if(next===old&&nextSide===oldSide||undo&&(next!==goal||nextSide!==wantedSide)){
+      this.notice(result.reason==='parcel'?'Wall held at the lot boundary.':result.reason==='occupied'?'Wall held. Someone is in its path.':
+        result.reason==='furniture'?'The seats need this space.':'The wall is already there.');return false;
+    }
+    if(undo)state.undo.pop();else state.undo=[...state.undo.slice(-31),oldSide||oldSide!==nextSide?[old,oldSide]:old];
     state.wall=next;
+    if(b.kind==='house'&&(nextSide||state.side!==undefined||oldSide!==nextSide))state.side=nextSide;
     if(isHome(b)){this.layout.homes[b.id]=state;this.updatePatrol();}
     if(b.kind==='club')this.layout.club=state;
-    this.layout.revision++;this.persist();this.notice(next===goal?'Wall and doorway moved.':'Wall stopped at its safe limit.');return true;
+    this.layout.revision++;this.persist();this.notice(result.reason?'Wall stopped at its safe limit.':oldSide!==nextSide?'Bluebell room resized.':'Wall and doorway moved.');return true;
   }
-  near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.plots.find(b=>{const p=toRoom(b,actor);return Math.abs(p.x)<b.w/2+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
+  near(actor){return this.terraceLots().find(b=>within(actor,b,1.34))||this.plots.find(b=>{const p=toRoom(b,actor);return p.x> -b.w/2-1&&p.x<sideAt(b,this.layout)+1&&p.z>=-b.d/2-.35&&p.z<=frontAt(b,this.layout)+4})||
     (this.garden&&within(actor,this.garden,4.2)?this.garden:undefined);}
   station(actor,b){
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
     const p=toRoom(b,actor);
-    if(Math.abs(p.x)>b.w/2-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
+    if(p.x< -b.w/2+.25||p.x>sideAt(b,this.layout)-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
     return stationsFor(b).filter(q=>this.available(actor,b,q)).map(q=>({...q,dist:Math.hypot(q.x-actor.x,q.z-actor.z)}))
       .filter(q=>q.dist<=1.35)
       .sort((a,c)=>a.dist-c.dist)[0];
   }
   available(actor,b,spot){
-    if(b.kind==='terrace'&&this.activities?.tableBooked(b.id))return false;
+    if((b.kind==='terrace'||b.kind==='house')&&this.activities?.tableBooked(b.id))return false;
     if(b.kind==='garden'&&this.activities?.reserved.has(spot.index))return false;
     if(this.activities?.stationClaimed(b.id,spot.index,actor.id))return false;
     return ![...this.actors.values()].some(a=>a.id!==actor.id&&within(a,spot,.55));
@@ -211,7 +222,7 @@ export class StreetSession {
     if(a.activity){a.activity='';a.part='';return;}
     const spot=this.station(a,b);if(!spot)return;
     if(b.cafe){this.layout.lights=!this.layout.lights;this.layout.revision++;this.persist();}
-    else Object.assign(a,{x:spot.x,z:spot.z,activity:spot.action,part:spot.part,yaw:b.yaw+(b.kind==='terrace'&&spot.index===0?0:Math.PI)});
+    else Object.assign(a,{x:spot.x,z:spot.z,activity:spot.action,part:spot.part,yaw:spot.yaw});
   }
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
   command(cmd){
@@ -241,7 +252,7 @@ export class StreetSession {
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['coffee','cancel','beach','furniture','terrace-coffee'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.activities.command(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}

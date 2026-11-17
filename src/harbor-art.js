@@ -152,7 +152,7 @@ export function harborRoof(a,b,h,col){
   }
 }
 
-export function shopFront({b,left,right,back,front,porch,wall,col}){
+export function shopFront({b,left,right,back,front,rightFront=front,porch,wall,col}){
   const hw=b.w/2,hd=b.d/2;
   for(const [side,pieces] of [[-1,left],[1,right],[0,back]]){
     const f=side?pieces.frame(side*hw,0,0,side*Math.PI/2):pieces.frame(0,0,-hd,Math.PI);
@@ -167,7 +167,7 @@ export function shopFront({b,left,right,back,front,porch,wall,col}){
   }
   for(const side of [-1,1]){
     const x=side*(hw+1.05)/2;
-    flowerBed(front,x,hd+.32,Math.min(1.75,hw-1.08),b.kind+side);
+    flowerBed(side>0?rightFront:front,x,hd+.32,Math.min(1.75,hw-1.08),b.kind+side);
     if(b.cafe){
       front.box(x,.58,hd+.12,2.18,.61,.14,col);
       front.box(x,.58,hd+.20,1.91,.41,.045,'#679388');
