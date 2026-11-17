@@ -18,6 +18,7 @@ export async function playTerrace(host,guest,shot){
   await point(3.5,7.5);await host.locator('#terrace-apply').click();
   await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5));
   if(shot)await shot('placement',host);
+  await host.setViewportSize(size);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.editTable(1,null)),false);
   await guest.locator('#coffee-action').click();
   await guest.locator('#patio-destination').selectOption('terrace-1',{timeout:50000});
@@ -37,6 +38,7 @@ export async function playTerrace(host,guest,shot){
   await guest.waitForFunction(()=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);return !a.walking&&s.near(a)?.cafe&&!a.outing;},null,{timeout:40000});
   const boot=await guest.evaluate(()=>window.__cozy.street.session.hostBoot);
   await host.reload({waitUntil:'domcontentloaded',timeout:120000});
+  await host.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.owner&&window.__cozy.street.session.ready,null,{timeout:120000});
   await guest.waitForFunction(old=>{const s=window.__cozy.street.session;return s.connected&&s.hostBoot!==old&&s.layout.terrace.tables.length===2;},boot,{timeout:65000});
   await open();await host.locator('#terrace-undo').click();
   await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.length===1);

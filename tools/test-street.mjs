@@ -67,8 +67,13 @@ try{
   const link=await host.locator('#invite-url').inputValue();assert.ok(link.includes('visit='));
   await host.locator('#list-street').check();
   const guest=await visit(link,relay?await testContext():context);
-  try{await guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:relay?45000:25000});}
-  catch(e){if(relay)console.error('Signalling failed between isolated profiles.',await guest.evaluate(()=>window.__cozy.street.session.transportError));throw e;}
+  const joined=()=>guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:relay?45000:25000});
+  try{await joined();}
+  catch(e){
+    if(!relay||loopback)throw e;
+    console.log('Public signalling timed out. Reconnecting through the guest invite.');
+    await guest.getByRole('button',{name:'Reconnect to owner'}).click();await ready(guest);await joined();
+  }
   console.log('Host and guest connected over '+(relay?'WebRTC':'BroadcastChannel'));
   if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);

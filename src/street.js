@@ -69,6 +69,7 @@ export class Street {
     listen($('beach-action'),'click',()=>this.session.command({type:'beach'}));
     listen($('patio-coffee'),'click',()=>this.session.command({type:'terrace-coffee',lot:$('patio-destination').value}));
     listen($('cancel-action'),'click',()=>this.session.command({type:'cancel'}));
+    listen($('reconnect-street'),'click',()=>{if(!this.session.owner&&!this.session.connected)location.reload();});
     listen($('world-action'),'click',()=>{
       $('world-choice').hidden=true;
       if(this.choice){void this.music.unlock();this.session.command(this.choice);this.choice=null;}
@@ -271,7 +272,7 @@ export class Street {
     if(!this.art)return false;
     if(!this.session){
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
-      this.lastAdvance=performance.now();
+      this.lastAdvance=performance.now();this.joinStarted=this.lastAdvance;
       this.timer=setInterval(()=>{const now=performance.now();
         if(document.hidden||now-this.lastAdvance>120)this.advance(now);
       },60);
@@ -376,6 +377,7 @@ export class Street {
       $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=places[b.kind][0]+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
     $('party').textContent=s.error?'Room unavailable':s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
+    $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
     $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing'}[local.activity]||local.activity):spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind];
