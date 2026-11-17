@@ -5,9 +5,10 @@ import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.j
 import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,toRoom,toWorld,wallState} from './street-world.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
+import {TerraceEditor} from './terrace-editor.js';
 
 const $=id=>document.getElementById(id);
-const names={garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
+const names={terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
 const directions=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 export class Street {
   constructor(island,scene,camera,controls,town){
@@ -27,6 +28,7 @@ export class Street {
     this.destinations=[...this.plots,gardenForStreet(this.cafe)];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(places[b.kind][0],b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
+    this.terraceEditor=new TerraceEditor(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -65,6 +67,7 @@ export class Street {
     });
     listen($('coffee-action'),'click',()=>this.session.command({type:'coffee'}));
     listen($('beach-action'),'click',()=>this.session.command({type:'beach'}));
+    listen($('patio-coffee'),'click',()=>this.session.command({type:'terrace-coffee',lot:$('patio-destination').value}));
     listen($('cancel-action'),'click',()=>this.session.command({type:'cancel'}));
     listen($('world-action'),'click',()=>{
       $('world-choice').hidden=true;
@@ -75,13 +78,16 @@ export class Street {
     let press=null;
     listen(canvas,'pointerdown',e=>{
       if(!e.isPrimary||e.button!==0){press=null;return;}
-      if(this.active&&!this.buildLot)press={id:e.pointerId,x:e.clientX,y:e.clientY};
+      if(this.active&&(!this.buildLot||this.terraceEditor.active))press={id:e.pointerId,x:e.clientX,y:e.clientY};
     });
     listen(canvas,'pointermove',e=>{if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>5)press=null;});
     listen(canvas,'pointercancel',()=>{press=null;});
     listen(canvas,'pointerup',e=>{
       const tap=press;press=null;
-      if(tap&&tap.id===e.pointerId&&this.active&&!this.buildLot)this.walkAtPointer(e);
+      if(tap&&tap.id===e.pointerId&&this.active){
+        if(this.terraceEditor.active)this.terraceEditor.aim(e);
+        else if(!this.buildLot)this.walkAtPointer(e);
+      }
     });
     listen($('build-open'),'click',()=>{
       const open=$('build-pane').hidden;this.closePanels();
@@ -171,10 +177,13 @@ export class Street {
         offer(this.point.set(q.x,b.y+.93,q.z),1.05,{type:'coffee'},'Order two coffees');
       }
     }
-    if(b)for(const q of stationsFor(b)){
+    for(const place of [b,...s.terraceLots()].filter(Boolean))for(const q of stationsFor(place)){
       const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
-      const label=q.part?'Play '+q.part:q.action==='dance'?'Dance':names[b.kind];
-      offer(this.point.set(q.x,y+.55,q.z),.70,{type:'furniture',lot:b.id,index:q.index},label);
+      if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
+        offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
+      }
+      const label=q.part?'Play '+q.part:q.action==='dance'?'Dance':names[place.kind];
+      offer(this.point.set(q.x,y+.55,q.z),.70,{type:'furniture',lot:place.id,index:q.index},label);
     }
     return best;
   }
@@ -191,6 +200,7 @@ export class Street {
     for(const [i,r] of rooms.entries()){const link=document.createElement('a');link.href=r.url;link.textContent='Visit Harbor Street '+(i+1);el.append(link);}
   }
   selectLot(b){
+    this.terraceEditor.close();$('terrace-open').hidden=!b.cafe;
     this.clearInput();this.drag=null;this.buildLot=b;$('build-lot').value=b.id;
     $('street-panel').classList.add('building');
     $('build-open').textContent='Done building';this.nextUI=0;
@@ -248,6 +258,7 @@ export class Street {
   closePanels(){
     for(const id of ['build-pane','social-pane','directions-pane','wall-grip','world-choice'])$(id).hidden=true;
     if(this.buildLot){
+      this.terraceEditor.close();
       this.drag=null;this.buildLot=null;this.art.preview(null,0,false);
       $('street-panel').classList.remove('building');
       $('build-open').textContent='Build';this.clearInput();this.nextUI=0;
@@ -320,7 +331,7 @@ export class Street {
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
-    if(this.buildLot)this.positionGrip();
+    if(this.buildLot){if(!this.terraceEditor.active)this.positionGrip();}
     else{
       this.camera.position.x+=m.position.x-target.x;this.camera.position.y+=m.position.y+1.48-target.y;this.camera.position.z+=m.position.z-target.z;
       target.set(m.position.x,m.position.y+1.48,m.position.z);
@@ -334,17 +345,28 @@ export class Street {
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
-    if(this.buildLot&&Number($('wall-offset').value)!==wallState(s.layout,this.buildLot).wall)this.preview();
+    if(this.terraceEditor.active)this.terraceEditor.refresh();
+    else if(this.buildLot&&Number($('wall-offset').value)!==wallState(s.layout,this.buildLot).wall)this.preview();
     $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?places[near.kind][0]:'Harbor Town';
-    $('walk-hint').textContent=this.buildLot?'Drag the wall handle, or set an offset below.':
+    $('walk-hint').textContent=this.terraceEditor.active?'':this.buildLot?'Drag the wall handle, or set an offset below.':
       'Click ground, people or furniture · WASD to steer · Shift to jog · Drag to orbit';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');
     coffee.hidden=!!this.buildLot||(!outing&&near?.kind!=='cafe')||!!outing&&!['carry','chat','bay'].includes(outing);
     coffee.disabled=!s.ready||(!s.owner&&!s.connected);
-    coffee.textContent=outing==='carry'?'Join '+friend+' at Harbor Green':outing==='bay'?'Finish visit':outing==='chat'?'Finish coffee':'Coffee with a neighbor';
+    coffee.textContent=outing==='carry'?'Join '+friend+(local.meetingTable?' on the terrace':' at Harbor Green'):outing==='bay'?'Finish visit':outing==='chat'?'Finish coffee':'Coffee with a neighbor';
     $('beach-action').hidden=!!this.buildLot||outing!=='chat';
-    const status={beach:'Walking to the beach with '+friend,bay:friend+' · “You can see the café from down here.”',counter:'Walking to the café counter',brewing:'Preparing two coffees',carry:'Two coffees ready · '+friend+' is meeting you at Harbor Green',
-      garden:'Taking coffee to Harbor Green',waiting:'Waiting for '+friend,chat:friend+(local.visits>1?' · “Our usual spot. Walk to the beach again?”':' · “Want to take the path down to the water?”')};
+    $('patio-coffee').hidden=!!this.buildLot||outing!=='carry'||!!local.meetingTable||!s.terraceLots().length;
+    const selection=$('patio-destination');selection.hidden=$('patio-coffee').hidden||s.terraceLots().length<2;
+    if(!selection.hidden){
+      const ids=s.terraceLots().map(b=>b.id).join(',');
+      if(selection.dataset.ids!==ids){
+        const previous=selection.value;selection.dataset.ids=ids;
+        selection.replaceChildren(new Option('Any free table',''),...s.terraceLots().map(b=>new Option('Table '+(Number(b.id.split('-')[1])+1),b.id)));
+        selection.value=previous;if(selection.selectedIndex<0)selection.selectedIndex=0;
+      }
+    }else{selection.value='';selection.dataset.ids='';}
+    const status={beach:'Walking to the beach with '+friend,bay:friend+' · "You can see the café from down here."',counter:'Walking to the café counter',brewing:'Preparing two coffees',carry:'Two coffees ready · '+friend+(local.meetingTable?' is meeting you on the terrace':' is meeting you at Harbor Green'),
+      garden:'Taking coffee to Harbor Green',terrace:'Meeting '+friend+' on the terrace',waiting:'Waiting for '+friend,chat:friend+(local.visits>1?' · "Our usual spot. Walk to the beach again?"':' · "Want to take the path down to the water?"')};
     const label=$('live-action'),text=local.feedback||status[outing]||(local.walking?'Walking to your destination':'');
     label.hidden=!text||!!this.buildLot;label.querySelector('span').textContent=text;
     $('cancel-action').hidden=!local.walking&&!outing||outing==='chat'||outing==='bay';

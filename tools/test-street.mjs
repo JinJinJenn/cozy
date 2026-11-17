@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {readFile,mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {testNostrRelay} from './test-nostr-relay.mjs';
+import {playTerrace} from './playtest-terrace.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -72,6 +73,7 @@ try{
   if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.edit(1)),false);
+  await playTerrace(host,guest);
   await guest.locator('#use-place').click();
   await host.waitForFunction(()=>!window.__cozy.street.session.layout.lights);
   // Orient the normal orbit camera toward the door, then walk through it using W.
@@ -100,7 +102,8 @@ try{
       try{while(performance.now()<end){const a=s.actors.get(s.id),dx=tx-a.x,dz=tz-a.z,len=Math.hypot(dx,dz);
         if(len<.42)return;
         c.camera.position.set(c.controls.target.x-dx/len*8,c.controls.target.y+4,c.controls.target.z-dz/len*8);c.controls.update();await pause();}
-        throw Error('Walk to '+kind+' timed out');
+        const a=s.actors.get(s.id);
+        throw Error('Walk to '+kind+' timed out '+JSON.stringify({owner:s.owner,delta:[tx-a.x,tz-a.z],keys:s.keys,activity:a.activity,building:c.street.buildLot?.id,connected:s.connected}));
       }finally{key('keyup');}
     },[kind,x,z]);
   }
@@ -185,7 +188,9 @@ try{
     return !a.walking&&s.near(a)?.cafe&&!a.outing;},null,{timeout:65000});
   console.log('PASS guest coffee pickup, two reserved benches during renovation, beach walk and return to café');
   async function joinBand(page,x,part){
-    for(const point of [['cafe',0,8.55],['club',0,7.75],['club',0,1],['club',x,-.8]])await walkTo(page,...point);
+    await page.locator('#directions-open').click();await page.locator('#destination').selectOption('club');await page.locator('#go-place').click();
+    await page.waitForFunction(()=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);return !a.walking&&s.near(a)?.kind==='club';},null,{timeout:75000});
+    for(const point of [['club',0,1],['club',x,-.8]])await walkTo(page,...point);
     await page.getByRole('button',{name:'Play '+part,exact:true}).click();
   }
   await Promise.all([joinBand(host,-.85,'melody'),joinBand(guest,.85,'bass')]);
@@ -258,6 +263,10 @@ try{
     await phone.waitForFunction(()=>window.__cozy.street.session.layout.homes.l106.wall===.5);
     await phone.locator('#build-open').tap();await phone.locator('#build-pane').waitFor({state:'hidden'});
     assert.equal(await phone.evaluate(()=>window.__cozy.street.session.layout.revision),3);
-    await mobile.close();assert.deepEqual(errors,[]);console.log('PASS touch drag, one-tap undo and return to live mode');
+    await phone.locator('#build-open').tap();await phone.locator('#build-lot').selectOption('l107');await phone.locator('#terrace-open').tap();
+    await phone.locator('#terrace-apply').tap();
+    await phone.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.length===2);
+    await phone.locator('#terrace-undo').tap();await phone.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.length===1);
+    await mobile.close();assert.deepEqual(errors,[]);console.log('PASS touch wall drag, terrace placement and one-tap undo');
   }
 }finally{await browser.close();}

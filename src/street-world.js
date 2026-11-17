@@ -1,6 +1,7 @@
 // The first street sits on actual Harbor Town plots. Coordinates in each
 // house are metres, with its street entrance on the positive Z side.
 import {pointInPoly,polyCentroid} from '../packages/settlement/src/geom.js';
+import {readTerrace,terraceDefault} from './terrace.js';
 
 export const radius = .31;
 const homeLots=['l106','l108'];
@@ -8,7 +9,7 @@ const validOffset=v=>Number.isFinite(v)&&Number.isInteger(v*2)&&Math.abs(v)<=1.5
 const validHistory=h=>Array.isArray(h)&&h.length<=32&&h.every(validOffset);
 const emptyFront = () => ({wall:0,undo:[]});
 const validFront = state => state&&validOffset(state.wall)&&validHistory(state.undo);
-export const defaultLayout = () => ({wall:0,lights:true,revision:0,undo:[],homes:{},club:emptyFront()});
+export const defaultLayout = () => ({wall:0,lights:true,revision:0,undo:[],homes:{},club:emptyFront(),terrace:terraceDefault()});
 export function readLayout(s) {
   if(!s||!validOffset(s.wall)||!validHistory(s.undo)||typeof s.lights!=='boolean'||
     !Number.isSafeInteger(s.revision)||s.revision<0)return null;
@@ -21,8 +22,9 @@ export function readLayout(s) {
     }
   }
   if(s.club!==undefined&&!validFront(s.club))return null;
+  const terrace=readTerrace(s.terrace);if(!terrace)return null;
   return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,
-    club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront()};
+    club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace};
 }
 export const isHome=b=>b.kind==='house'||b.kind==='cottage';
 export const hasEditableFront=b=>isHome(b)||b.kind==='club';
@@ -110,6 +112,7 @@ export function walkable(island,plots,layout,pos) {
   if (Math.abs(pos.x)>island.half-1 || Math.abs(pos.z)>island.half-1) return false;
   for (const b of plots) {
     const p=toRoom(b,pos), hw=b.w/2,hd=b.d/2;
+    if(b.cafe&&p.z>hd&&layout.terrace?.tables.some(t=>Math.hypot(t.x-p.x,t.z-p.z)<.48+radius))return false;
     const front=frontAt(b,layout),center=(front-hd)/2;
     if(Math.abs(p.x)>hw+.55 || p.z< -hd-.55 || p.z>front+.55) continue;
     if(boxHit(p,-hw,center,.18,hd+front)||boxHit(p,hw,center,.18,hd+front)||boxHit(p,0,-hd,b.w,.18)) return false;
@@ -139,6 +142,7 @@ export function moveWalker(island,plots,layout,actor,input,dt) {
   const steps=Math.max(1,Math.ceil(Math.hypot(vx,vz)/.15));
   for(let i=0;i<steps;i++) {
     const x=actor.x+vx/steps,z=actor.z+vz/steps;
+    if(walkable(island,plots,layout,{x,z})){actor.x=x;actor.z=z;continue;}
     if(walkable(island,plots,layout,{x,z:actor.z})) actor.x=x;
     if(walkable(island,plots,layout,{x:actor.x,z})) actor.z=z;
   }

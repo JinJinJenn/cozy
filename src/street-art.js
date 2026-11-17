@@ -3,13 +3,14 @@ import {distSeg,polyCentroid,pointInPoly} from '../packages/settlement/src/geom.
 import {toWorld,toRoom,isHome,hasEditableFront,frontAt,wallState} from './street-world.js';
 import {Pieces,box,roof,helper} from './street-pieces.js';
 import {beachLane,harborGreen,plantWoodlands} from './harbor-garden.js';
-import {coastalHouse,harborRoof,gardenTree,shopFront,coastPlanting} from './harbor-art.js';
+import {coastalHouse,harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {scoreStep,noteAtStep} from './street-music.js';
 
 const clay='#bf6251', wood='#986647', cream='#fff1d3', dark='#334747', glass='#91c9c8', pine='#476b50';
 export const places={
   garden:['Harbor Green'],
+  terrace:['Café Terrace'],
   cottage:['Peach Cottage','#edbc96','#ad6556'],house:['Bluebell House','#acc5d4','#596a81'],
   cafe:["Jenn’s Café",'#edaeaa','#437a72'],spa:['Tidepool Spa','#bbdacc','#618b82'],
   gym:['Harbor Gym','#d4bbb0','#885c54'],club:['The Moon Room','#aa9bb9','#574d76'],
@@ -182,7 +183,7 @@ function building(b,island){
       front.ball(x,2.408,hd+1.12,width,.23,.10,paint);
     }
     sign(faces[3],name,Math.min(4.55,b.w*.78),3.36,hd+.50,col,cream);
-    table(p,-hw+1.45,hd+1.9);chair(p,-hw+1.46,hd+2.58,col);
+    if(!b.cafe){table(p,-hw+1.45,hd+1.9);chair(p,-hw+1.46,hd+2.58,col);}
   }else{
     sign(faces[3],name,2.2,2.74,hd+.14,col,cream);
     for(const s of [-1,1]){
@@ -279,9 +280,36 @@ function promenade(island,road,plots){
   const street=new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
   street.receiveShadow=true;return street;
 }
+function terracePaving(cafe,island){
+  const positions=[],colors=[];
+  function quad(x0,z0,x1,z1,shade,height){
+    const color=new THREE.Color(shade);
+    for(const [x,z] of [[x0,z0],[x0,z1],[x1,z0],[x1,z0],[x0,z1],[x1,z1]]){
+      const p=toWorld(cafe,x,z);
+      positions.push(p.x,island.sample(p.x,p.z)+height,p.z);colors.push(color.r,color.g,color.b);
+    }
+  }
+  const clay=['#cdad93','#d6b59c','#c9a38a','#dcbca2','#d1a990'];
+  for(const sign of [-1,1]){
+    const left=sign<0?-5.04:1.12,right=sign<0?-1.12:5.04;
+    for(let row=0;row<10;row++){
+      const z=4.87+row*.40;
+      for(let col=-1;col<6;col++){
+        const x=left+col*.81+(row%2)*.405,x0=Math.max(left,x),x1=Math.min(right,x+.81);
+        if(x0>=x1)continue;
+        quad(x0,z,x1,z+.40,'#9d8476',.063);
+        quad(x0+.013,z+.012,x1-.013,z+.388,clay[(row*7+col+5)%clay.length],.068);
+      }
+    }
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();
+  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));mesh.receiveShadow=true;return mesh;
+}
 export function streetArt(island,plots,scene) {
   const g=new THREE.Group(), houses=plots.map(b=>building(b,island)),cafe=plots.find(b=>b.cafe);scene.add(g);
   for(const h of houses)g.add(h.g);
+  g.add(terracePaving(cafe,island));
   const wall=partition();houses[plots.indexOf(cafe)].g.add(wall);
   const clubIndex=plots.findIndex(b=>b.kind==='club'),club=plots[clubIndex];
   const meters=['melody','bass'].map((part,i)=>{
@@ -325,7 +353,32 @@ export function streetArt(island,plots,scene) {
   const {park,canopy}=harborGreen(street,g,island,cafe);
   beachLane(street,g,island,plots.find(b=>b.kind==='gym'));
   street.finish();
-  return {g,wall,lanterns,updateMeters(time,actors){
+  const patio=new Map(),shade='#568478';
+  function bistro(preview=false){
+    const group=new THREE.Group(),p=new Pieces(group),canopy=new THREE.Group();
+    table(p,0,0);chair(p,0,-.97,shade,-1);chair(p,0,.97,shade,1);
+    for(const side of [-1,1]){
+      p.box(0,.505,side*.97,.45,.038,.42,'#e3b7a0');
+      for(const x of [-.17,0,.17])p.box(x,.68,side*1.185,.035,.28,.04,'#a6c4a1');
+    }
+    p.round(0,.824,0,.65,.032,.65,'#f2dbb8');
+    p.box(.12,.87,.17,.22,.04,.15,'#b56662');p.finish();
+    const shadePieces=new Pieces(canopy);patioParasol(shadePieces);shadePieces.finish();group.add(canopy);g.add(group);
+    if(preview){
+      const mat=new THREE.MeshBasicMaterial({color:0x62b99a,transparent:true,opacity:.48,depthWrite:false});
+      group.traverse(m=>{if(m.isMesh){m.material=mat;m.castShadow=false;}});
+      group.userData.preview=mat;group.visible=false;
+    }
+    group.userData.canopy=canopy;return group;
+  }
+  const trial=bistro(true);
+  function placeTable(group,t){
+    const p=toWorld(cafe,t.x,t.z);group.position.set(p.x,island.sample(p.x,p.z)+.045,p.z);group.rotation.y=cafe.yaw+t.turn*Math.PI/2;
+  }
+  let patioRevision=-1;
+  return {g,wall,lanterns,tablePreview(t,valid){
+    trial.visible=!!t;if(!t)return;placeTable(trial,t);trial.userData.preview.color.setHex(valid?0x62b99a:0xe47a6b);
+  },updateMeters(time,actors){
     const step=scoreStep(time);
     let melody=false,bass=false;
     for(const a of actors){if(a.part==='melody')melody=true;if(a.part==='bass')bass=true;}
@@ -337,6 +390,15 @@ export function streetArt(island,plots,scene) {
   },preview(b,value,show){
     for(const [id,frame] of ghosts){frame.visible=show&&b?.id===id;if(frame.visible)frame.position.z=value;}
   },update(pos,layout,camera=pos,buildLot){let opened;wall.position.z=layout.wall;lanterns.visible=layout.lights;
+    if(layout.revision!==patioRevision){
+      patioRevision=layout.revision;
+      for(const m of patio.values())m.visible=false;
+      for(const t of layout.terrace?.tables||[]){
+        if(!patio.has(t.id))patio.set(t.id,bistro());
+        const m=patio.get(t.id);placeTable(m,t);m.visible=true;
+      }
+    }
+    for(const m of patio.values())m.userData.canopy.visible=!!buildLot||Math.hypot(m.position.x-pos.x,m.position.z-pos.z)>1.65;
     houses.forEach((h,i)=>{const b=plots[i],p=toRoom(b,pos),eye=toRoom(b,camera);
       if(hasEditableFront(b))h.resize(wallState(layout,b).wall);
       const cut=(Math.abs(p.x)<=b.w/2+.28&&p.z>=-b.d/2-.28&&p.z<=frontAt(b,layout)+.28)||buildLot===b.id;
@@ -353,7 +415,7 @@ export function streetArt(island,plots,scene) {
       t.tree.visible=Math.hypot(pos.x+u*dx-t.x,eyeY+u*dy-t.y,pos.z+u*dz-t.z)>2.15;
     }
     return opened;},
-    dispose(){disposeGroup(g);outline.dispose();for(const m of meters)m.mat.dispose();scene.remove(g);}};
+    dispose(){disposeGroup(g);outline.dispose();trial.userData.preview.dispose();for(const m of meters)m.mat.dispose();scene.remove(g);}};
 }
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 

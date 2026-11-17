@@ -193,7 +193,9 @@ export function shopFront({b,left,right,back,front,porch,wall,col}){
   menu.box(0,.70,0,.67,.74,.10,oak);menu.box(0,.70,.067,.55,.62,.032,'#365859');
   menu.round(0,.81,.093,.22,.038,.22,linen,0,0,Math.PI/2);
   for(let i=0;i<3;i++)menu.box(0,.65-i*.073,.10,.32-i*.05,.018,.02,'#e8ce98');
-  const canopy=porch.frame(-hw+1.14,0,hd+2.00);
+  flowerBed(porch,hw-1.14,hd+.99,1.62,'cafe terrace');
+}
+export function patioParasol(canopy){
   canopy.round(0,1.17,0,.075,2.28,.075,oak);
   // Scalloped parasol petals follow the mast around the bistro table.
   for(let i=0;i<10;i++){
@@ -201,7 +203,6 @@ export function shopFront({b,left,right,back,front,porch,wall,col}){
     petal.ball(0,2.21,.40,.66,.17,.91,i%2?'#efb0a2':'#fff1d4');
   }
   canopy.ball(0,2.32,0,.54,.15,.54,'#d88374');
-  flowerBed(porch,hw-1.14,hd+.99,1.62,'cafe terrace');
 }
 
 export function coastPlanting(pieces,island,plots){

@@ -33,11 +33,16 @@ body.shot #ui,body.shot #mini{display:none}
   <div id="world-choice" hidden><button id="world-action" class="primary"></button> <button id="world-dismiss" aria-label="Dismiss action">×</button></div>
   <section class="street-actions" aria-label="Street controls">
     <div id="live-action" hidden><span></span> <button id="cancel-action" aria-label="Cancel current action">Cancel</button></div>
-    <div class="street-buttons"><button class="primary" id="beach-action" hidden>Walk to the beach</button><button class="primary" id="coffee-action" hidden>Coffee with a neighbor</button><button id="use-place" hidden>Interact</button><button id="directions-open">Find a place</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
+    <div class="street-buttons"><select id="patio-destination" aria-label="Terrace table for coffee" hidden></select><button class="primary" id="patio-coffee" hidden>Coffee on the terrace</button><button class="primary" id="beach-action" hidden>Walk to the beach</button><button class="primary" id="coffee-action" hidden>Coffee with a neighbor</button><button id="use-place" hidden>Interact</button><button id="directions-open">Find a place</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
     <div id="directions-pane" class="street-drawer" hidden><label>Walk to <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button></div>
-    <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
+    <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><div id="wall-tools"><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
       <p id="wall-limit" role="status" hidden></p>
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
+      <button id="terrace-open" hidden>Furnish café terrace</button>
+      <div id="terrace-tools" hidden><label>Furniture <select id="terrace-slot"></select></label>
+        <p id="terrace-status" role="status"></p>
+        <div><button id="terrace-rotate">Rotate</button> <button id="terrace-apply" class="primary">Place table</button> <button id="terrace-remove">Remove</button> <button id="terrace-undo">Undo table edit</button></div>
+      </div></div>
     <div id="social-pane" class="street-drawer" hidden><div id="owner-room"><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label></div>
       <button id="browse-streets">Browse listed streets</button><div id="room-results"></div></div>
     <p id="street-note" aria-live="polite"></p><small class="desktop-hint" id="walk-hint">WASD to walk · Drag to orbit · E to interact</small>

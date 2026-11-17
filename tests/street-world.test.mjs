@@ -28,7 +28,7 @@ test('saved layouts reject corrupt wall and undo values',()=>{
 });
 test('old café saves migrate and per-house history rejects malformed saves',()=>{
   const old={wall:-.5,undo:[1],lights:false,revision:3};
-  assert.deepEqual(readLayout(old),{...old,homes:{},club:{wall:0,undo:[]}});
+  assert.deepEqual(readLayout(old),{...old,homes:{},club:{wall:0,undo:[]},terrace:defaultLayout().terrace});
   for(const homes of [null,[],{l108:{wall:7,undo:[]}},{l106:{wall:.5,undo:[null]}},{l105:{wall:0,undo:[]}}])
     assert.equal(readLayout({...old,homes}),null);
 });

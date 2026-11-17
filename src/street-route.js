@@ -5,10 +5,13 @@ const stride=.64;
 const distance=(a,b)=>Math.hypot(b.x-a.x,b.z-a.z);
 
 function clearSegment(canWalk,a,b){
-  const n=Math.max(1,Math.ceil(distance(a,b)/.24));
+  const length=distance(a,b),n=Math.max(1,Math.ceil(length/.11));
+  const dx=b.x-a.x,dz=b.z-a.z;
   for(let i=1;i<=n;i++){
-    const t=i/n;
-    if(!canWalk({x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t}))return false;
+    const t=i/n,x=a.x+dx*t,z=a.z+dz*t;
+    if(!canWalk({x,z}))return false;
+    const margin=Math.min(.045,length*t*.25,length*(1-t)*.25)/Math.max(.001,length);
+    if(margin&&(!canWalk({x:x-dz*margin,z:z+dx*margin})||!canWalk({x:x+dz*margin,z:z-dx*margin})))return false;
   }
   return true;
 }
@@ -45,13 +48,21 @@ export function walkingRoute(island,plots,layout,start,goal){
   const root={x:start.x,z:start.z,ix:0,iz:0,g:0};nodes.set('0,0',root);push({p:root,f:0});
   for(let count=0;open.length&&count<6500;count++){
     const {p}=pop();if(p.closed)continue;p.closed=true;
-    if(distance(p,goal)<1.4&&clearSegment(allowed,p,goal)){
+    if((distance(p,goal)<1.4||p.g>1.4&&count%12===0)&&clearSegment(allowed,p,goal)){
       const route=[goal];for(let q=p;q.previous;q=q.previous)route.push(q);
       route.reverse();
       const result=[];let at=start,i=0;
       while(i<route.length){
-        let j=i;
-        while(j+1<route.length&&clearSegment(allowed,at,route[j+1]))j++;
+        let j=route.length-1;
+        if(!clearSegment(allowed,at,route[j])){
+          j=i;let hop=1;
+          while(j+hop<route.length&&clearSegment(allowed,at,route[j+hop])){j+=hop;hop*=2;}
+          let end=Math.min(j+hop,route.length-1);
+          while(end-j>1){
+            const mid=(end+j)>>1;
+            if(clearSegment(allowed,at,route[mid]))j=mid;else end=mid;
+          }
+        }
         at=route[j];result.push({x:at.x,z:at.z});i=j+1;
       }
       return result;

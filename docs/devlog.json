@@ -2,6 +2,22 @@
  "intro": "A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.",
  "entries": [
   {
+   "n": 12,
+   "date": "2026-11-16",
+   "slug": "tables-for-two",
+   "milestone": "M12 terrace furniture",
+   "title": "A table for two outside Jenn’s Café",
+   "text": [
+    "Open Build at the café and choose Furnish café terrace. Click a spot on the brick paving, turn the bistro set and place it. The two chairs face each other under a striped parasol. The doorway, planters and space between tables stay clear.",
+    "Carry two drinks out from the counter and choose a terrace table. Your neighbor walks over and sits opposite you. An owner can rearrange the rest of the terrace during the visit. The occupied table stays put until both people leave. Players can also click individual chairs to sit together.",
+    "Tables, rotations and the last sixteen furniture edits are saved with the owner’s town. A returning guest sees the same arrangement. Older café saves begin with the original parasol table, now with two usable chairs."
+   ],
+   "stills": [
+    {"file":"shots/2026-11-16/terrace-placement.jpg","caption":"The owner has just placed the second table beside the café entrance."},
+    {"file":"shots/2026-11-16/terrace-coffee.jpg","caption":"A guest and Robin share coffee at the newly placed table while the owner builds."}
+   ]
+  },
+  {
    "n": 11,
    "date": "2026-11-16",
    "slug": "coffee-with-a-neighbor",

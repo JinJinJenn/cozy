@@ -7,8 +7,10 @@ on:
     paths:
       - '.github/workflows/multiplayer-playtest.yml'
       - 'packages/net/**'
-      - 'src/street-session.js'
+      - 'src/street*.js'
+      - 'src/terrace*.js'
       - 'tools/test-street.mjs'
+      - 'tools/playtest-terrace.mjs'
       - 'tools/test-nostr-relay.mjs'
 
 permissions:
