@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/multiplayer-playtest.yml'
       - 'packages/net/**'
+      - 'index.html'
+      - 'src/main.js'
       - 'src/street*.js'
       - 'src/terrace*.js'
       - 'tools/test-street.mjs'

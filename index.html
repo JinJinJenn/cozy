@@ -15,7 +15,7 @@ button.alt{background:#fff}button:hover{filter:brightness(1.05)}
 #blurb{font-size:12px;opacity:.85}#info{font-size:11px;opacity:.7}
 #mini{position:fixed;right:12px;bottom:12px;width:208px;height:208px;border-radius:12px;box-shadow:0 4px 18px rgba(120,60,90,.25);overflow:hidden;background:#fff}
 #mini canvas{position:absolute;inset:0;width:100%;height:100%}
-#busy{position:fixed;inset:0;display:none;place-items:center;background:rgba(255,240,246,.55);font-size:16px;font-weight:600}
+#busy{position:fixed;inset:0;display:grid;align-content:center;justify-items:center;gap:12px;background:rgba(255,240,246,.78);font-size:16px;font-weight:600}
 body.shot #ui,body.shot #mini{display:none}
 </style></head><body>
 <canvas id="gl"></canvas>
@@ -49,7 +49,30 @@ body.shot #ui,body.shot #mini{display:none}
   </section>
   <button id="wall-grip" aria-label="Drag wall and doorway" title="Drag to move the wall" hidden>↕ <span>Drag wall</span></button>
 </div>
-<div id="busy">Generating island...</div>
+<div id="busy" role="status">Opening Jenn’s Cozy Town…</div>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/"}}</script>
-<script type="module" src="./src/main.js"></script>
+<script type="module">
+const busy=document.getElementById('busy'),retryKey='cozy.startup-retry';
+try{
+  const game=await import('./src/main.js');
+  await game.startup;
+  try{sessionStorage.removeItem(retryKey);}catch{}
+}catch(error){
+  console.error('Could not start Jenn’s Cozy Town',error);
+  busy.style.display='grid';
+  let retry=false;
+  if(error instanceof TypeError||error instanceof SyntaxError){
+    try{
+      retry=Date.now()-Number(sessionStorage.getItem(retryKey))>120000;
+      if(retry)sessionStorage.setItem(retryKey,String(Date.now()));
+    }catch{}
+  }
+  if(retry){busy.textContent='Reopening the town…';setTimeout(()=>location.reload(),1200);}
+  else{
+    busy.textContent='The town could not open.';
+    const button=document.createElement('button');button.textContent='Try again';
+    button.onclick=()=>location.reload();busy.append(button);
+  }
+}
+</script>
 </body></html>

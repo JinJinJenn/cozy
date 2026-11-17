@@ -79,6 +79,15 @@ try {
   assert.notEqual(await page.evaluate(() => window.__cozy.island.seed), 'cozy-1');
   assert.deepEqual(errors, []);
   console.log('PASS four locales, resident movement, overlapping loads, Town camera, minimap, locale and Re-roll controls');
+  let failures=0;
+  await page.route('**/src/street-art.js',route=>{
+    if(failures>=2)return route.fallback();
+    failures++;return route.abort();
+  });
+  await page.goto(origin+'?shot=1&preset=harborTown&seed=petalwood');
+  await page.getByRole('button',{name:'Try again'}).click({timeout:30000});
+  await ready();
+  assert.equal(failures,2);console.log('PASS interrupted module load retried once, offered recovery and opened the island');
 } finally {
   await browser.close();
 }

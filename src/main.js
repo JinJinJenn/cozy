@@ -326,5 +326,5 @@ function loop(now){
   if(frames%20===0&&!street?.active) updateMarker();
   renderScene();
 }
-load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));
+export const startup=load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));
 requestAnimationFrame(loop);
