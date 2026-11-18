@@ -4,6 +4,7 @@ import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
+import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 
 const project='jenns-cozy-town-waterfront-v1';
@@ -16,10 +17,18 @@ const furniture={
   gym:[[0,-.6,'train']],spa:[[-.22,-.2,'relax']],
   house:[[1.38,-.14,'sit'],[1.38,-1.80,'sit']],cottage:[[1.38,-.14,'sit']]
 };
+const homeStations=new WeakMap();
 export function stationsFor(b){
-  if(b.kind==='home')return (b.uses||b.seats).map((p,index)=>({...p,...toWorld(b,p.x,p.z),
-    target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
-    pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
+  if(b.kind==='home'){
+    let spots=homeStations.get(b);
+    if(!spots){
+      spots=(b.uses||b.seats).map((p,index)=>({...p,...toWorld(b,p.x,p.z),
+        target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
+        pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
+      homeStations.set(b,spots);
+    }
+    return spots;
+  }
   return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
     yaw:b.yaw+((b.kind==='wayside'||b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
 }
@@ -211,9 +220,14 @@ export class StreetSession {
     if(b.cafe)return {action:'lights'};
     const p=toRoom(b,actor);
     if(p.x< -b.w/2+.25||p.x>sideAt(b,this.layout)-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
-    return stationsFor(b).filter(q=>this.available(actor,b,q)).map(q=>({...q,dist:Math.hypot(q.x-actor.x,q.z-actor.z)}))
-      .filter(q=>q.dist<=1.35)
-      .sort((a,c)=>a.dist-c.dist)[0];
+    let best=null,bestDistance=1.35;
+    for(const base of stationsFor(b)){
+      const distance=Math.hypot(base.x-actor.x,base.z-actor.z);
+      if(distance>bestDistance||(best&&distance===bestDistance))continue;
+      const spot=mealStation(this,b.id,base,actor);
+      if(spot&&this.available(actor,b,spot)){best=spot;bestDistance=distance;}
+    }
+    return best&&{...best,dist:bestDistance};
   }
   available(actor,b,spot){
     if(this.town?.people.some(p=>p.visible&&Math.hypot(p.position.x-spot.x,p.position.z-spot.z)<.55))return false;

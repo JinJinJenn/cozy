@@ -8,16 +8,19 @@ const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DO
 await mkdir(out,{recursive:true});
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,args:['--mute-audio','--disable-background-timer-throttling']});
-const report={errors:[],transport:'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay(),origin='https://cozy.test/cozy/';
+const live=process.env.COZY_DOMESTIC_LIVE==='1',origin=live?'https://jinjinjenn.github.io/cozy/':'https://cozy.test/cozy/';
+const report={errors:[],origin,transport:'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
 try{
  const context=async()=>{const ctx=await browser.newContext({viewport:{width:1440,height:900}});await relay(ctx);
-   await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
+   if(!live)await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
      const file=path.resolve(root,u.pathname.slice('/cozy/'.length)||'index.html');assert.ok(file.startsWith(root));
      await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});return ctx;};
  const open=async(url)=>{const p=await(await context()).newPage();p.on('pageerror',e=>report.errors.push(e.message));
    p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))report.errors.push(m.text());});
    await p.goto(url);await p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street.session?.ready,null,{timeout:120000});return p;};
  const host=await open(origin),guest=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
+ report.version=await host.locator('#graphics-settings summary span').innerText();
+ assert.equal(report.version,'v'+JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version);
  await guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:45000});
  report.peerKinds=await host.evaluate(()=>[...window.__cozy.street.session.peers.keys()]);
  assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
@@ -49,7 +52,7 @@ try{
  await guest.evaluate(()=>window.__cozy.street.session.use());
  await host.waitForFunction(id=>!window.__cozy.street.session.actors.get(id)?.using,guestId,{timeout:10000});
  report.actions=[];
- for(const [action,object] of [['read'],['write'],['cook'],['wash','kitchen'],['wash','basin'],['stretch'],['shower'],['bathroom'],['eat']]){
+ for(const [action,object] of [['read'],['write'],['cook'],['wash','kitchen'],['wash','basin'],['stretch'],['shower'],['bathroom']]){
    const result=await host.evaluate(({action,object})=>{
      const match=u=>u.action===action&&(!object||u.object===object);
      const c=window.__cozy,s=c.street.session,b=c.island.homes.find(b=>b.name==='Home 58'&&b.uses.some(match))||c.island.homes.find(b=>b.uses.some(match));
@@ -93,6 +96,45 @@ try{
  await lampOn(host);await lampOn(guest);await frameLamp(host);
  await host.screenshot({path:out+'/home-lamp.jpg',type:'jpeg',quality:90});
  report.lamp={lot:lampHome,guestClicked:true,bothLit:true};
+ // Work the same pot and dining set through each browser's world picker.
+ async function clickStation(page,action,object,label){
+   const at=await page.evaluate(async({lot,action,object})=>{
+     const c=window.__cozy,b=c.island.homesById.get(lot),{stationsFor}=await import('./src/street-session.js');
+     const {homeWorld}=await import('./src/home-plan.js'),{Vector3}=await import('three');
+     const spot=stationsFor(b).find(u=>u.action===action&&(!object||u.object===object)),t=spot.target;
+     const eye=homeWorld(b,-1.2,b.d/2+2);
+     await c.setCamera([eye.x,b.y+6,eye.z],[t.x,t.y,t.z]);c.render();
+     const p=new Vector3(t.x,t.y,t.z).project(c.camera);return {x:(p.x*.5+.5)*innerWidth,y:(.5-p.y*.5)*innerHeight};
+   },{lot:lampHome,action,object});
+   await page.mouse.click(at.x,at.y);assert.equal(await page.locator('#world-action').innerText(),label);
+   await page.locator('#world-action').click();
+ }
+ const state=(page,condition)=>page.waitForFunction(({lot,condition})=>{
+   const s=window.__cozy.street.session,a=s.actors.get(s.id);
+   if(condition==='ready')return s.layout.homeMeals?.[lot]===2&&window.__cozy.street.clearExteriors.interiors.appliances?.soup.visible;
+   if(condition==='consumed')return s.layout.homeMeals?.[lot]===1&&!a.bowlFrom;
+   if(condition==='carrying')return a.bowlFrom===lot;
+   return a.activity===condition;
+ },{lot:lampHome,condition},{timeout:30000});
+ await clickStation(host,'cook',null,'Cook a meal');await finishRoute();
+ await state(host,'cook');await state(host,'ready');
+ await host.evaluate(lot=>{const s=window.__cozy.street.session;s.command({type:'walk',...s.island.homesById.get(lot).inside});},lampHome);
+ await finishRoute();await state(guest,'ready');
+ await clickStation(guest,'serveSoup',null,'Take a bowl of soup');await state(guest,'carrying');
+ await clickStation(guest,'sit','chair-back','Eat soup at the table');await state(guest,'eat');
+ await clickStation(host,'serveSoup',null,'Take a bowl of soup');await finishRoute();await state(host,'carrying');
+ await clickStation(host,'sit','chair-front','Eat soup at the table');assert.equal((await finishRoute()).activity,'eat');
+ await host.evaluate(async lot=>{const c=window.__cozy,b=c.island.homesById.get(lot),{homeWorld}=await import('./src/home-plan.js');
+   const f=b.furniture.find(f=>f.type==='dining'),eye=homeWorld(b,.85,f.z-2.45),aim=homeWorld(b,0,f.z+.32);
+   await c.setCamera([eye.x,b.y+2.9,eye.z],[aim.x,b.y+.95,aim.z]);c.street.nextUI=0;c.render();
+ },lampHome);
+ await host.screenshot({path:out+'/shared-supper.jpg',type:'jpeg',quality:90});
+ // Stop the host before the last bite while the guest finishes. Their bowl
+ // remains reserved until the owner reloads, then returns to the pot.
+ await host.evaluate(()=>window.__cozy.street.session.use());
+ await state(guest,'consumed');
+ assert.equal(await host.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).bowlFrom;}),lampHome);
+ report.supper={lot:lampHome,guestServedAndAte:true,hostCarried:true};
  // Run the complete live simulation, including routes through real home doors.
  report.simulation=await host.evaluate(async()=>{
    const c=window.__cozy,t=c.street.town,before=t.current;let blocked=0;
@@ -108,6 +150,10 @@ try{
  });
  assert.ok(report.simulation.worker);assert.ok(report.simulation.moved>200);assert.equal(report.simulation.blocked,0);
  await host.reload();await host.waitForFunction(lot=>window.__cozy?.ready&&window.__cozy.street.session.owner&&Boolean(window.__cozy.street.session.layout.homeLights?.[lot]&1),lampHome,{timeout:120000});
- report.lamp.restoredAfterReload=true;assert.deepEqual(report.errors,[]);report.passed=true;
+ report.lamp.restoredAfterReload=true;
+ const fresh=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
+ await fresh.waitForFunction(lot=>{const s=window.__cozy.street.session;return s.connected&&s.layout.homeMeals?.[lot]===1&&!Array.from(s.actors.values()).some(a=>a.bowlFrom);},lampHome,{timeout:45000});
+ report.supper.reloadAndNewVisitorSawOneServing=true;
+ assert.deepEqual(report.errors,[]);report.passed=true;
 }catch(e){report.error=e.stack;report.passed=false;process.exitCode=1;}
 finally{await writeFile(out+'/review.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}

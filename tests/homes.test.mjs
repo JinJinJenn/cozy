@@ -5,6 +5,7 @@ import {generateSettlement,createFlattenHook} from '../packages/settlement/index
 import {prepareHomes,homeWorld,homeWalkable} from '../src/home-plan.js';
 import {plotsForStreet,defaultLayout,readLayout} from '../src/street-world.js';
 import {lampIsLit} from '../src/home-fixtures.js';
+import {mealStation,potServings} from '../src/home-meals.js';
 import {walkingRoute} from '../src/street-route.js';
 import {readFileSync} from 'node:fs';
 import {StreetSession} from '../src/street-session.js';
@@ -25,7 +26,7 @@ test('frontage infill preserves every published parcel and fills the waterfront'
 
 test('house activities reserve the object, release the bed safely and complete timed work',()=>{
   const b=homes.find(b=>b.name==='Home 58');
-  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,layout,actors:new Map(),time:0,town:{people:[]}});
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,layout:defaultLayout(),actors:new Map(),time:0,town:{people:[]},persist(){}});
   const activities=s.activities=new StreetActivities(s);
   const a={id:'first',...b.inside},guest={id:'second',...b.inside};s.actors.set(a.id,a);s.actors.set(guest.id,guest);
   const command=(actor,action)=>activities.command(actor,{type:'furniture',lot:b.id,index:b.uses.findIndex(u=>u.action===action)});
@@ -45,12 +46,47 @@ test('every generated home has reachable doors, seating and room approaches',()=
     for(const s of b.seats)assert.ok(walkingRoute(world,plots,layout,b.inside,homeWorld(b,s.x,s.z)),prefix+'seat');
     for(const u of b.uses)assert.ok(walkingRoute(world,plots,layout,b.inside,homeWorld(b,u.x,u.z)),prefix+u.action+' approach');
     for(const action of ['rest','cook','wash','read','sit'])assert.ok(b.uses.some(u=>u.action===action),prefix+action+' available');
+    if(b.furniture.some(f=>f.type==='dining')){
+      const chairs=b.uses.filter(u=>u.object.startsWith('chair-'));
+      assert.equal(chairs.length,2,prefix+'both dining chairs');
+      assert.ok(Math.hypot(chairs[0].x-chairs[1].x,chairs[0].z-chairs[1].z)>.65,prefix+'separate chair approaches');
+    }
     for(const f of b.furniture.filter(f=>f.type==='desk'||f.type==='nightstand')){
       assert.ok(b.uses.some(u=>u.lamp===f.type),prefix+f.type+' lamp reachable');
     }
     for(const room of b.rooms)assert.ok(walkingRoute(world,plots,layout,b.inside,room.point),prefix+room.name);
     assert.equal(homeWalkable(b,homeWorld(b,b.w/2,0)),false,prefix+'solid side wall');
   }
+});
+
+test('a host owns two servings through races, interrupted meals, disconnects and reloads',()=>{
+  const b=homes.find(b=>b.uses.some(u=>u.object==='chair-back'));
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,layout:defaultLayout(),actors:new Map(),
+    time:0,town:{people:[]},persist(){this.saved=JSON.stringify(this.layout);}});
+  const acts=s.activities=new StreetActivities(s);
+  const players=['host','guest','visitor'].map(id=>{const a={id,...b.inside};s.actors.set(id,a);return a;});
+  const [host,guest,visitor]=players,station=key=>b.uses.findIndex(u=>u.action===key||u.object===key);
+  const command=(a,key)=>acts.command(a,{type:'furniture',lot:b.id,index:station(key)});
+  const arrive=a=>{for(let i=0;i<1000&&a.walking;i++)acts.advance(a,.05);assert.ok(!a.walking,a.feedback);};
+  const complete=a=>{s.time+=8;acts.advance(a,.05);};
+  function park(a){acts.finish(a);Object.assign(a,b.inside);}
+  command(host,'cook');arrive(host);park(host);complete(host);assert.equal(s.layout.homeMeals,undefined);
+  command(host,'cook');arrive(host);complete(host);assert.equal(potServings(s,b.id),2);
+  command(host,'serveSoup');arrive(host);assert.equal(host.bowlFrom,b.id);park(host);
+  command(guest,'serveSoup');command(visitor,'serveSoup');assert.match(visitor.feedback,/Someone else/);
+  arrive(guest);assert.equal(guest.bowlFrom,b.id);park(guest);
+  command(visitor,'serveSoup');assert.equal(visitor.bowlFrom,undefined);assert.equal(potServings(s,b.id),0);
+  s.actors.delete(guest.id);assert.equal(potServings(s,b.id),1);
+  command(visitor,'serveSoup');arrive(visitor);park(visitor);
+  command(visitor,'returnSoup');arrive(visitor);assert.equal(potServings(s,b.id),1);park(visitor);
+  command(visitor,'serveSoup');arrive(visitor);park(visitor);
+  command(host,'chair-front');arrive(host);assert.equal(host.activity,'eat');
+  command(visitor,'chair-back');arrive(visitor);assert.equal(visitor.activity,'eat');
+  park(visitor);complete(host);assert.equal(host.bowlFrom,undefined);assert.equal(visitor.bowlFrom,b.id);
+  const recovered=readLayout(JSON.parse(s.saved));assert.equal(potServings({layout:recovered,actors:new Map()},b.id),1);
+  command(visitor,'sofa');arrive(visitor);complete(visitor);assert.equal(s.layout.homeMeals,undefined);
+  assert.equal(mealStation(s,b.id,b.uses[station('chair-front')],host).action,'sit');
+  assert.equal(readLayout({...s.layout,homeMeals:{[b.id]:3}}),null);
 });
 
 test('two visitors reserve the same lamp and its saved state is independent of the other lamp',()=>{

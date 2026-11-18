@@ -1,6 +1,7 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
 import {lamps} from './home-fixtures.js';
+import {finishHomeMeal,mealStation} from './home-meals.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
 
@@ -184,7 +185,8 @@ export class StreetActivities {
     if(cmd.type==='furniture'){
       const target=this.s.furnitureAt(cmd.lot,cmd.index);
       if(!target)return;
-      const {b,spot}=target;
+      const {b}=target,spot=mealStation(this.s,b.id,target.spot,actor);
+      if(!spot){actor.feedback='That serving is no longer available.';return;}
       if(!this.s.available(actor,b,spot)){actor.feedback='Someone else is using that spot.';return;}
       if(actor.outing)this.finish(actor);
       if(b.kind==='restaurant'){this.bookDinner(actor,spot.index);return;}
@@ -220,8 +222,17 @@ export class StreetActivities {
     }
     if(typeof arrival==='object'){
       const target=s.furnitureAt(arrival.lot,arrival.index);
-      if(target&&s.available(a,target.b,target.spot)){
-        const {spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
+      const spot=target&&mealStation(s,target.b.id,target.spot,a);
+      if(target&&!spot){a.feedback='That serving is no longer available.';return;}
+      if(spot&&s.available(a,target.b,spot)){
+        Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
+        if(spot.action==='eat')a.feedback='Eating vegetable soup.';
+        if(spot.action==='serveSoup'||spot.action==='returnSoup'){
+          if(spot.action==='serveSoup'){
+            a.bowlFrom=target.b.id;a.feedback='Take your bowl to a chair or the sofa.';
+          }else{delete a.bowlFrom;a.feedback='Your serving is back in the pot.';}
+          a.activity='';return;
+        }
         if(spot.lamp){
           const lights=s.layout.homeLights??={},lot=target.b.id,lamp=lamps[spot.lamp];
           const next=(lights[lot]||0)^lamp.bit;
@@ -267,8 +278,8 @@ export class StreetActivities {
   }
   advance(a,dt){
     if(a.useUntil!==undefined&&this.s.time>=a.useUntil){
-      const action=a.activity;this.leaveFurniture(a);
-      if(action!=='switch')a.feedback={cook:'Your meal is ready.',wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',eat:'That hit the spot.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
+      const action=a.activity,meal=finishHomeMeal(this.s,a);this.leaveFurniture(a);
+      if(action!=='switch')a.feedback=meal||{wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
     }
     if(a.outing==='ordered')this.startOrder(a);
     if(a.cookUntil!==undefined&&this.s.time>=a.cookUntil){

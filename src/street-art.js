@@ -607,10 +607,38 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   const book=new THREE.Group(),bookArt=new Pieces(book);body.add(book);
   bookArt.box(0,1.04,.42,.42,.055,.29,'#9b6657');bookArt.box(0,1.075,.42,.38,.025,.26,'#eee0c6');
   bookArt.box(0,1.09,.42,.015,.018,.26,'#bfa988');bookArt.finish();book.visible=false;
-  g.setDomestic=(action,time,use)=>{
+  let bowlRig,spoonArm;
+  function makeBowl(){
+    bowlRig=new THREE.Group();torso.add(bowlRig);
+    const bowl=new Pieces(bowlRig),glaze='#447e7a';
+    bowl.ball(-.23,1.055,.17,.20,.22,.39,color);
+    bowl.ball(-.16,.99,.34,.19,.15,.18,skin);
+    bowl.round(-.10,.99,.40,.20,.055,.20,glaze);
+    bowl.ball(-.10,1.075,.40,.37,.20,.37,'#e4dbc0');
+    bowl.round(-.10,1.126,.40,.36,.06,.36,glaze);
+    bowl.round(-.10,1.157,.40,.36,.018,.36,'#f1e3c5');
+    bowl.round(-.10,1.169,.40,.31,.012,.31,'#ce803c');
+    for(let i=0;i<7;i++)bowl.ball(-.10+.1*Math.cos(i*2.4),1.18,.40+.1*Math.sin(i*2.4),.042,.025,.037,['#e0b478','#789048','#bd5536'][i%3]);
+    bowl.finish();
+    spoonArm=new THREE.Group();spoonArm.position.set(.23,1.18,.03);bowlRig.add(spoonArm);
+    const spoon=new Pieces(spoonArm);
+    spoon.ball(.035,-.09,.05,.16,.27,.17,color);spoon.ball(.016,-.16,.18,.14,.16,.30,skin);
+    spoon.box(-.052,-.12,.29,.022,.024,.22,'#d1c8ad',-.55);
+    spoon.ball(-.105,-.118,.38,.065,.025,.09,'#d1c8ad');spoon.finish();
+  }
+  g.setDomestic=(action,time,use,hasBowl)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
+    const showBowl=hasBowl&&(!action||action==='eat'||action==='sit');
+    if(showBowl&&!bowlRig)makeBowl();
+    if(bowlRig)bowlRig.visible=!!showBowl;
+    if(showBowl){
+      restingArms.visible=false;for(const limb of limbs)limb.arm.visible=false;
+      const bite=action==='eat'?.5-.5*Math.cos(time*2.7):0;
+      spoonArm.rotation.x=-bite*1.14;spoonArm.rotation.z=bite*.28;
+      torso.rotation.x=bite*.07;return;
+    }
     if(action==='read'){
       restingArms.visible=false;for(const arm of hands){arm.visible=true;arm.rotation.x=0;}
     }

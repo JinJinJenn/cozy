@@ -29,16 +29,17 @@ export function readLayout(s) {
     }
   }
   if(s.club!==undefined&&!validFront(s.club)||s.restaurant!==undefined&&!validFront(s.restaurant))return null;
-  let homeLights;
-  if(s.homeLights!==undefined){
-    if(!s.homeLights||typeof s.homeLights!=='object'||Array.isArray(s.homeLights))return null;
-    const entries=Object.entries(s.homeLights);
-    if(entries.length>1024||entries.some(([id,bits])=>!/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(id)||
-      !Number.isInteger(bits)||bits<1||bits>3))return null;
-    if(entries.length)homeLights=Object.fromEntries(entries);
+  const fixtures={};
+  for(const [key,max] of [['homeLights',3],['homeMeals',2]]){
+    if(s[key]===undefined)continue;
+    if(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key]))return null;
+    const entries=Object.entries(s[key]);
+    if(entries.length>1024||entries.some(([id,value])=>!/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(id)||
+      !Number.isInteger(value)||value<1||value>max))return null;
+    if(entries.length)fixtures[key]=Object.fromEntries(entries);
   }
   const terrace=readTerrace(s.terrace);if(!terrace)return null;
-  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,...(homeLights?{homeLights}:{}),
+  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,...fixtures,
     club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace,
     ...(s.restaurant?{restaurant:{wall:s.restaurant.wall,undo:[...s.restaurant.undo]}}:{})};
 }

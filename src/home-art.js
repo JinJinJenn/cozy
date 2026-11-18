@@ -104,9 +104,10 @@ function furnish(a,b){
       p.box(0,.81,0,f.w,.12,1.0,wood);
       for(const x of [-.57,.57])for(const z of [-.34,.34])p.box(x,.39,z,.07,.78,.07,wood);
       for(const s of [-1,1]){
-        p.box(0,.47,s*.72,.55,.10,.48,accent);p.box(0,.83,s*.91,.55,.66,.07,accent);
-        for(const x of [-.20,.20])p.box(x,.24,s*.72,.06,.48,.06,wood);
-        p.round(0,.89,s*.28,.28,.025,.28,cream);
+        const x=f.breakfast?s*.43:0,side=f.breakfast?1:s;
+        p.box(x,.47,side*.72,.55,.10,.48,accent);p.box(x,.83,side*.91,.55,.66,.07,accent);
+        for(const dx of [-.20,.20])p.box(x+dx,.24,side*.72,.06,.48,.06,wood);
+        p.round(x,.89,side*.28,.28,.025,.28,cream);
       }
       p.round(.36,1.02,0,.16,.27,.16,'#bb8a6c');p.ball(.36,1.23,0,.34,.30,.33,'#6a8853');
     }else if(f.type==='nightstand'){

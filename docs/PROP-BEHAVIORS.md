@@ -22,14 +22,14 @@ Use action for a wall or floor merely to inflate prop coverage.
 | Object or component | v0.3 behavior | Required next work |
 | --- | --- | --- |
 | Bed | Reserved lying pose, clear approach and exit | Smooth getting in/out, bedding response and better resting animation |
-| Sofa | Exclusive seat; shared reservation with reading | Sit/stand transitions, cushion response and seating variants |
+| Sofa | A player can sit, read or eat a carried bowl of soup. The seat is exclusive across actions | Sit/stand transitions, cushion response and seating variants |
 | Bookshelf/books | Read a visible book on the sofa | Select/return book, shelf reach animation, reading page motion |
-| Stove/oven/pot | Timed cook pose, steam and completion text | Distinct controls, stirring/heat states and a visible prepared result |
+| Stove/oven/pot | Cooking makes two saved portions of vegetable soup. Guests can take or return one bowl. The pot shows remaining soup | Stirring, heat controls and more recipes |
 | Kitchen sink/tap | Sink-specific approach and picking, water flows from the tap, hands move together | Animate the handle and hands at the actual controls |
 | Rug | Reserved stretching spot and arm motion | Coherent whole-body routine and transitions |
 | Desk/paper | Timed writing pose with book/paper feedback | Desk-specific writing pose, pen motion and a retained visible page/result |
 | Desk lamp | Click shade to switch, reach motion, glowing shade and tabletop light. State replicates and survives host reload | Add linked room switches and placement in the room editor |
-| Dining table/chairs/plates | One generated dining activity and seated pose | Independent seats, actual meal state and appropriate hand/utensil motion |
+| Dining table/chairs/plates | Two independently reservable chairs, carried bowls, spoon animation and one consumed portion per completed meal | Set the table, clear dishes and wash up |
 | Table planter | Decorative | Water/tend response and inspectable plant state |
 | Shower | Enter tray, wash under spray from shower head, return to clear floor | Animate the valve and entry transition |
 | Toilet | Reserved seated use | Sit/stand, flush control and visible flush/reset state |

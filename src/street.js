@@ -1,4 +1,5 @@
 import {neighborName} from './street-activities.js';
+import {mealStation} from './home-meals.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
@@ -189,7 +190,8 @@ export class Street {
         offer(this.point.set(q.x,b.y+.93,q.z),1.05,{type:'coffee'},'Order two coffees');
       }
     }
-    for(const place of [b,...s.terraceLots(),...s.waysideNear(local,30)].filter(Boolean))for(const q of stationsFor(place)){
+    for(const place of [b,...s.terraceLots(),...s.waysideNear(local,30)].filter(Boolean))for(const base of stationsFor(place)){
+      const q=mealStation(s,place.id,base,local);if(!q)continue;
       const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
       if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
@@ -356,7 +358,7 @@ export class Street {
       const seated=['sit','dine','relax','piano','bathroom','eat','read'].includes(a.activity);
       mesh.setSeated(seated,a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
-      mesh.setDomestic(a.activity,s.time,a.using);
+      mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom);
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
@@ -416,7 +418,7 @@ export class Street {
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
     $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
-    if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',cook:'cooking',wash:'washing',shower:'showering',bathroom:'bathroom visit',eat:'eating',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
+    if(near)use.textContent=local.activity==='eat'?'Pause meal':local.activity==='cook'?'Stop cooking':local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',wash:'washing',shower:'showering',bathroom:'bathroom visit',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }

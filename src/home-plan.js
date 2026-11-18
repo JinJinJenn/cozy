@@ -26,10 +26,10 @@ export function homeWalkable(b,p){
 // walker to the centre of a bed or counter, and keep the exit point with the use.
 function usesFor(b){
   const sofa=b.furniture.find(f=>f.type==='sofa');
-  const uses=[{...b.seats[0],object:'sofa',label:'Sit on the sofa',target:{x:sofa.x,z:sofa.z,y:.65}}];
+  const uses=[{...b.seats[0],object:'sofa',mealSeat:true,label:'Sit on the sofa',target:{x:sofa.x,z:sofa.z,y:.65}}];
   const kinds={bed:['rest','Rest on the bed'],kitchen:['cook','Cook a meal'],shelf:['read','Read a book'],desk:['write','Write at the desk'],
-    shower:['shower','Take a shower'],toilet:['bathroom','Use the bathroom'],basin:['wash','Wash your hands'],dining:['eat','Have a meal'],rug:['stretch','Stretch on the rug']};
-  const switches=[];
+    shower:['shower','Take a shower'],toilet:['bathroom','Use the bathroom'],basin:['wash','Wash your hands'],dining:['sit','Sit at the table'],rug:['stretch','Stretch on the rug']};
+  const switches=[],mealSpots=[];
   for(const f of b.furniture){
     if(!kinds[f.type]&&!lamps[f.type])continue;
     if(f.type==='shelf'){
@@ -53,7 +53,20 @@ function usesFor(b){
     if(action==='rest')use.pose={x:f.x,z:f.z+f.d/2-.15,yaw:b.yaw,height:.82,scale:1};
     if(action==='bathroom')use.pose={x:f.x,z:f.z+.08,yaw:b.yaw};
     if(action==='shower')use.pose={x:f.x,z:f.z-.07,yaw:b.yaw+Math.PI,height:.25};
-    if(action==='eat')use.pose={x:f.x,z:f.z+.72,yaw:b.yaw+Math.PI};
+    if(f.type==='dining'){
+      for(const side of [1,-1]){
+        const x=f.x+(f.breakfast?side*.43:0),direction=f.breakfast?1:side,z=f.z+direction*.72;
+        const entrances=[{x,z:f.z+direction*(f.d/2+.48)},...[-1,1].map(dir=>({x:f.x+dir*(f.w/2+.45),z}))];
+        const chair=entrances.find(p=>{
+          const world=homeWorld(b,p.x,p.z);return allowed(world)&&routeOnGrid(allowed,b.inside,world);
+        });
+        if(!chair)continue;
+        const seat={...use,...chair,mealSeat:true,object:'chair-'+(side>0?'front':'back'),radius:.37,
+          pose:{x,z,yaw:b.yaw+(direction>0?Math.PI:0)},target:{x,y:.65,z}};
+        if(side===1)uses.push(seat);else mealSpots.push(seat);
+      }
+      continue;
+    }
     if(['kitchen','basin','shower'].includes(f.type)){
       const atFixture=(action,label)=>{
         const outlet=fixtureOutlet(f,action),x=f.x+outlet.x,z=f.z+outlet.z;
@@ -63,11 +76,14 @@ function usesFor(b){
         return {...use,...work,action,label,target:{x,z,y:outlet.y},radius:f.type==='shower'?.40:.31,
           yaw:b.yaw+Math.atan2(x-work.x,z-work.z)};
       };
-      uses.push(atFixture(action,label));
-      if(f.type==='kitchen')uses.push(atFixture('wash','Wash up at the sink'));
+      const fixture=atFixture(action,label);uses.push(fixture);
+      if(f.type==='kitchen'){
+        uses.push(atFixture('wash','Wash up at the sink'));
+        mealSpots.push({...fixture,action:'serveSoup',label:'Take a bowl of soup'},{...fixture,action:'returnSoup',label:'Return your serving'});
+      }
     }else uses.push(use);
   }
-  return uses.concat(switches);
+  return uses.concat(switches,mealSpots);
 }
 export function prepareHomes(island,exclude=[]){
   const skip=new Set(exclude.map(b=>b.id)),homes=[],cells=new Map();
@@ -117,7 +133,7 @@ export function prepareHomes(island,exclude=[]){
         {id:'shower',type:'shower',x:hw-2.1,z:-hd+.62,w:.9,d:.9,solid:true},
         {id:'toilet',type:'toilet',x:hw-.60,z:-hd+.74,w:.6,d:.9,solid:true},
         {id:'basin',type:'basin',x:hw-.40,z:-hd+2.38,w:.5,d:.40,solid:true},
-        {id:'dining',type:'dining',x:0,z:-hd+1.6,w:1.5,d:1.8,solid:true},
+        {id:'dining',type:'dining',x:0,z:-hd+1.6,w:1.5,d:1.8,solid:true,breakfast:w<10.8},
         {id:'nightstand',type:'nightstand',x:bedX+bedW/2+.40,z:bedZ-bedD*.26,w:.5,d:.5,solid:true});
       b.rooms=[{name:'Living room',point:homeWorld(b,0,1)},
         {name:'Bedroom',point:homeWorld(b,-hw+1.6,-hd+bedD+.9)},

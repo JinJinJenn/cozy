@@ -4,6 +4,16 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.3.4 makes a pot of soup feed two players. The host saves uneaten
+portions per generated home. Each carried bowl reserves a portion from its
+source pot until its owner finishes eating. Disconnection or a host reload
+releases that reservation. Completing the meal consumes exactly one portion.
+An interrupted cook produces no food and pausing dinner preserves the bowl.
+Every generated home has a sofa meal spot. Every generated dining set exposes
+two separate reachable seats. All 113 unit checks and the four-locale viewer
+passed. The domestic playtest exercises cooking, picking up soup, two occupied
+chairs, host reload and a fresh visitor over a native WebRTC data channel.
+
 Version 0.3.3 adds switches to desk and bedside lamps in generated homes.
 Click a shade to walk to the switch. Visitors can operate it, everyone in that
 street sees the change, and the host saves each lamp independently. Cooking,

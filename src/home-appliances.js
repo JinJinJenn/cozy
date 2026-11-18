@@ -1,5 +1,19 @@
 import * as THREE from 'three';
 import {fixtureOutlet,lamps,lampIsLit} from './home-fixtures.js';
+import {potServings} from './home-meals.js';
+
+function addSoup(parent,f){
+  const surface=new THREE.Mesh(new THREE.CylinderGeometry(.136,.133,.012,16),new THREE.MeshLambertMaterial({color:'#ce803c'}));
+  const outlet=fixtureOutlet(f,'cook');surface.position.set(f.x+outlet.x,1.327,f.z+outlet.z);
+  const garnish=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.024,0),new THREE.MeshLambertMaterial(),8);
+  const herb=new THREE.Object3D();
+  for(let i=0;i<garnish.count;i++){
+    const radius=.035+i*.009,angle=i*2.4;
+    herb.position.set(radius*Math.cos(angle),.009,radius*Math.sin(angle));herb.scale.set(.95,.45,.72);herb.updateMatrix();
+    garnish.setMatrixAt(i,herb.matrix);garnish.setColorAt(i,new THREE.Color(['#76914d','#f0ba74','#b75332'][i%3]));
+  }
+  surface.add(garnish);surface.visible=false;parent.add(surface);return surface;
+}
 
 function addLamp(parent,f,spec){
   const bedside=f.type==='nightstand';
@@ -35,6 +49,7 @@ export class HomeAppliances {
     this.home=home;this.lamps=[];this.flows=new Map();this.drop=new THREE.Object3D();
     const frame=this.frame=new THREE.Group();frame.position.set(home.x,home.y,home.z);frame.rotation.y=home.yaw;parent.add(frame);
     for(const f of home.furniture){
+      if(f.type==='kitchen')this.soup=addSoup(frame,f);
       if(lamps[f.type])this.lamps.push(addLamp(frame,f,lamps[f.type]));
       const actions=f.type==='kitchen'?['cook','wash']:f.type==='shower'?['shower']:f.type==='basin'?['wash']:[];
       for(const action of actions)this.flows.set(f.id+'/'+action,addFlow(frame,f,action));
@@ -51,6 +66,10 @@ export class HomeAppliances {
   update(session){
     const time=session?.time||0,dt=Math.min(.1,Math.max(0,time-(this.lastTime??time)));
     this.lastTime=time;
+    if(this.soup){
+      const bowls=session?potServings(session,this.home.id):0;
+      this.soup.visible=bowls>0;this.soup.scale.x=this.soup.scale.z=bowls===1?.89:1;
+    }
     for(const lamp of this.lamps){
       const target=lampIsLit(session?.layout,this.home.id,lamp.kind)?1:0;
       lamp.level=lamp.level===null?target:THREE.MathUtils.damp(lamp.level,target,18,dt);
