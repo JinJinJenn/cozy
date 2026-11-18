@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
 
 async function monitor(page){
   await page.evaluate(()=>{
@@ -95,22 +96,35 @@ export async function playBand({host,guest,profile,ready,wait}){
     await guest.keyboard.press('w');await wait(host,()=>window.bandAudio.notes.includes(49));
     assert.equal(await visitor.evaluate(()=>window.bandAudio.notes.filter(n=>n===79).length),2);
     await visitor.locator('#piano-sound').click();
-    if(process.env.COZY_BAND_SHOT)await host.setViewportSize({width:1280,height:720});
+    await host.bringToFront();
+    await host.setViewportSize({width:1280,height:720});
+    await wait(host,()=>Math.abs(window.__cozy.camera.aspect-innerWidth/innerHeight)<.01&&
+      window.__cozy.street.openRoof===window.__cozy.street.club.id);
     const point=await host.evaluate(async()=>{
       const c=window.__cozy,st=c.street,b=st.club,{toWorld,floorAt}=await import('./src/street-world.js');
-      const p=toWorld(b,-1.7,-1.68),eye=toWorld(b,-.4,2.65);
+      const p=toWorld(b,-1.7,-1.68);
       const focusY=floorAt(st.island,st.plots,p.x,p.z,st.session.layout)+1.48;
-      st.cameraFocus={...p};await c.setCamera([eye.x,b.y+3.95,eye.z],[p.x,focusY,p.z]);
       const {keyShape}=await import('./src/piano.js'),{Vector3}=await import('three');
-      const camera=st.camera.clone();camera.position.lerp(st.controls.target,1-st.cameraFraction());camera.updateMatrixWorld();
       const rect=st.controls.domElement.getBoundingClientRect();
-      for(const key of [12,16,19,21,24,7,11]){
-        const shape=keyShape[key],world=toWorld(b,-1.7+shape.x,-1.68),v=new Vector3(world.x,b.y+.87,world.z).project(camera);
-        const x=Math.round(rect.left+(1+v.x)*rect.width/2),y=Math.round(rect.top+(1-v.y)*rect.height/2);
-        const ray=st.pointerRay({clientX:x,clientY:y}),hit=st.pickAction(ray,true,st.floorPoint(ray,st.camera.far));
-        if(document.elementFromPoint(x,y)===st.controls.domElement&&hit?.command?.type==='strike-key'&&hit.command.key===key)return {x,y,key,label:hit.label};
+      const blockers=new Set();
+      // A seated performer or listener may obscure a key from one direction.
+      // Choose a genuinely exposed key and then use native clicks on that pixel.
+      for(const [sx,z,height] of [[-.4,2.65,3.95],[-1.7,-.9,7.5],[-3.6,-2.5,5.5]]){
+        const eye=toWorld(b,sx,z);
+        st.cameraFocus={...p};await c.setCamera([eye.x,b.y+height,eye.z],[p.x,focusY,p.z]);
+        const camera=st.camera.clone();camera.position.lerp(st.controls.target,1-st.cameraFraction());camera.updateMatrixWorld();
+        for(const [key,shape] of keyShape.entries()){
+          const world=toWorld(b,-1.7+shape.x,shape.z+(shape.black?0:.16));
+          const v=new Vector3(world.x,b.y+(shape.black?.925:.87),world.z).project(camera);
+          const x=Math.round(rect.left+(1+v.x)*rect.width/2),y=Math.round(rect.top+(1-v.y)*rect.height/2);
+          const element=document.elementFromPoint(x,y);
+          if(element!==st.controls.domElement){blockers.add(element?.id||element?.tagName||'offscreen');continue;}
+          const ray=st.pointerRay({clientX:x,clientY:y}),hit=st.pickAction(ray,true,st.floorPoint(ray,st.camera.far));
+          if(hit?.command?.type==='strike-key'&&hit.command.key===key)return {x,y,key,label:hit.label};
+          blockers.add(hit?.followLabel||hit?.label||'ground');
+        }
       }
-      throw Error('No visible world key under pointer');
+      throw Error('Stage key hit test saw '+[...blockers].join(', '));
     });
     const pitch=60+point.key;
     const before=await visitor.evaluate(n=>window.bandAudio.notes.filter(x=>x===n).length,pitch);
@@ -127,6 +141,8 @@ export async function playBand({host,guest,profile,ready,wait}){
     await travel(visitor);await visitor.locator('#piano-controls').waitFor();assert.equal(await part(visitor),'bass');
     console.log('PASS live melody and bass over WebRTC, a three-note chord, both octaves, spectator audio output, stage key clicks with both buttons, return to the tune and reuse of a vacated bench.');
   }catch(error){
+    await mkdir('test-results/street-failure',{recursive:true});
+    await host.screenshot({path:'test-results/street-failure/stage.jpg',type:'jpeg',timeout:8000}).catch(()=>{});
     for(const p of [host,guest,visitor])console.error(JSON.stringify(await p.evaluate(()=>{
       const st=window.__cozy.street,s=st.session,a=s.actors.get(s.id),music=st.music;
       return {owner:s.owner,route:s.privateRoutes?.active,connected:s.connected,time:s.time,frame:s.verifiedSeq,
