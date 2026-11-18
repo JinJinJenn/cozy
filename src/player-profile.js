@@ -1,3 +1,4 @@
+import {validFlower} from './roadside-flowers.js';
 export const shirts = Object.freeze({
   rose: '#c55b61', juniper: '#52806a', denim: '#6687bd',
   saffron: '#be903e', plum: '#98719a', lagoon: '#438a95'
@@ -19,7 +20,7 @@ export function readProfile(value) {
   const name = value.name.normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/gu, '')
     .replace(/\s+/gu, ' ').trim();
   if (!name || [...name].length > 24) return null;
-  return {name, shirt: value.shirt};
+  return {name, shirt: value.shirt,...(validFlower(value.flower)?{flower:value.flower}:{})};
 }
 
 export function storeProfile(profile) {
@@ -35,7 +36,7 @@ export function loadProfile(id) {
   storeProfile(profile);
   return profile;
 }
-export function sameProfile(a, b) { return a?.name === b?.name && a?.shirt === b?.shirt; }
+export function sameProfile(a, b) { return a?.name === b?.name && a?.shirt === b?.shirt && a?.flower === b?.flower; }
 export function canGesture(actor) {
   return !!actor && !actor.vehicle && !actor.cup && !actor.tray && !actor.bowlFrom && !actor.outing &&
     (!actor.activity || actor.activity === 'sit' || actor.activity === 'relax');

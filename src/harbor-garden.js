@@ -5,6 +5,8 @@ import {gardenForStreet,gardenSeats,toWorld} from './street-world.js';
 import {flowerBed,gardenTree} from './harbor-art.js';
 import {pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
 import {rng} from '../packages/island-gen/src/rng.js';
+import {flowerBox,flowerFor} from './roadside-flowers.js';
+import {roadsideBed} from './flower-art.js';
 
 const cap=new THREE.CylinderGeometry(.20,.51,1,8),rail='#f6e5c3',green='#587e76',wood='#a47a5c';
 const bough=new THREE.ConeGeometry(.5,1,11,2);
@@ -165,7 +167,7 @@ export function plantWoodlands(island,detail,blocks,parent){
 
 // Keep the roadside walk clear. Lamps and rest stops sit on the grass side
 // of the paving and leave the junctions and front paths open.
-export function furnishRoads(island,detail,blocks,parent,homes,frontPaths){
+export function furnishRoads(island,detail,blocks,parent,homes,frontPaths,flowers){
   const fixtures=[],benches=new Map(),roads=island.plan.roads;
   const segments=roads.flatMap(r=>r.pts.slice(1).map((b,i)=>({road:r,a:r.pts[i],b})));
   for(const road of roads){
@@ -211,7 +213,8 @@ export function furnishRoads(island,detail,blocks,parent,homes,frontPaths){
             }
             for(const dz of [-.18,0,.18])a.box(0,.48,dz,1.94,.09,.15,wood);
             for(const h of [.72,.91,1.08])a.box(0,h,-.22,1.95,.12,.078,wood);
-            flowerBed(a,1.87,-.02,1.02,'quay-'+road.id+index);
+            const id='bench-'+road.id+'-'+index,handle={visible:true,amount:1};
+            roadsideBed(a,flowerBox.x,flowerBox.z,flowerFor(id),handle);flowers.set(id,handle);
           }
           const frame={x,z,y,yaw,c:Math.cos(yaw),s:Math.sin(yaw)};
           fixtures.push({...frame,...toWorld(frame,post,0),w:.34,d:.34,height:3.5});
@@ -219,7 +222,7 @@ export function furnishRoads(island,detail,blocks,parent,homes,frontPaths){
             fixtures.push({...frame,...toWorld(frame,1.87,-.02),w:1.09,d:.72,height:.85});
             fixtures.push({...frame,...toWorld(frame,0,-.23),w:1.95,d:.08,height:1.16});
             const id='bench-'+road.id+'-'+index;
-            benches.set(id,{...frame,id,kind:'wayside',w:2.45,d:2.25});
+            benches.set(id,{...frame,id,kind:'wayside',species:flowerFor(id),entry:toWorld(frame,1.87,1.74),w:2.45,d:2.25});
           }
           break;
         }

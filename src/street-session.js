@@ -17,6 +17,7 @@ import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
 import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
 import {PublicAddresses} from './public-parcels.js';
 import {canGesture,canGreet,gesturePhase,loadProfile,readProfile,sameProfile,storeProfile} from './player-profile.js';
+import {flowerBox,validFlower} from './roadside-flowers.js';
 
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
@@ -28,6 +29,7 @@ const furniture={
   house:[[1.38,-.14,'sit'],[1.38,-1.80,'sit']],cottage:[[1.38,-.14,'sit']]
 };
 const homeStations=new WeakMap();
+const roadsideStations=new WeakMap(),roadsideGrids=new WeakMap();
 export function stationsFor(b){
   if(b.kind==='home'){
     const uses=b.uses||b.seats;
@@ -41,8 +43,15 @@ export function stationsFor(b){
     }
     return spots;
   }
-  return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
+  if(roadsideStations.has(b))return roadsideStations.get(b);
+  const spots=(furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
     yaw:b.yaw+((b.kind==='wayside'||b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
+  if(b.kind==='wayside'&&b.species){
+    spots.push({...toWorld(b,flowerBox.x,.91),yaw:b.yaw+Math.PI,index:2,object:'flower-box',action:'clip',part:'',species:b.species,
+      target:{...toWorld(b,flowerBox.x,flowerBox.z),y:b.y+.77},radius:.46});
+    roadsideStations.set(b,spots);
+  }
+  return spots;
 }
 const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -385,13 +394,17 @@ export class StreetSession {
     if(!b)return null;
     if(b.cafe)return {action:'lights'};
     const p=toRoom(b,actor);
-    if(p.x< -b.w/2+.25||p.x>sideAt(b,this.layout)-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22)return null;
+    if(b.kind!=='wayside'&&(p.x< -b.w/2+.25||p.x>sideAt(b,this.layout)-.25||p.z< -b.d/2+.22||p.z>frontAt(b,this.layout)-.22))return null;
     let best=null,bestDistance=1.35;
     for(const base of stationsFor(b)){
-      const distance=Math.hypot(base.x-actor.x,base.z-actor.z);
-      if(distance>bestDistance||(best&&distance===bestDistance))continue;
       const spot=homeAction(this,b.id,base,actor);
-      if(spot&&this.available(actor,b,spot)){best=spot;bestDistance=distance;}
+      if(!spot)continue;
+      const approaches=spot.object==='flower-box'?this.activities.fixtureApproaches(b,spot):[spot];
+      for(const p of approaches){
+        const distance=Math.hypot(p.x-actor.x,p.z-actor.z);
+        if(distance>bestDistance||best&&distance===bestDistance)continue;
+        if(this.available(actor,b,p===spot?spot:{...spot,...p})){best=spot;bestDistance=distance;}
+      }
     }
     return best&&{...best,dist:bestDistance};
   }
@@ -413,18 +426,30 @@ export class StreetSession {
     return spot?{b,spot}:null;
   }
   waysideNear(actor,distance){
-    const benches=[];
-    for(const b of this.island?.streetBenches?.values()||[])if(within(actor,b,distance))benches.push(b);
-    return benches;
+    const benches=this.island?.streetBenches;if(!benches)return [];
+    let grid=roadsideGrids.get(benches);
+    if(!grid){
+      grid=new Map();roadsideGrids.set(benches,grid);
+      for(const b of benches.values()){
+        const key=Math.floor(b.x/32)+','+Math.floor(b.z/32);
+        if(!grid.has(key))grid.set(key,[]);grid.get(key).push(b);
+      }
+    }
+    const radius=distance+2,found=[];
+    for(let x=Math.floor((actor.x-radius)/32);x<=Math.floor((actor.x+radius)/32);x++)
+      for(let z=Math.floor((actor.z-radius)/32);z<=Math.floor((actor.z+radius)/32);z++)
+        for(const b of grid.get(x+','+z)||[])if(within(actor,b,distance)||b.species&&within(actor,stationsFor(b)[2].target,distance))found.push(b);
+    return found;
   }
   interact(id){
     const a=this.actors.get(id);if(a?.vehicle){dismount(this,a);return;}
-    const b=a&&this.near(a);if(!b)return;
+    if(!a)return;
     if(a.dinnerSeat!==undefined&&this.activities){this.activities.finish(a);return;}
     if(a.outing==='chat'||a.outing==='waiting'){this.activities.finish(a);return;}
     if(a.activity){this.activities?.leaveFurniture(a);a.activity='';a.part='';return;}
+    const b=this.near(a);if(!b)return;
     const spot=this.station(a,b);if(!spot)return;
-    if(b.kind==='home'){this.activities.command(a,{type:'furniture',lot:b.id,index:spot.index});return;}
+    if(b.kind==='home'||spot.object==='flower-box'){this.activities.command(a,{type:'furniture',lot:b.id,index:spot.index});return;}
     if(b.cafe){this.layout.lights=!this.layout.lights;this.layout.revision++;this.persist();}
     else{
       if(spot.action==='dine'&&this.activities){
@@ -434,6 +459,11 @@ export class StreetSession {
     }
   }
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
+  keepPickedFlower(actor){
+    const picked=actor?.pickedFlower;
+    if(!picked||typeof picked.id!=='string'||!validFlower(picked.species)||this.lastFlower===picked.id)return;
+    this.lastFlower=picked.id;this.profile={...this.profile,flower:picked.species};storeProfile(this.profile);
+  }
   changeProfile(value){
     const profile=readProfile(value);if(!profile)return false;
     this.profile=profile;
@@ -578,6 +608,7 @@ export class StreetSession {
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
         this.privateRoutes?.confirmed(route,this.lastFrame);
         this.actors=new Map(f.actors.map(a=>{if(a.profile)a.profile=readProfile(a.profile);return [a.id,a];}));this.layout=layout;this.time=f.t;
+        this.keepPickedFlower(this.actors.get(this.id));
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(this.invitedHome&&this.inviteBoot!==f.boot){
           this.inviteBoot=f.boot;

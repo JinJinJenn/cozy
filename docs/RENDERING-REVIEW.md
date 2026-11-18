@@ -5,6 +5,17 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Roadside flowers in v0.15.0
+
+At 1280 × 720 on Intel Graphics 0x7D67, a close view of watering and regrowth
+delivered 59.8 GPU-completed FPS on both Low and Balanced with 457 residents
+simulated. The p95 frame interval was 17.3 ms and neither 360-frame sample
+recorded a long task. The full-island orbit measured 43.9 FPS on Low and
+42.8 on Balanced, with p95 intervals of 25.2 and 25.5 ms respectively.
+Balanced recorded one 85 ms long task during the orbit. Reproduce both views
+with `node tools/benchmark.mjs --720p --gpu-completion` and either
+`--flowers` or `--wide-street --orbit`.
+
 ### Painting in the v0.14.0 public studio
 
 At 1280 × 720 on Intel Graphics 0x7D67, both Low and Balanced delivered

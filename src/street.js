@@ -42,6 +42,7 @@ export class Street {
     this.point=new THREE.Vector3();this.rayPoint=new THREE.Vector3();
     this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[]),...island.homes];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(b.name||places[b.kind][0],b.kind==='home'?b.id:b.kind)));
+    if(island.streetBenches.size)$('destination').add(new Option('Nearest flower box','flowers'),1);
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
     const townURL=new URL('.',location.href);
     const params=new URLSearchParams(location.search);
@@ -114,7 +115,17 @@ export class Street {
       if(lot)s.command({type:'tv-channel',lot,channel:Number($('tv-channel').value)});
     });
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
-    listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>(b.kind==='home'?b.id:b.kind)===$('destination').value);$('go-place').disabled=$('jump-place').disabled=!this.destination;
+    listen($('destination'),'change',()=>{
+      const value=$('destination').value;
+      if(value==='flowers'){
+        const actor=this.session.actors.get(this.session.id);
+        let best=Infinity;
+        for(const b of island.streetBenches.values()){
+          const distance=Math.hypot(actor.x-b.entry.x,actor.z-b.entry.z);
+          if(distance<best){best=distance;this.destination=b;}
+        }
+      }else this.destination=this.destinations.find(b=>(b.kind==='home'?b.id:b.kind)===value);
+      $('go-place').disabled=$('jump-place').disabled=!this.destination;
       $('home-invite').hidden=this.destination?.kind!=='house';
       $('dinner-visit').hidden=this.destination?.kind!=='restaurant';this.nextUI=0;});
     listen($('dinner-visit'),'click',()=>{this.session.command({type:'book-dinner'});this.closePanels();});
@@ -558,6 +569,7 @@ export class Street {
       const shirt=shirts[a.profile?.shirt]||(id===s.id?'#c55b61':id.startsWith('resident')?(id==='resident1'?'#94799b':'#659681'):'#6687bd');
       if(!mesh){mesh=avatar(shirt,id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
       mesh.setShirt(shirt);
+      mesh.setFlower(a.profile?.flower);
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
@@ -668,6 +680,7 @@ export class Street {
     if(local.activity==='watch')use.textContent='Stop watching';
     if(local.activity==='switch')use.textContent='Release switch';
     if(local.activity==='paint')use.textContent='Put brush down';
+    if(local.activity==='clip'||local.activity==='water'){use.hidden=false;use.textContent=local.activity==='clip'?'Stop picking':'Stop watering';}
     if(local.activity==='admire')use.textContent='Leave painting';
     if(local.activity==='tablegame')use.textContent='Leave game';
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();

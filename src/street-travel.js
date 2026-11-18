@@ -121,7 +121,7 @@ export function teleport(s,a,cmd){
       }
       a.feedback='There is no clear spot inside this house.';return;
     }
-    const b=s.plots.find(b=>b.id===cmd.place)||
+    const b=s.island.streetBenches?.get(cmd.place)||s.plots.find(b=>b.id===cmd.place)||
       [s.garden,s.island.townSquare].find(b=>b&&b.id===cmd.place);
     if(b)p=b.inside||b.entry||toWorld(b,0,frontAt(b,s.layout)+1.4);
   }else if(Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&Math.abs(cmd.x)<s.island.half&&Math.abs(cmd.z)<s.island.half)p=cmd;

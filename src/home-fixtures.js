@@ -1,5 +1,6 @@
 import {catalog} from './furniture-pose.js';
 import {mealStation} from './home-meals.js';
+import {flowerAction} from './roadside-flowers.js';
 
 // Metres from the centre of the furniture, before the home transform.
 export function fixtureOutlet(f,action){
@@ -53,6 +54,7 @@ export function setPaintingStage(session,lot,id,stage){
   session.persist();
 }
 export function homeAction(session,lot,spot,actor){
+  if(spot.object==='flower-box')return flowerAction(session.layout,lot,spot,actor);
   if(spot.action!=='paint')return mealStation(session,lot,spot,actor);
   if(actor.bowlFrom)return null;
   const stage=paintingStage(session.layout,lot,spot.object),title=catalog[spot.object].subject;

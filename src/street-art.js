@@ -9,6 +9,7 @@ import {rng} from '../packages/island-gen/src/rng.js';
 import {scoreStep,noteAtStep} from './street-music.js';
 import {prepareHomes} from './home-plan.js';
 import {homeShell,HomeInteriors} from './home-art.js';
+import {flowerDisplay,lapelArt,wateringCan} from './flower-art.js';
 
 const clay='#bf6251', wood='#986647', cream='#fff1d3', dark='#334747', glass='#91c9c8', pine='#476b50';
 export const places={
@@ -595,7 +596,7 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     }
   };
   g.setSeated=(value,part,time=0)=>{
-    torso.rotation.x=0;
+    torso.rotation.x=0;torso.position.z=0;
     standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
     restingArms.visible=!part&&!carrying;
     for(const [i,arm] of hands.entries()){
@@ -627,6 +628,12 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     spoon.ball(-.105,-.118,.38,.065,.025,.09,'#d1c8ad');spoon.finish();
   }
   let remoteArm,floorPose,lastChannel,pressedAt,brush;
+  let can,lapel,lapelKind;
+  g.setFlower=kind=>{
+    if(kind===lapelKind)return;
+    if(lapel){torso.remove(lapel);disposeGroup(lapel);}
+    lapelKind=kind;lapel=kind?lapelArt(torso,kind):null;
+  };
   g.setDomestic=(action,time,use,hasBowl,channel)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
     if(action==='paint'&&!brush){
@@ -637,6 +644,8 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       bristles.ball(.052,-.686,.032,.032,.077,.028,'#698778');bristles.finish();
     }
     if(brush)brush.visible=action==='paint';
+    if(action==='water'&&!can)can=wateringCan(limbs[1].arm);
+    if(can)can.visible=action==='water';
     body.position.x=body.position.z=0;
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
@@ -697,6 +706,16 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       arm.rotation.x=-1.66-.24*Math.sin(time*3.7);
       arm.rotation.z=.15+.30*Math.sin(time*2.5);
       torso.rotation.x=.06;return;
+    }
+    if(action==='water'||action==='clip'){
+      torso.rotation.x=.12+.035*Math.sin(time*3);
+      torso.position.z=-.8*Math.sin(torso.rotation.x);
+      for(const limb of limbs){
+        limb.arm.rotation.x=(limb.side>0?-1.05:-.48)+.13*Math.sin(time*4);
+        limb.arm.rotation.z=limb.side*.10;
+      }
+      if(action==='water')can.updatePour(time);
+      return;
     }
     if(lying||!['read','write','cook','wash','shower','eat','stretch','bathroom','switch'].includes(action))return;
     for(const limb of limbs){
@@ -863,7 +882,8 @@ export function townExteriors(island,detail,scene){
     }
   }
   plantWoodlands(island,detail,blocks,parent);
-  const fixtures=furnishRoads(island,detail,blocks,parent,[...footprints,...homes],frontPaths);
+  const beds=new Map(),showFlowers=flowerDisplay(beds);
+  const fixtures=furnishRoads(island,detail,blocks,parent,[...footprints,...homes],frontPaths,beds);
   for(const block of blocks.values())block.finish();
   scene.add(parent);island.streetFootprints=footprints;
   island.footprintCells=new Map();
@@ -874,7 +894,11 @@ export function townExteriors(island,detail,scene){
       }}
   const interiors=new HomeInteriors(island,parent);
   const dispose=()=>{interiors.close();scene.remove(parent);disposeGroup(parent);};
-  dispose.update=(pos,eye,session)=>interiors.update(pos,eye,session);
+  dispose.update=(pos,eye,session)=>{
+    if(session)showFlowers(session);
+    return interiors.update(pos,eye,session);
+  };
   dispose.interiors=interiors;
+  dispose.flowerBeds=beds;
   return dispose;
 }

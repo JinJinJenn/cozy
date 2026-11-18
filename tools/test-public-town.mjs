@@ -8,6 +8,7 @@ import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playAddresses} from './playtest-addresses.mjs';
 import {playPlayers} from './playtest-players.mjs';
 import {playPublicStudio} from './playtest-studio.mjs';
+import {playFlowers} from './playtest-flowers.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -32,7 +33,8 @@ const inspect=p=>p.evaluate(()=>{
 async function profile(signalGate){
   // Each profile has its own full island. Keep the pointer viewport intact
   // while sharing the hosted runner's software renderer across all three.
-  const ctx=await browser.newContext({viewport:{width:960,height:580},deviceScaleFactor:process.env.CI ? .45 : 1});
+  const viewport=process.env.COZY_FLOWER_SHOT?{width:1320,height:790}:{width:960,height:580};
+  const ctx=await browser.newContext({viewport,deviceScaleFactor:process.env.CI ? .45 : 1});
   await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
   if(!relay)await installRelay(ctx,signalGate);
   await ctx.route('**/*',async route=>{
@@ -69,7 +71,18 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
-  if(process.argv.includes('--studio')){
+  if(process.argv.includes('--flowers')){
+    try{await playFlowers({host,guest,wait,ready,navigate});assert.deepEqual(errors,[]);}
+    catch(error){
+      for(const page of [host,guest])console.error(await page.evaluate(()=>{
+        const st=window.__cozy.street,s=st.session,b=st.destination;
+        return {space:s.space,ready:s.ready,owner:s.owner,connected:s.connected,bed:b?.id,entry:b?.entry,cut:s.layout.cutFlowerBeds,
+          players:[...s.actors.values()].filter(a=>!a.id.startsWith('resident')).map(a=>({x:a.x,z:a.z,activity:a.activity,travel:a.travelSeq,using:a.using?.object,feedback:a.feedback,flower:a.profile?.flower})),
+          notice:document.querySelector('#street-note').textContent};
+      }).catch(()=>null));
+      throw error;
+    }
+  }else if(process.argv.includes('--studio')){
     await playPublicStudio({host,guest,wait});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--players')){
     await playPlayers({host,guest,paired,ready,wait,navigate,profile,isolatedRelay:!relay});assert.deepEqual(errors,[]);

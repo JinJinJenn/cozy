@@ -17,6 +17,14 @@ support a simple action, but unfinished decoration must stay on the gap list.
 Architecture surfaces belong to editing/material contracts; do not invent a fake
 Use action for a wall or floor merely to inflate prop coverage.
 
+## Roadside flower boxes
+
+Petalwood's roadside seats share a stop with 19 poppy boxes, 18 daisy boxes and 15 cornflower boxes.
+Each has two seat reservations and a separate tending spot. Picking a bloom clears the flower heads
+on both screens and pins one to the picker's shirt. Watering animates the can and opens the flowers.
+If the gardener stops early, the cut stems remain. The owner saves cut beds with the personal street.
+Park beds and home landscaping still need their own interactions.
+
 ## Generated-home inventory
 
 The teal and rose club chairs seat one person each and can be used for a meal.

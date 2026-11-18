@@ -15,7 +15,9 @@ const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')
 const television=process.argv.includes('--television');
 const entryLight=process.argv.includes('--entry-light');
 const studio=process.argv.includes('--studio');
+const flowers=process.argv.includes('--flowers');
 const wideStreet=process.argv.includes('--wide-street');
+if(flowers&&(studio||entryLight||television||wideStreet||orbit||baseline))throw Error('The flower box uses a fixed street camera.');
 if(studio&&(entryLight||television||wideStreet||orbit||baseline))throw Error('The art studio uses a fixed interior camera.');
 if(entryLight&&(television||wideStreet||orbit||baseline))throw Error('The entry light comparison uses a fixed camera in the current build.');
 if(wideStreet&&(television||baseline))throw Error('The island-scale street camera requires the current street view.');
@@ -80,7 +82,23 @@ try{
       });
       await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='paint';});
     }
-    const scenes=studio?[{room:'public art studio'}]:entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
+    if(flowers){
+      await page.locator('#directions-open').click();
+      await page.locator('#destination').selectOption('flowers');
+      await page.locator('#jump-place').click();
+      await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).travelSeq>0;});
+      await page.evaluate(async()=>{
+        const c=window.__cozy,st=c.street,s=st.session,b=st.destination;
+        const {toWorld}=await import('./src/street-world.js');
+        const target=st.cameraFocus=toWorld(b,1.35,.1),eye=toWorld(b,4.5,3.8);
+        await c.setCamera([eye.x,b.y+2.7,eye.z],[target.x,b.y+1.48,target.z]);
+        s.command({type:'furniture',lot:b.id,index:2});
+      });
+      await page.waitForFunction(()=>{const st=window.__cozy.street;return st.session.layout.cutFlowerBeds?.includes(st.destination.id);});
+      await page.evaluate(()=>{const st=window.__cozy.street;st.session.command({type:'furniture',lot:st.destination.id,index:2});});
+      await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='water';});
+    }
+    const scenes=flowers?[{location:'roadside flower box'}]:studio?[{room:'public art studio'}]:entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
     for(const scene of scenes){
       const {distance,channel}=scene;
       if(entryLight){
@@ -95,7 +113,7 @@ try{
       }else if(television){
         await page.locator('#tv-channel').selectOption(String(channel));
         await page.waitForFunction(n=>window.__cozy.street.clearExteriors.interiors.appliances?.tv.channel===n,channel);
-      }else if(!studio)await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;
+      }else if(!studio&&!flowers)await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;
         if(d>100&&!wideStreet)c.setView('centre');
         await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();
         if(wideStreet&&(!c.street.active||c.controls.getDistance()<d*.96))throw Error('Street camera did not reach island scale');

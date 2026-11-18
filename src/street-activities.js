@@ -4,6 +4,7 @@ import {homeAt,homeWalkableLocal} from './home-plan.js';
 import {homeAction,entrySwitchPosition,lamps,paintingStage,setFixtureValue,setPaintingStage,switchEntryLights,tuneTelevision} from './home-fixtures.js';
 import {finishHomeMeal} from './home-meals.js';
 import {leaveBoard,sitAtBoard} from './table-game.js';
+import {finishFlowers,flowerBox} from './roadside-flowers.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
 
@@ -35,19 +36,22 @@ export class StreetActivities {
     return true;
   }
   cancelRoute(actor){this.routes.delete(actor.id);actor.walking=false;delete actor.goal;}
-  walkToEntrySwitch(actor,home,spot){
-    const target=entrySwitchPosition(home),points=[{x:spot.x,z:spot.z}];
-    for(const [dx,dz] of [[.1,-.75],[-.52,-.48],[.62,-.64]]){
+  fixtureApproaches(home,spot){
+    const flower=spot.object==='flower-box',target=flower?flowerBox:entrySwitchPosition(home),points=[{x:spot.x,z:spot.z}];
+    for(const [dx,dz] of flower?[[.83,.60],[-.79,.65],[.87,-.55]]:[[.1,-.75],[-.52,-.48],[.62,-.64]]){
       const local={x:target.x+dx,z:target.z+dz};
-      if(homeWalkableLocal(home,local)===true)points.push(toWorld(home,local.x,local.z));
+      if(flower||homeWalkableLocal(home,local)===true)points.push(toWorld(home,local.x,local.z));
     }
-    for(const p of points){
+    return points;
+  }
+  walkToFixture(actor,home,spot){
+    for(const p of this.fixtureApproaches(home,spot)){
       const pose={...p,yaw:Math.atan2(spot.target.x-p.x,spot.target.z-p.z)};
       if(!this.s.available(actor,home,{...spot,...pose}))continue;
       if(actor.outing)this.finish(actor);
-      if(this.go(actor,pose,{lot:home.id,index:spot.index,switchPose:pose}))return;
+      if(this.go(actor,pose,{lot:home.id,index:spot.index,fixturePose:pose}))return;
     }
-    actor.feedback='The entry switch is busy. Try again when there is room.';
+    actor.feedback=spot.object==='flower-box'?'The flower box is busy. Try another box.':'The entry switch is busy. Try again when there is room.';
   }
   leaveFurniture(actor){
     if(!actor.using)return;
@@ -209,7 +213,7 @@ export class StreetActivities {
       const {b}=target;
       let spot=homeAction(this.s,b.id,target.spot,actor);
       if(!spot){actor.feedback='That serving is no longer available.';return;}
-      if(spot.object==='entry-switch')return this.walkToEntrySwitch(actor,b,spot);
+      if(spot.object==='entry-switch'||spot.object==='flower-box')return this.walkToFixture(actor,b,spot);
       if(spot.action==='tablegame'&&actor.bowlFrom){actor.feedback='Finish or return your soup before playing.';return;}
       if(['watch','tablegame'].includes(spot.action)&&!spot.alternate&&!this.s.available(actor,b,spot)){
         const other=b.uses.findIndex(u=>u.action===spot.action&&u.alternate);
@@ -251,7 +255,7 @@ export class StreetActivities {
     if(typeof arrival==='object'){
       const target=s.furnitureAt(arrival.lot,arrival.index);
       let spot=target&&homeAction(s,target.b.id,target.spot,a);
-      if(spot?.object==='entry-switch'&&arrival.switchPose)spot={...spot,...arrival.switchPose};
+      if(spot&&arrival.fixturePose)spot={...spot,...arrival.fixturePose};
       if(target&&!spot){a.feedback='That serving is no longer available.';return;}
       if(spot&&s.available(a,target.b,spot)){
         Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
@@ -278,7 +282,7 @@ export class StreetActivities {
           a.using={lot:target.b.id,object:spot.object,index:spot.index,exit:{x:spot.x,z:spot.z},height:spot.pose?.height||0,scale:spot.pose?.scale||1};
           if(spot.pose)Object.assign(a,{x:spot.pose.x,z:spot.pose.z,yaw:spot.pose.yaw});
           if(spot.action==='tablegame')sitAtBoard(s,a);
-          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55,paint:2.4}[spot.action];
+          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55,paint:2.4,clip:1.7,water:4}[spot.action];
           if(duration)a.useUntil=s.time+duration;
         }
         if(a.dinnerSeat!==undefined)a.outing='menu';
@@ -321,8 +325,8 @@ export class StreetActivities {
       }
     }
     if(a.useUntil!==undefined&&this.s.time>=a.useUntil){
-      const action=a.activity,meal=finishHomeMeal(this.s,a);this.leaveFurniture(a);
-      if(action!=='switch')a.feedback=meal||{wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
+      const action=a.activity,result=['clip','water'].includes(action)?finishFlowers(this.s,a):finishHomeMeal(this.s,a);this.leaveFurniture(a);
+      if(action!=='switch')a.feedback=result||{wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
     }
     if(a.outing==='ordered')this.startOrder(a);
     if(a.cookUntil!==undefined&&this.s.time>=a.cookUntil){

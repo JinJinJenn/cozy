@@ -33,6 +33,12 @@ export function readLayout(s) {
   }
   if(s.club!==undefined&&!validFront(s.club)||s.restaurant!==undefined&&!validFront(s.restaurant))return null;
   const fixtures={};
+  if(s.cutFlowerBeds!==undefined){
+    const beds=s.cutFlowerBeds;
+    if(!Array.isArray(beds)||beds.length>1024||beds.some(id=>typeof id!=='string'||!/^bench-r\d{1,5}-\d{1,5}$/.test(id))||
+      new Set(beds).size!==beds.length)return null;
+    if(beds.length)fixtures.cutFlowerBeds=[...beds];
+  }
   for(const [key,max] of [['homeLights',3],['entryLights',1],['unlinkedLamps',3],['homeMeals',2],['homePaintings',24],['homeTV',tvChannels.length-1]]){
     if(s[key]===undefined)continue;
     if(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key]))return null;

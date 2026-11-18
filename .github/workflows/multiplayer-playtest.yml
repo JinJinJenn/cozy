@@ -23,6 +23,9 @@ on:
       - 'tools/playtest-furnishing.mjs'
       - 'tools/playtest-lighting.mjs'
       - 'tools/playtest-studio.mjs'
+      - 'tools/playtest-flowers.mjs'
+      - 'src/roadside-flowers.js'
+      - 'src/flower-art.js'
       - 'src/easel-art.js'
       - 'tools/playtest-table.mjs'
       - 'src/table-*.js'
@@ -71,6 +74,8 @@ jobs:
             name: Link and operate home lighting with a guest
           - signalling: studio
             name: Place studio furniture and paint with a guest
+          - signalling: flowers
+            name: Pick and regrow roadside flowers with a neighbor
           - signalling: addresses
             name: Public address claims and host handover
           - signalling: players
@@ -135,6 +140,9 @@ jobs:
           export PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json"
           npm run test:domestic -- --studio --software
           npm run test:lobby -- --studio
+      - name: Clip and wear a roadside flower and water the cut bed
+        if: matrix.signalling == 'flowers'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --flowers
       - name: Meet a named player and wave across rooms
         if: matrix.signalling == 'players'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players

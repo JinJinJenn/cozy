@@ -7,7 +7,7 @@ export class PlayerMenu {
     el('profile-shirt').replaceChildren(...Object.keys(shirts).map(color=>new Option(color[0].toUpperCase()+color.slice(1),color)));
     listen(el('player-profile'),'submit',event=>{
       event.preventDefault();
-      if(!street.session.changeProfile({name:el('profile-name').value,shirt:el('profile-shirt').value})){
+      if(!street.session.changeProfile({...street.session.profile,name:el('profile-name').value,shirt:el('profile-shirt').value})){
         el('profile-name').setCustomValidity('Choose a name between 1 and 24 characters.');
         el('profile-name').reportValidity();return;
       }
@@ -15,6 +15,10 @@ export class PlayerMenu {
       el('profile-options').open=false;this.refresh();
     });
     listen(el('profile-name'),'input',()=>el('profile-name').setCustomValidity(''));
+    listen(el('remove-flower'),'click',()=>{
+      const {name,shirt}=street.session.profile;
+      street.session.changeProfile({name,shirt});this.refresh();
+    });
     for(const gesture of ['wave','cheer'])listen(el('player-'+gesture),'click',()=>{
       street.session.command({type:'gesture',gesture});street.closePanels();
     });
@@ -36,6 +40,8 @@ export class PlayerMenu {
   refresh(){
     if(el('social-pane').hidden)return;
     const s=this.street.session,local=s.actors.get(s.id),online=s.owner||s.connected;
+    const remove=el('remove-flower');remove.hidden=!s.profile.flower;
+    if(!remove.hidden)remove.textContent='Unpin '+s.profile.flower;
     const disabled=!s.ready||!online||!canGesture(local)||gesturePhase(local,s.time)!==null;
     el('player-wave').disabled=el('player-cheer').disabled=disabled;
     const players=[];

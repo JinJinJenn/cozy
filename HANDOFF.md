@@ -4,6 +4,13 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.15.0 turns Petalwood's 52 roadside flower boxes into places to stop together.
+Open **Travel → Nearest flower box → Teleport there**. Click the flowers to pin a bloom to your shirt.
+A second player can water the cut stems while the picker watches. Both players see the bed reopen.
+A flower stays on your profile between streets and after reloading. Remove it under **Multiplayer → My player profile**.
+Cut beds on a personal street are part of the owner's save. Public beds belong to the current lobby.
+Run `npm run test:lobby -- --flowers` to check both mouse buttons, shared watering, cancellation and private saves.
+
 In v0.14.1, Enter opens a focused disclosure such as street backups or graphics settings.
 When focus is on the town, Enter returns the camera to your character.
 
