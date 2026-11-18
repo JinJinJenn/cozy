@@ -10,6 +10,9 @@ on:
       - 'index.html'
       - 'src/main.js'
       - 'src/public-town.js'
+      - 'src/public-parcels.js'
+      - 'src/address-menu.js'
+      - 'tools/playtest-addresses.mjs'
       - 'src/private-saves.js'
       - 'src/save-menu.js'
       - 'tools/test-domestic.mjs'
@@ -45,6 +48,8 @@ jobs:
             name: Travel and pointer controls over WebRTC
           - signalling: recovery
             name: Private street backup and owner recovery
+          - signalling: addresses
+            name: Public address claims and host handover
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -88,6 +93,9 @@ jobs:
       - name: Transfer a private street between browser profiles
         if: matrix.signalling == 'recovery'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --recovery --software
+      - name: Reserve a house with another resident
+        if: matrix.signalling == 'addresses'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --addresses
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4

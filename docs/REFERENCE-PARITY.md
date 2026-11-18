@@ -16,7 +16,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
 | Room editing | Jenn's Cafe, Sky Lounge | Guests stay seated while an owner previews, places or undoes a divider in a generated home. Venue walls and terrace tables are also editable. | Multi-room plans, furniture placement and support rules |
 | Multiplayer arrival | Sky Lounge public lobby | Automatic public joining, delayed-signal convergence, separate private streets | Explicit private-home access, larger groups and full host handover |
-| Personal homes | Owner-specific room saves | Private street identity, edits, fixture state, visit history and an optional home address can move between browsers in an encrypted file | Individual home ownership and public session parcel leases |
+| Personal homes | Owner-specific room saves | Session address claims, compatible alternatives, reconnect grace and an encrypted personal street backup with its own private invitation | Per-guest private-home permissions and a durable land registry if permanent public ownership becomes a requirement |
 | Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |
 
 ## Full-system coverage

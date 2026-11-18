@@ -12,6 +12,7 @@ import {vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
 import {HomeEditor} from './home-editor.js';
 import {SaveMenu} from './save-menu.js';
+import {AddressMenu} from './address-menu.js';
 
 const $=id=>document.getElementById(id);
 const names={home:'Sit on the sofa',wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
@@ -42,6 +43,7 @@ export class Street {
     this.terraceEditor=new TerraceEditor(this,listen);
     this.homeEditor=new HomeEditor(this,listen);
     this.saveMenu=new SaveMenu(this,listen);
+    this.addressMenu=new AddressMenu(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -159,7 +161,8 @@ export class Street {
     listen($('build-open'),'click',()=>{
       if(this.session?.space==='public'){
         const url=new URL($('personal-street').href),local=this.session.actors.get(this.session.id);
-        const home=local&&homeAt(this.island,local);if(home)url.searchParams.set('home',home.id);
+        const home=local&&homeAt(this.island,local),own=this.session.addresses.own;
+        if(home)url.searchParams.set('home',home.id===own?.lot?own.home:home.id);
         url.searchParams.set('build','1');location.assign(url);return;
       }
       const open=$('build-pane').hidden;this.closePanels();
@@ -418,10 +421,10 @@ export class Street {
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
       this.session.start.then(()=>{
         const params=new URLSearchParams(location.search);
-        if(!this.session.closed&&this.active&&this.session.canBuild&&params.get('build')==='1'){
+        if(!this.session.closed&&this.active&&this.session.canBuild){
           const home=this.island.homesById.get(params.get('home'));
           if(home)Object.assign(this.session.actors.get(this.session.id),home.inside);
-          $('build-open').click();
+          if(params.get('build')==='1')$('build-open').click();
         }
       });
       this.lastAdvance=performance.now();this.joinStarted=this.lastAdvance;
@@ -525,6 +528,7 @@ export class Street {
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
+    this.addressMenu.refresh(near);
     if(this.homeEditor.home)this.homeEditor.refresh();
     else if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();

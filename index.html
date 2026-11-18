@@ -38,6 +38,7 @@ body.shot #ui,body.shot #mini{display:none}
     <label id="tv-remote" hidden>TV channel <select id="tv-channel"></select></label>
     <div id="live-action" hidden><span></span> <button id="order-chowder" hidden>Order chowder</button> <button id="order-fish" hidden>Order grilled fish</button> <button id="cancel-action">Cancel</button></div>
     <button id="reconnect-street" hidden>Reconnect to owner</button>
+    <button id="address-open" hidden>Home address</button>
     <div class="street-buttons"><select id="patio-destination" aria-label="Terrace table for coffee" hidden></select><button class="primary" id="patio-coffee" hidden>Coffee on the terrace</button><button class="primary" id="beach-action" hidden>Walk to the beach</button><button class="primary" id="coffee-action" hidden>Coffee with a neighbor</button><button id="use-place" hidden>Interact</button><button id="directions-open">Travel</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
     <div id="directions-pane" class="street-drawer" hidden><label>Destination <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button> <button id="jump-place" disabled>Teleport there</button> <button id="home-invite" class="primary" hidden>Visit Bea for tea</button> <button id="dinner-visit" class="primary" hidden>Take a table</button><div><button id="take-car">Drive a car</button> <button id="take-bike">Ride a bike</button></div></div>
     <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><div id="wall-tools"><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
@@ -56,7 +57,12 @@ body.shot #ui,body.shot #mini{display:none}
         <div><button id="terrace-rotate">Rotate</button> <button id="terrace-apply" class="primary">Place table</button> <button id="terrace-remove">Remove</button> <button id="terrace-undo">Undo table edit</button></div>
       </div></div>
     <div id="social-pane" class="street-drawer" hidden><div><a id="personal-street" href="?space=personal">My private street</a> <a id="public-street" href="./">Return to public town</a></div><div id="owner-room" hidden><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label>
-      </div><details id="street-saves" hidden><summary>Street backups</summary><fieldset id="save-fields">
+      </div><section id="address-panel" hidden aria-labelledby="address-name">
+        <strong id="address-name">Public address</strong><p id="address-status" role="status"></p>
+        <button id="address-claim" hidden>Claim address</button><button id="address-alternative" hidden>Claim nearby home</button>
+        <button id="address-travel" hidden>Go to my address</button> <a id="address-private" hidden>Enter my private home</a>
+        <button id="address-release" hidden>Release address</button>
+      </section><details id="street-saves" hidden><summary>Street backups</summary><fieldset id="save-fields">
         <div id="save-slots" hidden><label>Saved streets <select id="save-slot"></select></label><button id="save-switch">Open selected street</button></div>
         <label>Backup passphrase <input id="save-pass" type="password" maxlength="1024" autocomplete="off" spellcheck="false"></label>
         <button id="save-download">Download encrypted backup</button>

@@ -34,6 +34,29 @@ async function unlockIdentity(identity){
   if(!await crypto.subtle.verify(signature,publicKey,proof,challenge))throw Error('The owner identity does not match this street.');
   return {key,publicKey};
 }
+const lotId=id=>typeof id==='string'&&/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(id);
+const parcelKey=slot=>project+'.parcel.'+(slot||'original');
+export function savedParcel(slot=selectedSave()){
+  return readSaveValue(parcelKey(slot))??(slot?readSaveValue(slotPrefix+slot)?.parcel:null)??null;
+}
+// Public address signatures use a separate key. The private street invitation
+// and its signing key are never included in a public claim or town snapshot.
+export async function parcelCredential(home){
+  const slot=selectedSave();
+  const open=async()=>{
+    let parcel=savedParcel(slot);
+    if(!parcel){
+      if(!lotId(home))throw Error('Choose a house first.');
+      const pair=await crypto.subtle.generateKey(curve,true,['sign','verify']);
+      const pub=base64(await crypto.subtle.exportKey('raw',pair.publicKey)).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
+      parcel={home:(slot&&readSaveValue(slotPrefix+slot)?.homeLot)||home,pub,jwk:await crypto.subtle.exportKey('jwk',pair.privateKey)};
+      if(!save(parcelKey(slot),parcel))throw Error('Browser storage is needed to keep a home address.');
+    }
+    const {key}=await unlockIdentity(parcel);
+    return {home:parcel.home,pub:parcel.pub,key};
+  };
+  return globalThis.navigator?.locks? navigator.locks.request(parcelKey(slot),open):open();
+}
 export async function loadOwner(){
   const slot=selectedSave();
   const recovered=slot&&uid.test(slot)?readSaveValue(slotPrefix+slot):null;
@@ -78,15 +101,17 @@ function validateState(snapshot){
     !['resident0','resident1'].includes(id)||!Number.isInteger(n)||n<0||n>9999))throw Error('Invalid private street save.');
   const homeLot=snapshot.homeLot??null;
   if(homeLot!==null&&(typeof homeLot!=='string'||!/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(homeLot)))throw Error('Invalid home address.');
-  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot};
+  const parcel=snapshot.parcel;
+  if(parcel&&(!lotId(parcel.home)||parcel.pub===snapshot.identity?.pub))throw Error('Invalid public address credential.');
+  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot,...(parcel?{parcel}:{})};
 }
 async function passwordKey(password,salt){
   if(typeof password!=='string'||!password.length||password.length>1024)throw Error('Enter your backup passphrase.');
   const secret=await crypto.subtle.importKey('raw',utf8.encode(password),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt},secret,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
-export async function exportBackup(identity,layout,coffee,password,homeLot=null){
-  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot})));
+export async function exportBackup(identity,layout,coffee,password,homeLot=null,parcel=null){
+  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot,parcel})));
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await passwordKey(password,salt);
   const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:header},key,data);
@@ -102,7 +127,9 @@ export async function readBackup(text,password){
   let raw;try{raw=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:header},key,ciphertext);}
   catch{throw Error('Could not unlock this backup. Check the passphrase and file.');}
   const data=validateState(JSON.parse(new TextDecoder().decode(raw)));
-  await unlockIdentity(data.identity);return data;
+  await unlockIdentity(data.identity);
+  if(data.parcel)await unlockIdentity(data.parcel);
+  return data;
 }
 export function installBackup(data){
   // A fresh slot preserves both the device's current home and an earlier

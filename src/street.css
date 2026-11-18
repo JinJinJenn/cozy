@@ -45,6 +45,10 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #save-status:empty{display:none}
 #save-fields button{justify-self:start}
 #social-pane{max-height:min(65dvh,36em);overflow-y:auto}
+#address-panel{border-block:1px solid #b9ac91;padding:8px 0}
+#address-status{margin:.3em 0 .55em}
+#address-private{display:inline-block;padding:.4em;color:#285d4d}
+#address-private[hidden]{display:none}
 #graphics-settings{position:fixed;right:12px;top:12px;z-index:5;min-width:105px;padding:9px 12px;background:#fff8e9ed;color:#304d46;border:1px solid #bdbea9;border-radius:11px;font:12px system-ui;box-shadow:0 2px 8px #233b3120}
 #graphics-settings summary{cursor:pointer;font-weight:650;list-style:none}#graphics-settings summary span{font-size:10px;font-weight:400;margin-left:10px;opacity:.7}
 #graphics-settings label{display:grid;gap:6px;margin-top:12px}#graphics-settings output{display:block;font-size:11px;margin-top:8px}

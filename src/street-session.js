@@ -11,6 +11,7 @@ import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
 import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
 import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
+import {PublicAddresses} from './public-parcels.js';
 
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
@@ -41,8 +42,9 @@ const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
 const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw);
-function linkFor(pub){const u=new URL(location.href);u.search='';u.hash='';
-  u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(new URLSearchParams(location.search).get('net')==='local')u.searchParams.set('net','local');return u.href;}
+function linkFor(pub,home){const u=new URL(location.href);u.search='';u.hash='';
+  u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(home)u.searchParams.set('home',home);
+  if(new URLSearchParams(location.search).get('net')==='local')u.searchParams.set('net','local');return u.href;}
 function transports(){
   const list=[createBroadcastTransport({name:project})];
   if(new URLSearchParams(location.search).get('net')!=='local')list.push(createTrysteroTransport({appId:project}));
@@ -57,6 +59,7 @@ export class StreetSession {
     this.keys={...zero};this.inputSeq=0;this.actionSeq=0;this.verifiedSeq=-1;this.oldBoots=new Set();
     const params=new URLSearchParams(location.search);
     this.space=streetSpace(island,params);this.visit=params.get('visit');this.owner=this.space==='personal';
+    if(this.space==='visit'&&island.homesById?.has(params.get('home')))this.invitedHome=params.get('home');
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
     this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:''});
     this.activities=new StreetActivities(this);this.commandSeq=0;this.motion=0;
@@ -76,6 +79,7 @@ export class StreetSession {
         const id=await lobbyIdentity();if(this.closed)return;
         const room=publicWorld+'@'+new URL('.',location.href).href;
         const avatar=this.actors.get(this.id);this.id=id.actor;avatar.id=this.id;this.actors=new Map([[this.id,avatar]]);
+        this.addresses=new PublicAddresses(this);
         this.lobby=new PublicTown(room,id,leader=>this.publicLeader(leader));
         this.lobby.elect();
         await this.open(room,this.connections,kind=>({
@@ -126,6 +130,7 @@ export class StreetSession {
   publicLeader(leader){
     const previous=this.pub;
     this.pub=leader.pub;this.owner=leader===this.lobby.self;
+    this.addresses.election();
     this.publicKey=leader.publicKey;this.privateKey=this.owner?leader.privateKey:null;
     this.connected=false;this.lastFrame=0;this.hostBoot=null;this.verifiedSeq=-1;this.oldBoots.clear();
     this.boot=crypto.randomUUID();this.poseEpoch=(this.poseEpoch||0)+1;this.seq=0;
@@ -188,7 +193,8 @@ export class StreetSession {
     }catch{ /* Ignore unrelated or invalid peer announcements. */ }
   }
   get canBuild(){return this.owner&&this.space!=='public';}
-  async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;return linkFor(this.pub);}
+  async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;
+    return linkFor(this.pub,homeAt(this.island,this.actors.get(this.id))?.id);}
   async discover(){
     if(!this.discovery)this.discovery=this.open('public-directory',this.directory,()=>({onMessage:(_,m)=>{
       if(m?.kind==='listed'&&validKey(m.pub)&&m.pub!==this.pub)this.roomList.set(m.pub,{url:linkFor(m.pub),seen:performance.now()});
@@ -384,7 +390,10 @@ export class StreetSession {
     if(!this.owner&&this.connected)this.sendInput();
   }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
-    if(this.lobby)m.authority=this.pub;
+    if(this.lobby){
+      m.authority=this.pub;
+      if(this.addresses.synced){m.parcelRevision=this.addresses.book.revision;m.parcelBoot=this.hostBoot;}
+    }
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
@@ -394,6 +403,7 @@ export class StreetSession {
       const member=this.lobby.members.get(sender);
       if(!member||(m.kind==='input'&&(member.actor!==m.id||m.authority!==this.pub))||
         (m.kind==='frame'&&member.pub!==this.pub))return;
+      if(m.kind==='parcel')return this.addresses.receive(member.actor,m);
     }
     if(this.owner){
       if(m.kind!=='input'||typeof m.id!=='string'||!/^[\da-f-]{36}$/i.test(m.id)||m.id===this.id||
@@ -405,6 +415,7 @@ export class StreetSession {
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
+      if(this.lobby&&m.parcelBoot===this.boot)state.parcelRevision=m.parcelRevision;
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
@@ -422,6 +433,14 @@ export class StreetSession {
           !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(!this.lobby&&this.connected&&this.hostBoot!==f.boot&&performance.now()-this.lastFrame<4000)return;
+        if(this.lobby){
+          const address=this.addresses;
+          if(f.parcels!==undefined){
+            if(!address.book.hydrate(f.parcelRevision,f.parcels))return;
+            address.synced=true;
+          }else if(!address.synced||f.parcelRevision!==address.book.revision)return;
+          address.confirm(f.confirmedRevision);
+        }
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
         const newHost=this.hostBoot!==f.boot;
         if(this.space==='public'&&!this.connected)this.notice('');
@@ -431,6 +450,9 @@ export class StreetSession {
         if(this.layout.revision!==layout.revision||newHost)applyRoomPlans(this.island,this.layout.rooms?.lots,layout.rooms?.lots);
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
+        if(this.invitedHome){
+          this.command({type:'teleport',place:this.invitedHome});this.invitedHome=null;
+        }
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
         if(Array.isArray(residents)&&residents.length===this.town.people.length){
           this.residentTargets=residents.map((r,i)=>{
@@ -449,7 +471,12 @@ export class StreetSession {
     if(this.sending||!this.peers.size||!this.connections.length||!this.privateKey)return;
     this.sending=true;
     try{const residents=encodeResidents(this.town.people);
-      const body=JSON.stringify({room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents});
+      const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents};
+      if(this.addresses){
+        const book=this.addresses.book;frame.parcelRevision=book.revision;frame.confirmedRevision=this.addresses.confirmedRevision;
+        if([...this.controls.values()].some(c=>c.parcelRevision!==book.revision))frame.parcels=book.entries;
+      }
+      const body=JSON.stringify(frame);
       const epoch=this.boot,sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));if(!this.closed&&this.boot===epoch)this.connections.forEach(c=>c.send({kind:'frame',body,sig}));
     }finally{this.sending=false;}
   }
@@ -457,6 +484,7 @@ export class StreetSession {
     if(!this.ready)return;
     const now=performance.now();this.time+=dt;
     this.lobby?.tick(now);
+    this.addresses?.tick(now);
     if(this.owner&&this.hostCards&&now>=(this.nextOwnerPulse??0)){
       this.nextOwnerPulse=now+2500;for(const kind of this.hostCards.keys())this.announceOwner(kind);
     }

@@ -5,6 +5,7 @@ import {mkdir,readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {testNostrRelay} from './test-nostr-relay.mjs';
+import {playAddresses} from './playtest-addresses.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -64,6 +65,9 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
+  if(process.argv.includes('--addresses')){
+    await playAddresses({host,guest,paired,ready,wait,navigate,profile});assert.deepEqual(errors,[]);
+  }else{
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.edit(.5)),false);
   const start=await guest.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id);});
   await guest.keyboard.down('d');
@@ -98,4 +102,5 @@ try{
   assert.equal(await host.evaluate(()=>JSON.stringify(window.__cozy.street.session.layout)),saved);
   assert.deepEqual(errors,[]);
   console.log('PASS public host departure, private owner build, legacy invite, isolated public layout and private save recovery');
+  }
 }finally{release();await browser.close();}

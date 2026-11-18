@@ -1,4 +1,4 @@
-import {exportBackup,installBackup,maxFileBytes,readBackup,savedStreets,selectedSave,selectSave} from './private-saves.js';
+import {exportBackup,installBackup,maxFileBytes,readBackup,savedParcel,savedStreets,selectedSave,selectSave} from './private-saves.js';
 import {homeAt} from './home-plan.js';
 import {dividerLimit} from './room-divider.js';
 
@@ -51,7 +51,7 @@ export class SaveMenu{
       if(action==='export'){
         const revision=s.layout.revision;
         const home=homeAt(s.island,s.actors.get(s.id));
-        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id);
+        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id,savedParcel(s.ownerSave.slot));
         if(!current())return;
         const url=URL.createObjectURL(new Blob([data],{type:'application/json'})),a=document.createElement('a');
         a.href=url;a.download='Cozy-street-r'+revision+'-'+new Date().toISOString().slice(0,10)+'.cozy';
@@ -64,7 +64,7 @@ export class SaveMenu{
         if(!current())return;
         const homes=s.island.homesById,home=data.homeLot&&homes.get(data.homeLot);
         const lots=Object.entries(data.layout.rooms?.lots||{});
-        if(data.homeLot&&!home||lots.some(([id,plan])=>!homes.has(id)||dividerLimit(homes.get(id),plan))){
+        if(data.homeLot&&!home||data.parcel&&!homes.has(data.parcel.home)||lots.some(([id,plan])=>!homes.has(id)||dividerLimit(homes.get(id),plan))){
           throw Error('This home layout does not fit the current town.');
         }
         this.preview=data;el('save-pass').value='';

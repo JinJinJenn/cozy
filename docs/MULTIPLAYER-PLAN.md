@@ -46,7 +46,25 @@ home address and world version. Restoring adds a new local save and preserves
 the previous one. The public lobby identity is temporary and separate.
 Connected v0.8 copies choose one private host by signed start time and
 session ID. Each offline device retains the revision it last saved locally.
-Public parcel leasing and merging edits across devices remain open.
+Version 0.9 adds session parcel leases. Private edits made separately on
+two devices still require choosing which saved revision to use.
+
+### Public addresses in 0.9
+
+The public host orders competing requests and validates a signature bound to
+the room, host session and player. Each selected private save has a separate
+address key, created on its first claim and included in later encrypted
+backups. The public ledger contains the address key, original house ID,
+assigned lot, current player and absence deadline. It carries no invitation
+or private room contents. Anyone can explore a public house. The personal
+door opens the original house on its owner's private street.
+
+An occupied or undersized request offers the nearest available lot with
+sufficient width and depth. Acceptance is explicit. Confirmations wait for
+the connected participants to acknowledge the ledger revision. The last
+replicated ledger survives a host departure, and an absent owner's address
+is held for two minutes. Closing the whole lobby ends its leases. Isolated
+network partitions can form separate lobbies and make separate assignments.
 
 | Record | Authority | Lifetime |
 | --- | --- | --- |

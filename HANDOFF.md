@@ -4,6 +4,20 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.9.0 gives a personal home an address in the public town. Enter a
+generated home and choose **Home address**, or open **Multiplayer** to claim a
+nearby house. If two players choose the same address, the host assigns it to
+one and offers the other a nearby lot large enough for their original home.
+The second player chooses whether to accept. **Go to my address** teleports to
+the public lot. **Enter my private home** opens the original rooms and save.
+Choose **Invite a guest** from inside that home to bring a friend directly there.
+
+Connected players carry the address list across host departures. An absent
+owner has two minutes to return while the lobby continues. Releasing an
+address leaves private edits and invitations intact. New encrypted backups
+also carry the separate address credential. Run
+`npm run test:lobby -- --addresses` for the competing-claims playtest.
+
 Version 0.8.0 adds encrypted private street backups. On your private street,
 open **Multiplayer → Street backups**, enter a passphrase, and download the
 file. A backup made inside a generated house opens at that address. Restore
