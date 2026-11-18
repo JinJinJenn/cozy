@@ -53,6 +53,7 @@ try{
     return s.owner?s.peers.size>0:s.connected;})));
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
+  await visitor.bringToFront();
   const cameraPose=()=>visitor.evaluate(()=>{const {controls,camera}=window.__cozy.street;
     return {radius:controls.getDistance(),angle:controls.getAzimuthalAngle(),offset:camera.position.clone().sub(controls.target).toArray()};});
   const initial=await cameraPose();
@@ -63,9 +64,11 @@ try{
   for(let i=0;i<32;i++)await visitor.keyboard.press('Minus');
   const wide=await cameraPose();
   assert.ok(wide.radius>3000,'street zoom reached the island scale');
-  await visitor.keyboard.press('Equal');assert.ok((await cameraPose()).radius<wide.radius*.83);
-  await visitor.mouse.move(525,320);await visitor.mouse.wheel(0,-160);
-  await until(visitor,d=>window.__cozy.street.controls.getDistance()<d*.79,wide.radius);
+  await visitor.keyboard.press('Equal');
+  const keyboardZoom=(await cameraPose()).radius;assert.ok(keyboardZoom<wide.radius*.83);
+  await visitor.locator('#gl').hover({position:{x:525,y:320}});
+  await visitor.mouse.wheel(0,-160);
+  await until(visitor,d=>window.__cozy.street.controls.getDistance()<d*.99,keyboardZoom);
   await visitor.evaluate(async()=>{await window.__cozy.flushChunks();});
   const roof=await visitor.evaluate(()=>{
     const s=window.__cozy.street,rect=s.controls.domElement.getBoundingClientRect();

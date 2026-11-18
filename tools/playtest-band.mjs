@@ -63,7 +63,11 @@ export async function playBand({host,guest,profile,ready,wait}){
   const visitor=await profile();
   try{
     await visitor.goto(host.url());await ready(visitor);
-    await wait(visitor,()=>window.__cozy.street.session.connected);
+    const authority=await host.evaluate(()=>window.__cozy.street.session.pub);
+    await wait(visitor,pub=>{
+      const s=window.__cozy.street.session;
+      return s.connected&&s.pub===pub&&[...s.actors.values()].filter(a=>a.activity==='piano').length===2;
+    },authority);
     await travel(visitor);await wait(visitor,()=>window.__cozy.street.session.actors.get(window.__cozy.street.session.id).feedback?.includes('listen here'));
     await wait(visitor,()=>window.__cozy.street.music.ctx?.state==='running'&&!!window.__cozy.street.music.sample);
     await monitor(visitor);

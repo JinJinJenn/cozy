@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {privateReconnectMs} from '../src/visit-admission.js';
 
 export async function playtestTable({host,guest,open,out,blockSpectatorPrimary=false}) {
   const lot=await host.evaluate(()=>window.__cozy.island.homes.find(h=>h.name==='Home 5').id);
@@ -67,7 +68,9 @@ export async function playtestTable({host,guest,open,out,blockSpectatorPrimary=f
   await guest.locator('#harbor-together').click();await moves(host,'');
   await host.locator('#harbor-squares button').nth(4).click();await moves(guest,'4');
   await guest.context().close();
-  await host.locator('#harbor-practice').waitFor({state:'visible',timeout:30000});
+  // Closing the whole browser may drop the link without a departure message.
+  // The host holds the guest's seat until their reconnect window expires.
+  await host.locator('#harbor-practice').waitFor({state:'visible',timeout:privateReconnectMs+15000});
   await host.waitForFunction(()=>window.__cozy.street.clearExteriors.interiors.appliances.pieces.moves==='');
   await host.locator('#use-place').click();await host.locator('#harbor-game').waitFor({state:'hidden'});
   return {lot,soloReply:'center',twoPlayerWin:'top row of buoys',travelMatchedTable:true,bothPointerButtons:true,physicalPieces:true,

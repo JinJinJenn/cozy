@@ -28,7 +28,8 @@ export async function playAdmission({host,guest,ready,wait,navigate,profile}){
   const visitor=await profile();
   try{
     await visitor.goto(link);await ready(visitor);
-    await visitor.locator('#visit-wait').waitFor();
+    await wait(visitor,()=>window.__cozy.street.session.visitStatus==='waiting');
+    await visitor.locator('#visit-wait').getByText('Knocked. Waiting for the owner.').waitFor();
     await visitor.evaluate(()=>{
       const s=window.__cozy.street.session,receive=s.receive.bind(s);
       window.privateFrames=0;s.receive=(sender,m)=>{if(m.kind==='frame')window.privateFrames++;return receive(sender,m);};
