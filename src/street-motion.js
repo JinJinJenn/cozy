@@ -2,12 +2,12 @@ import {moveWalker,walkable} from './street-world.js';
 
 export function presentWalker(session,actor,state,now,dt){
   const guest=!session.owner,local=actor.id===session.id;
-  const reset=!state.ready||state.epoch!==session.poseEpoch||Math.hypot(actor.x-state.x,actor.z-state.z)>3||
+  const reset=!state.ready||state.epoch!==session.poseEpoch||state.travelSeq!==actor.travelSeq||state.vehicle!==actor.vehicle||Math.hypot(actor.x-state.x,actor.z-state.z)>3||
     state.activity!==actor.activity||state.revision!==session.layout.revision&&!walkable(session.island,session.plots,session.layout,state);
   const oldX=state.x,oldZ=state.z;
   if(reset||!guest){
     state.x=actor.x;state.z=actor.z;state.yaw=reset?actor.yaw:state.yaw;
-  }else if(local&&(session.keys.x||session.keys.z||!actor.walking)&&!actor.activity&&session.connected){
+  }else if(local&&!actor.vehicle&&(session.keys.x||session.keys.z||!actor.walking)&&!actor.activity&&session.connected){
     const {keys}=session;
     const facing=state.yaw;
     moveWalker(session.island,session.plots,session.layout,state,keys,Math.min(dt,.12));
@@ -30,10 +30,10 @@ export function presentWalker(session,actor,state,now,dt){
     state.x=state.fromX+(actor.x-state.fromX)*t;state.z=state.fromZ+(actor.z-state.fromZ)*t;
   }
   // Camera and avatar consume this same presented position.
-  const heading=local&&(session.keys.x||session.keys.z)?Math.atan2(session.keys.x,session.keys.z):actor.yaw;
+  const heading=local&&!actor.vehicle&&(session.keys.x||session.keys.z)?Math.atan2(session.keys.x,session.keys.z):actor.yaw;
   const angle=Math.atan2(Math.sin(heading-state.yaw),Math.cos(heading-state.yaw));
   state.yaw+=angle*(1-Math.exp(-dt*17));
   state.distance=reset?0:Math.hypot(oldX-state.x,oldZ-state.z);
-  state.ready=true;state.activity=actor.activity;state.epoch=session.poseEpoch;state.revision=session.layout.revision;
+  state.ready=true;state.activity=actor.activity;state.travelSeq=actor.travelSeq;state.vehicle=actor.vehicle;state.epoch=session.poseEpoch;state.revision=session.layout.revision;
   return state;
 }

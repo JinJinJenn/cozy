@@ -12,7 +12,7 @@ try{
  const context=await browser.newContext({viewport:{width:1600,height:900}}),page=await context.newPage(),origin='https://cozy.test/cozy/';
  page.on('pageerror',e=>report.errors.push(e.message));page.on('console',m=>{if(m.type()==='error')report.consoleErrors.push(m.text());});
  await page.context().route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();const relative=u.pathname.slice('/cozy/'.length)||'index.html';const file=path.resolve(root,relative);if(!file.startsWith(root+path.sep))return r.abort();await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]});});
- await page.goto(origin+'?net=local&view=street');await page.waitForFunction(()=>window.__cozy?.ready&&window.__cozy?.street?.session?.ready,null,{timeout:120000});
+ await page.goto(origin+'?net=local&space=personal');await page.waitForFunction(()=>window.__cozy?.ready&&window.__cozy?.street?.session?.ready,null,{timeout:120000});
  report.initial=await page.evaluate(()=>window.__cozy.info());
  report.gpu=await page.evaluate(()=>{const gl=document.querySelector('canvas').getContext('webgl2'),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown';});
  report.access=await page.evaluate(async()=>{

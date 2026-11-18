@@ -7,6 +7,7 @@ import {homeAt} from './home-plan.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
+import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
@@ -284,7 +285,8 @@ export class StreetSession {
     return benches;
   }
   interact(id){
-    const a=this.actors.get(id),b=a&&this.near(a);if(!b)return;
+    const a=this.actors.get(id);if(a?.vehicle){dismount(this,a);return;}
+    const b=a&&this.near(a);if(!b)return;
     if(a.dinnerSeat!==undefined&&this.activities){this.activities.finish(a);return;}
     if(a.outing==='chat'||a.outing==='waiting'){this.activities.finish(a);return;}
     if(a.activity){this.activities?.leaveFurniture(a);a.activity='';a.part='';return;}
@@ -301,8 +303,18 @@ export class StreetSession {
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
   command(cmd){
     if(!this.ready||(!this.owner&&!this.connected))return;
-    if(this.owner)this.activities.command(this.actors.get(this.id),cmd);
+    if(this.owner)this.applyCommand(this.actors.get(this.id),cmd);
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
+  }
+  applyCommand(actor,cmd){
+    if(cmd.type==='ride')return takeVehicle(this,actor,cmd.vehicle);
+    if(cmd.type==='dismount')return dismount(this,actor);
+    if(cmd.type==='teleport')return teleport(this,actor,cmd);
+    if(actor.vehicle){
+      dismount(this,actor);
+      if(actor.vehicle)return;
+    }
+    this.activities.command(actor,cmd);
   }
   setInput(x,z){
     if(Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
@@ -333,8 +345,8 @@ export class StreetSession {
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
-          Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.activities.command(actor,cmd);
+        if(['ride','dismount','teleport','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+          Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
     }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<32768&&typeof m.sig==='string'&&m.sig.length<140){
@@ -348,6 +360,7 @@ export class StreetSession {
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
         const newHost=this.hostBoot!==f.boot;
+        if(this.space==='public'&&!this.connected)this.notice('');
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
@@ -395,7 +408,8 @@ export class StreetSession {
         const remote=this.controls.get(id);if(remote&&now-remote.at>7000){this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);continue;}
         const input=id===this.id?this.keys:remote&&now-remote.at<600?remote:zero;
         const oldX=a.x,oldZ=a.z;
-        if(input.x||input.z){
+        if(a.vehicle)moveVehicle(this,a,input,dt);
+        else if(input.x||input.z){
           this.activities?.leaveFurniture(a);
           if(a.walking||a.outing&&a.outing!=='carry')this.activities?.manual(a);
           a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);

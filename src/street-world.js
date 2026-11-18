@@ -86,12 +86,17 @@ export const gardenSeats=[[-1.25,.74,'sit'],[1.25,.74,'sit']];
 export const toRoom = (b,p) => ({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
 // Earliest intersection of the orbit boom with an oriented building. Starting
 // inside is intentional for the occupied room, whose walls already cut away.
-export function cameraClearance(target,eye,building){
+export function cameraClearance(target,eye,building,clipGable=false){
   const a=toRoom(building,target),b=toRoom(building,eye);
   let enter=0,leave=1;
   const ranges=[[a.x,b.x,-building.w/2-.14,building.w/2+.14],
     [a.z,b.z,-building.d/2-.14,building.d/2+.14],
     [target.y,eye.y,building.y-.7,building.y+(building.roofHeight??building.height)]];
+  if(clipGable&&building.kind==='home'){
+    const across=building.variant===0?'x':'z',width=across==='x'?building.w:building.d;
+    const rise=Math.min(2.5,width*.30),slope=rise*2/(width+.65),ridge=building.y+building.height+.12+rise;
+    for(const side of [-slope,slope])ranges.push([target.y+side*a[across],eye.y+side*b[across],-Infinity,ridge]);
+  }
   for(const [start,end,min,max] of ranges){
     const dir=end-start;
     if(Math.abs(dir)<.00001){if(start<min||start>max)return 1;continue;}

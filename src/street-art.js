@@ -628,6 +628,7 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   }
   g.setDomestic=(action,time,use,hasBowl)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
+    body.position.x=body.position.z=0;
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
     const showBowl=hasBowl&&(!action||action==='eat'||action==='sit');
@@ -652,6 +653,19 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       if(action==='switch')limb.arm.rotation.x=limb.side>0?-1.34+.16*Math.cos(time*8):0;
     }
     torso.rotation.x=action==='bathroom'?.12:action==='write'?.08:0;
+  };
+  g.setRide=(kind,phase)=>{
+    shadow.visible=false;
+    if(kind==='car'){
+      body.position.set(.34,.02,-.22);restingArms.visible=false;
+      for(const arm of hands){arm.visible=true;arm.rotation.x=-.10;}
+    }else{
+      body.position.set(0,.26,-.17);torso.rotation.x=.13;
+      for(const limb of limbs){
+        limb.arm.rotation.x=-1.14;limb.arm.rotation.z=limb.side*.10;
+        limb.leg.rotation.x=-.52+limb.side*.50*Math.sin(phase);
+      }
+    }
   };
   g.traverse(m=>{if(m.isMesh)m.castShadow=false;});
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(.95,.76).rotateX(-Math.PI/2),new THREE.ShaderMaterial({

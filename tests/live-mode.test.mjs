@@ -41,3 +41,12 @@ test('a click behind the café routes through the open door and leaves all sampl
   }
   assert.equal(walkingRoute(ground,[cafe],layout,start,toWorld(cafe,0,-3.14)),null);
 });
+
+test('home door hints preserve a clear direct walk and recover from a blocked approach',()=>{
+  const layout=defaultLayout(),blocked=toWorld(cafe,0,-3.14);
+  const start=toWorld(cafe,4,7),alongStreet=toWorld(cafe,-2,7),inside=toWorld(cafe,0,-2.15);
+  assert.deepEqual(walkingRoute(ground,[cafe],layout,start,alongStreet,[blocked]),[alongStreet]);
+  const ordinary=walkingRoute(ground,[cafe],layout,start,inside);
+  assert.ok(ordinary.length>1);
+  assert.deepEqual(walkingRoute(ground,[cafe],layout,start,inside,[blocked]),ordinary);
+});

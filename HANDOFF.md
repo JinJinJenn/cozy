@@ -4,6 +4,12 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.5.0 adds a two-seat convertible and commuter bike as player-controlled rides. Open Travel, take either vehicle, then use WASD or the touch pad. A second player can ride beside you. The host checks road, building, water and occupant clearance. Dismounting returns the ride. Vehicles do not persist as owned property and NPC traffic is still open work.
+
+Left-click to walk or choose an object action. Right-click or touch and hold for travel and camera options. Drag to orbit in street view. Enter returns to your character. M opens the map, where either button can select a destination. Travel also lists homes and venues by name. Run `npm run test:travel` for the two-profile driving, cycling, teleport and pointer playtest.
+
+Short walks across different home boundaries now try validated doorway waypoints before a wider grid search. On the same three doorway walks at 720p Low on Intel integrated graphics, host route commands took 2.6, 1.1 and 0.7 ms. The previous build measured 50.9, 13.3 and 13.2 ms.
+
 Version 0.4.0 opens the public Petalwood waterfront by default. Two isolated
 browser profiles started as separate hosts with signalling held back, then
 converged on a single host. One player walked on the other's screen and received

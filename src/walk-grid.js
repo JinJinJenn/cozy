@@ -15,10 +15,21 @@ function clearSegment(canWalk,a,b){
 
 // A sparse grid anchored on the walker fits doors with arbitrary rotations.
 // Start with the exact requested line. Search only where obstacles require it.
-export function routeOnGrid(allowed,start,goal){
+export function routeOnGrid(allowed,start,goal,via){
   const stride=distance(start,goal)<18?.32:.64;
   if(!Number.isFinite(goal.x)||!Number.isFinite(goal.z)||!allowed(goal))return null;
   if(clearSegment(allowed,start,goal))return [goal];
+  // A known doorway breaks a search through a building wall into short,
+  // independently checked legs. Fall through if a suggested leg is blocked.
+  if(via?.length){
+    const joined=[];let at=start;
+    for(const next of [...via,goal]){
+      const leg=routeOnGrid(allowed,at,next);
+      if(!leg)break;
+      joined.push(...leg);at=next;
+    }
+    if(at===goal)return joined;
+  }
   const nodes=new Map(),open=[];
   function push(n){
     let i=open.length;open.push(n);

@@ -11,6 +11,8 @@ on:
       - 'src/main.js'
       - 'src/public-town.js'
       - 'src/street*.js'
+      - 'src/vehicle-art.js'
+      - 'tools/test-travel.mjs'
       - 'src/terrace*.js'
       - 'tools/test-street.mjs'
       - 'tools/test-public-town.mjs'
@@ -61,6 +63,9 @@ jobs:
           else
             npm run test:lobby -- --relay
           fi
+      - name: Drive, cycle and use pointer controls with a friend
+        if: matrix.signalling == 'local'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:travel
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4

@@ -1,5 +1,6 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
+import {homeAt} from './home-plan.js';
 import {lamps} from './home-fixtures.js';
 import {finishHomeMeal,mealStation} from './home-meals.js';
 
@@ -22,7 +23,11 @@ export class StreetActivities {
         }
       }
     }
-    points??=walkingRoute(island,plots,layout,actor,goal);
+    if(!points){
+      const fromHome=homeAt(island,actor),toHome=homeAt(island,goal);
+      const doors=fromHome!==toHome?[fromHome?.entry,toHome?.entry].filter(Boolean):undefined;
+      points=walkingRoute(island,plots,layout,actor,goal,doors);
+    }
     if(!points)return false;
     this.routes.set(actor.id,{points,index:0,goal,arrival,revision:layout.revision});
     actor.walking=true;actor.goal=[goal.x,goal.z];actor.activity='';actor.part='';

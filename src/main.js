@@ -308,6 +308,10 @@ $('seed').onchange=()=>load($('preset').value,$('seed').value);
 $('reroll').onclick=()=>{$('seed').value=randomSeed();load($('preset').value,$('seed').value);};
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
 $('island-map').onclick=()=>setView('top');
+window.addEventListener('keydown',e=>{
+  if(e.code!=='KeyM'||e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.target.closest('input,select,textarea,[contenteditable="true"]'))return;
+  e.preventDefault();if(street?.active)setView('top');else $('walk-street').click();
+});
 $('walk-street').onclick=()=>{
   if(street?.plots.length)return setView('street');
   $('preset').value='harborTown';$('seed').value='petalwood';return load('harborTown','petalwood','street');

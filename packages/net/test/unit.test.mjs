@@ -77,10 +77,11 @@ function hub() {
   };
 }
 
-test('NetSession: peers see each other, ~10Hz send, bad packets ignored, leave event', async () => {
+test('NetSession: peers see each other, ~10Hz send, bad packets ignored, leave event', async t => {
   const hb = hub();
   const a = new NetSession({ transport: hb.transport(), room: 'r', name: 'A' });
   const b = new NetSession({ transport: hb.transport(), room: 'r', name: 'B' });
+  t.after(() => { b.leave(); a.leave(); });
   const joins = [], leaves = [];
   a.on('peerjoin', p => joins.push(p.id));
   a.on('peerleave', p => leaves.push(p.id));
@@ -88,6 +89,7 @@ test('NetSession: peers see each other, ~10Hz send, bad packets ignored, leave e
   assert.equal(joins.length, 1);
   let x = 0;
   const mover = setInterval(() => b.setLocal([x++, 2, 3], [0.5, 0]), 16); // ~60Hz game loop
+  t.after(() => clearInterval(mover));
   await new Promise(r => setTimeout(r, 1050));
   clearInterval(mover);
   const sent = b.stats.sent;

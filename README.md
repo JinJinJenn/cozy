@@ -1,18 +1,26 @@
 # Jenn's Cozy Town
 
-Walk Harbor Town on a continuous island. The waterfront has two homes, Jenn's Café, Bay Kitchen, Tidepool Spa, Harbor Gym and The Moon Room. Find a place points toward its front door. [Play Jenn's Cozy Town](https://jinjinjenn.github.io/cozy/) · [Devlog](docs/DEVLOG.html)
+Walk Harbor Town on a continuous island. Drive along the coast, cycle to the park or visit one of the 457 generated homes. The waterfront has two more homes, Jenn's Café, Bay Kitchen, Tidepool Spa, Harbor Gym and The Moon Room. [Play Jenn's Cozy Town](https://jinjinjenn.github.io/cozy/) · [Devlog](docs/DEVLOG.html)
 
 Open the ordinary game link to meet in public Harbor Town. One browser runs the 457 generated-home residents and the two waterfront social residents for the group. Choose **Build at home** to edit your own saved street. Under **Multiplayer**, you can invite a guest from home or return to public town. Your personal street stays in the browser where you created it. [Multiplayer and save rules](docs/MULTIPLAYER-PLAN.md)
 
+## Getting around
+
+Left-click open ground to walk. Hover over a furnishing to see its action, then click to choose it. Click a closed house to visit. Right-click to walk, teleport, or move the camera to the spot. On a person, choose **Follow** to keep them in view. Drag either mouse button to orbit in street view and scroll to zoom. **Enter** brings the camera home. **Escape** dismisses the menu or cancels the current walk. On a touch screen, hold a spot and release for the right-click menu.
+
+Open **Travel** to choose a destination, drive a convertible or ride a bicycle. W and S accelerate, brake and reverse. A and D steer. The touch pad also drives. Press E or tap the dismount button to get out. Cars follow the roads and bikes can take shortcuts across dry grass. Your friends can ride at the same time and see your wheels turn. Rides end when you dismount or teleport.
+
+Press **M** to see the island. Click a home or an open patch of land, then confirm the trip. **M** again returns to your character. Cozy's camera follow, recenter and map shortcuts draw on [EA's The Sims 3 PC manual](https://eaassets-a.akamaihd.net/eahelp/manuals/the-sims-3-manual_PC.pdf).
+
 ## Live mode and building
 
-Under **Find a place**, choose **Bluebell House** and **Visit Bea for tea**. Bea brings tea from her kitchen and sits opposite you. During the visit, the owner can open **Build**, choose **Bluebell House** and drag its front-right corner. The two sliders adjust either wall individually. Undo restores both dimensions of a corner edit.
+Under **Travel**, choose **Bluebell House** and **Visit Bea for tea**. Bea brings tea from her kitchen and sits opposite you. During the visit, the owner can open **Build**, choose **Bluebell House** and drag its front-right corner. The two sliders adjust either wall individually. Undo restores both dimensions of a corner edit.
 
 Walk with WASD, the arrow keys or the touch pad. Drag to orbit and press E or tap the activity button. Switch the café lanterns, relax at the spa, work out at the gym or play a part at the club. Two people can take melody and bass on the same score.
 
 Open Build and choose Peach Cottage, Bluebell House, The Moon Room or Jenn's Café. Drag the wall handle and release it to commit, or set the offset with the slider and choose Move wall and door. Each home and the club can grow or shrink toward the street by up to 1.5 metres. Its doorway, porch, roof and floor follow the front wall. The café has a movable interior partition. Undo applies to the selected property. The owner edits while guests keep playing. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
 
-Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Petalwood now has 588 parcels, with 54 new frontage lots and homes on both sides of the waterfront road. All 457 generated residential homes can be entered: click a door or choose a home under Find a place. Inside, the roof cuts away. Click beds to rest, bookshelves to read, kitchens to cook or wash, and rugs to stretch. Larger plans add desk, dining and washroom activities. The host reserves each object and releases it safely when you leave. The seven original waterfront venues retain their activities and building tools. The civic hall and market buildings remain exterior models.
+Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Petalwood now has 588 parcels, with 54 new frontage lots and homes on both sides of the waterfront road. All 457 generated residential homes can be entered: click a house or choose a home under Travel. Inside, the roof cuts away. Click beds to rest, bookshelves to read, kitchens to cook or wash, and rugs to stretch. Larger plans add desk, dining and washroom activities. The host reserves each object and releases it safely when you leave. The seven original waterfront venues retain their activities and building tools. The civic hall and market buildings remain exterior models.
 
 Scroll farther out while walking to see the neighborhood. Graphics at the top right offers Auto, Low, Balanced and High. Low retains the buildings and interiors, caps rendering at one million pixels and turns off shadows. See the [working spec](docs/WORKING-SPEC.md) for the room-editor direction and the remaining visual and performance targets.
 
@@ -25,7 +33,7 @@ npm test                          # package and worker regression tests (node --
 npm run serve                     # http://127.0.0.1:4180/ (binds localhost, does NOT open a browser)
 ```
 
-Open the printed URL yourself. Drag = orbit, right-drag = pan, wheel = zoom. Panel: locale dropdown, seed box, Re-roll, Oblique / Top / Shore / Town camera buttons. The minimap (bottom right) is clickable to jump.
+In Island map, left-drag to orbit, right-drag to pan and scroll to zoom. Click the minimap to move the camera. Click the terrain with either mouse button to pick a travel destination in Petalwood.
 URL params: `?preset=pineHighlands&seed=clover-123&view=shore`.
 
 ## Headless captures (no window, no focus steal)
