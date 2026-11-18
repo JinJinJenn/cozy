@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {Pieces} from './street-pieces.js';
+import {crownGeometry} from './foliage.js';
 import {gardenForStreet,gardenSeats,toWorld} from './street-world.js';
 import {flowerBed,gardenTree} from './harbor-art.js';
 import {pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
@@ -7,6 +8,11 @@ import {rng} from '../packages/island-gen/src/rng.js';
 
 const cap=new THREE.CylinderGeometry(.20,.51,1,8),rail='#f6e5c3',green='#587e76',wood='#a47a5c';
 const bough=new THREE.ConeGeometry(.5,1,11,2);
+const woodlandCrown=crownGeometry(Array.from({length:4},(_,k)=>{
+  const ang=k*2.4,h=k===3?4.4:3.1+.2*k,offset=k===3?.13:1.0;
+  return {position:[Math.cos(ang)*offset,h,Math.sin(ang)*offset],scale:[2.6-k*.1,2.53+k*.08,2.48],
+    color:['#52755f','#628661','#769568','#87a279'][k],yaw:ang};
+}));
 function ribbons(group,island,paths){
   const positions=[],colors=[];
   for(const {points,width} of paths){
@@ -152,11 +158,7 @@ export function plantWoodlands(island,detail,blocks,parent){
         continue;
       }
       a.round(0,1.6*s,0,.38*s,3.2*s,.36*s,'#776a52');
-      for(let k=0;k<4;k++){
-        const ang=k*2.4,h=k===3?4.4:3.1+.2*k,offset=k===3?.13:1.0;
-        a.leaves(Math.cos(ang)*offset*s,h*s,Math.sin(ang)*offset*s,(2.6-k*.1)*s,(2.53+k*.08)*s,2.48*s,
-          ['#52755f','#628661','#769568','#87a279'][k],ang);
-      }
+      a.put(woodlandCrown,0,0,0,s,s,s,'#ffffff');
     }
   }
 }

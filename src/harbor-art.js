@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {roof} from './street-pieces.js';
+import {crownGeometry} from './foliage.js';
 import {toWorld} from './street-world.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 
@@ -89,19 +90,27 @@ export function coastalHouse(a,w,d,district,random){
   return {parts,door:{x:doorX,z:front+1}};
 }
 
+const gardenCrowns=new Map();
 export function gardenTree(a,variant,scale){
   const pink=variant===2, tall=variant===3;
   const colors=pink?['#aa6978','#db8e9f','#f4b6c1','#f6c8c3']:
     tall?['#365a51','#4c7360','#68906c','#86a77a']:['#456c57','#648658','#86a567','#a1ba7e'];
   const s=scale*(tall?1.10:1);
+  if(!gardenCrowns.has(variant)){
+    const lobes=[];
+    for(let i=0;i<5;i++){
+      const ang=i*2.4+variant*.72,r=i===4?.18:.89,x=Math.cos(ang)*r,z=Math.sin(ang)*r,y=i===4?4.05:3.03+.34*(i%2);
+      lobes.push({position:[x,y,z],scale:[2.18,1.71,2.11],color:colors[i%3],yaw:ang},
+        {position:[x+.24,y+.39,z+.21],scale:[1.50,1.23,1.50],color:colors[2+i%2],yaw:ang+.4});
+    }
+    gardenCrowns.set(variant,crownGeometry(lobes));
+  }
+  a.put(gardenCrowns.get(variant),0,0,0,s,s,s,'#ffffff');
   a.round(0,1.40*s,0,.35*s,2.85*s,.33*s,'#856749');
   for(let i=0;i<5;i++){
-    const ang=i*2.4+variant*.72,r=(i===4?.18:.89)*s,x=Math.cos(ang)*r,z=Math.sin(ang)*r;
-    const y=(i===4?4.05:3.03+.34*(i%2))*s;
+    const ang=i*2.4+variant*.72;
     const limb=a.frame(0,0,0,-ang);
     limb.put(branch,.46*s,2.38*s,0,.17*s,1.68*s,.17*s,'#876849',0,-.56);
-    a.leaves(x,y,z,2.18*s,1.71*s,2.11*s,colors[i%3],ang);
-    a.leaves(x+.24*s,y+.39*s,z+.21*s,1.50*s,1.23*s,1.50*s,colors[2+i%2],ang+.4);
   }
 }
 const branch=new THREE.CylinderGeometry(.39,.51,1,7);

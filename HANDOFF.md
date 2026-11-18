@@ -4,6 +4,11 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.3.1 removes buried tree-crown faces while preserving the exposed surface.
+Matched software WebGL wide-view samples improved by 10 to 11 percent; extra draw
+calls carry a small measured CPU cost. See the rendering review for the tradeoff
+and the remaining low-end hardware requirement.
+
 Version 0.3 adds domestic activities and a worker-driven population for all 457
 generated homes. Read [the working spec](docs/WORKING-SPEC.md) for the agreed
 direction, the reference findings and the distinction between this release and
@@ -55,6 +60,11 @@ asset representation before a whole-game port; backend comparisons remain experi
 
 ## Version 0.3 verification and limits
 
+- Version 0.3.1 passed 109 unit checks, the four-locale viewer and three crown
+  image comparisons. A full public-signalling native WebRTC street run passed
+  locally. Remote CI has intermittent timeouts, including a map-button wait
+  after owner reload; failed runs now preserve client state and screenshots.
+  Check the latest workflow result rather than assuming every remote run passed.
 - 108 package/unit checks and the four-locale browser viewer passed.
 - The full native WebRTC street regression passed with isolated browser profiles
   and a local signalling fixture: dinner, tea, furniture edits, late joining,

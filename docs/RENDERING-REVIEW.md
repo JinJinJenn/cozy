@@ -1,6 +1,7 @@
 # Rendering and Rust/WASM review
 
-17 November 2026. Measured against the v0.3 runtime at `cb28d87`.
+17 November 2026. Baseline measured against the v0.3 runtime at `cb28d87`;
+the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
@@ -62,6 +63,42 @@ The separate 1080p orbit test peaked at approximately 1.74 million triangles and
 646 calls. One ready-state census contained 955 exterior scenery meshes and about
 91,000 primitive instances across the whole island. Instance sharing has reduced
 submission cost, but the shapes themselves still contain substantial work.
+
+## First shipped optimization: buried crown surfaces
+
+Version 0.3.1 builds each garden or woodland crown once, retaining its exposed
+triangles, normals, colors and original leaf-pattern coordinates. It removes a
+triangle only when all three vertices lie strictly inside the conservative convex
+interior of another crown lobe. The resulting shapes are shared across trees.
+There is no distance-dependent geometry substitution. Garden crowns shed 43 to
+44 percent of their leaf triangles without redesigning their visible shape.
+
+Two baseline and two optimized software WebGL runs were sampled in baseline,
+optimized, optimized, baseline order, at the same 720p Low wide-town camera:
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Scene triangles | 903,158 | 765,504 |
+| Draw calls | 247 | 280 |
+| Median frame interval, two runs | 235.9 / 235.8 ms | 210.1 / 212.7 ms |
+| Median software GPU time, two runs | 232.1 / 232.3 ms | 206.2 / 209.2 ms |
+
+That is a repeatable 10 to 11 percent frame-time improvement in this diagnostic,
+still much too slow for a playable low-end target. The geometry grouping increases
+draw calls. Unthrottled hardware render CPU median rose from 1.2 to 1.5 ms, while
+the hardware frame interval remained about 16.7 ms. Under 4x main-thread throttling,
+wide-view p95 rose from 18.7 to 19.2 ms and street-view p95 from 20.3 to 21.8 ms.
+These short samples expose the CPU tradeoff; this is not a claim of improvement
+on every device. An integrated-GPU or phone measurement remains required.
+
+The geometry regression compares nearest crown intersections from 32 directions.
+Three 1200 by 720 rendered comparisons included the original tree colors and cast
+shadows. The largest mean channel difference was 0.00043 on a 0 to 255 scale;
+at most 36 pixels differed by more than four channel levels. The reviewed captures
+show the same visible surface. This is preservation of the current art, not the
+larger visual upgrade requested for the trees and terrain.
+
+Use `--full-only` to sample the whole renderer without isolation variants.
 
 ## Terrain findings
 

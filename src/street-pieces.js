@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {foliage,leafMaterial} from './foliage.js';
 export const box=new THREE.BoxGeometry(1,1,1),ball=new THREE.IcosahedronGeometry(.5,1);
 const round=new THREE.CylinderGeometry(.5,.48,1,12);
 export const roof=new THREE.BufferGeometry();
@@ -8,30 +9,6 @@ roof.setAttribute('position',new THREE.Float32BufferAttribute([
   .5,0,.5,.5,0,-.5,0,1,-.5,.5,0,.5,0,1,-.5,0,1,.5
 ],3));roof.computeVertexNormals();
 const material=new THREE.MeshLambertMaterial();
-// A scalloped crown with a shaded underside. The silhouette and leaf colour are
-// shared by street and woodland trees and never change with camera distance.
-const foliage=new THREE.IcosahedronGeometry(.5,2);
-const foliageColors=[],leafPos=foliage.attributes.position;
-for(let i=0;i<leafPos.count;i++){
-  const x=leafPos.getX(i),y=leafPos.getY(i),z=leafPos.getZ(i);
-  const lobe=Math.sin(12*x+3*z)*Math.cos(10*z-5*y)+.55*Math.cos(15*y-5*x);
-  const r=1+.105*lobe;
-  leafPos.setXYZ(i,x*r,y*r,z*r);
-  const light=.85+.22*y+.075*lobe;foliageColors.push(light*.99,light,light*.94);
-}
-foliage.setAttribute('color',new THREE.Float32BufferAttribute(foliageColors,3));
-const leafMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
-leafMaterial.onBeforeCompile=shader=>{
-  shader.vertexShader='varying vec3 crown;\n'+shader.vertexShader.replace('#include <begin_vertex>',
-    '#include <begin_vertex>\ncrown=position;');
-  shader.fragmentShader='varying vec3 crown;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-    vec2 leafUV=vec2(crown.x+.45*crown.z,crown.y-.36*crown.z)*24.;
-    leafUV.x+=.50*mod(floor(leafUV.y),2.);
-    vec2 leaf=fract(leafUV)-.5;
-    float spray=fract(sin(dot(floor(leafUV),vec2(12.99,78.23)))*4375.21);
-    float speck=(1.-smoothstep(.16,.42,length(vec2(leaf.x+leaf.y*.45,leaf.y*1.55))))*smoothstep(.60,.95,spray);
-    diffuseColor.rgb*=1.+.19*speck*(1.-smoothstep(.16,.55,max(fwidth(leafUV.x),fwidth(leafUV.y))));`);
-};
 const clapboard=box.clone();
 function surfaceMaterial(kind){
   const finish=material.clone();
@@ -86,7 +63,7 @@ export class Pieces {
   round(...args){this.put(round,...args);}
   ball(...args){this.put(ball,...args);}
   leaves(...args){this.put(foliage,...args);}
-  finish(){for(const [shape,items] of this.batches){const mesh=new THREE.InstancedMesh(shape,shape===clapboard?sidingFinish:shape===foliage?leafMaterial:shape.userData.slate?roofFinish:material,items.length);
+  finish(){for(const [shape,items] of this.batches){const mesh=new THREE.InstancedMesh(shape,shape===clapboard?sidingFinish:shape.userData.foliage?leafMaterial:shape.userData.slate?roofFinish:material,items.length);
     items.forEach(([m,c,visibility],i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,c);if(visibility)(visibility.instances??=[]).push({mesh,index:i,matrix:m});});mesh.computeBoundingSphere();mesh.castShadow=true;mesh.receiveShadow=true;
     // Instance transforms carry the geometry. The batch's local transform never
     // changes, even when its animated parent does.

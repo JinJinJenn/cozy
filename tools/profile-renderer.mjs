@@ -48,7 +48,7 @@ try{
  });
  for(const distance of process.argv.includes('--wide-only')?[180]:[24,180]){
   await page.evaluate(async d=>{const c=window.__cozy;if(d>100)c.setView('centre');const t=c.controls.target;await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();const a=window.__renderAudit;a.land=[];a.water=[];a.scene.traverse(m=>{if(m.material===a.original)a.land.push(m);if(m.material===a.waterMat)a.water.push(m);});},distance);
-  for(const variant of process.argv.includes('--matrix-only')?['full','static-roots','full-restored']:process.argv.includes('--geometry-only')?['full','no-foliage','unlit-scenery','full-restored']:['full','flat-terrain','no-grain','no-roads','no-terrain','no-water','no-scenery','no-crowd']){
+  for(const variant of process.argv.includes('--full-only')?['full']:process.argv.includes('--matrix-only')?['full','static-roots','full-restored']:process.argv.includes('--geometry-only')?['full','no-foliage','unlit-scenery','full-restored']:['full','flat-terrain','no-grain','no-roads','no-terrain','no-water','no-scenery','no-crowd']){
    await page.evaluate(v=>{
     const a=window.__renderAudit;a.key=v;a.staticRoots.forEach((n,i)=>n.matrixAutoUpdate=v==='static-roots'?false:a.rootFlags[i]);
     for(const s of a.sceneryMeshes){s.m.visible=s.visible&&!(v==='no-foliage'&&s.foliage);s.m.material=v==='unlit-scenery'?a.unlit[Number(s.material.vertexColors)]:s.material;}
