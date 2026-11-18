@@ -16,7 +16,18 @@ export async function playTerrace(host,guest,shot){
   await open();await point(0,6.5);
   assert.ok(await host.locator('#terrace-apply').isDisabled());
   await point(3.5,7.5);await host.locator('#terrace-apply').click();
-  await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5));
+  try{
+    await host.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5),null,{timeout:5000});
+    await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5));
+  }catch(error){
+    for(const [name,page] of [['host',host],['guest',guest]])console.error('Terrace placement diagnostic',name,await page.evaluate(()=>{
+      const st=window.__cozy.street,s=st.session;
+      return {ready:s.ready,owner:s.owner,connected:s.connected,peers:s.peers.size,frameAge:performance.now()-s.lastFrame,sequence:s.verifiedSeq,
+        revision:s.layout.revision,terrace:s.layout.terrace,draft:st.terraceEditor.draft,
+        status:document.getElementById('terrace-status').textContent,note:document.getElementById('street-note').textContent};
+    }));
+    throw error;
+  }
   if(shot)await shot('placement',host);
   await host.setViewportSize(size);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.editTable(1,null)),false);

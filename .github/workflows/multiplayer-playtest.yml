@@ -23,7 +23,9 @@ jobs:
   waterfront:
     name: WebRTC with ${{ matrix.signalling }} signalling
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    # Browser package downloads can consume most of the old 12 minute job limit.
+    # Gameplay assertions retain their individual timeouts.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
