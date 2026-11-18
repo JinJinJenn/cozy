@@ -47,6 +47,13 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #save-status:empty{display:none}
 #save-fields button{justify-self:start}
 #social-pane{max-height:min(65dvh,36em);overflow-y:auto}
+#player-roster{display:flex;flex-wrap:wrap;gap:5px;margin:.4em 0}
+#player-roster button{display:inline-flex;align-items:center;gap:.45em;overflow-wrap:anywhere}
+#player-roster i{width:.8em;height:.8em;flex:none;border:1px solid #594f44;border-radius:50%}
+#profile-options summary{cursor:pointer;font-weight:600}
+#player-profile{display:grid;gap:6px;margin-top:.5em}
+#player-profile input{width:12em;max-width:52%;min-width:0}
+#player-profile button{justify-self:start}
 #address-panel{border-block:1px solid #b9ac91;padding:8px 0}
 #address-status{margin:.3em 0 .55em}
 #address-private{display:inline-block;padding:.4em;color:#285d4d}

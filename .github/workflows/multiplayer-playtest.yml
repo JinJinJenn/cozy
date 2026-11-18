@@ -13,6 +13,8 @@ on:
       - 'src/public-parcels.js'
       - 'src/address-menu.js'
       - 'tools/playtest-addresses.mjs'
+      - 'src/player-*.js'
+      - 'tools/playtest-players.mjs'
       - 'src/private-saves.js'
       - 'src/save-menu.js'
       - 'tools/test-domestic.mjs'
@@ -58,6 +60,8 @@ jobs:
             name: Furnish an occupied home with a guest
           - signalling: addresses
             name: Public address claims and host handover
+          - signalling: players
+            name: Player profiles and gestures
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -107,6 +111,9 @@ jobs:
       - name: Place a desk and use its lamp with another player
         if: matrix.signalling == 'furnishing'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --furnishing --software
+      - name: Meet a named player and wave across rooms
+        if: matrix.signalling == 'players'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4

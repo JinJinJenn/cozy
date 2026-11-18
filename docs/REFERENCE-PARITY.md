@@ -31,8 +31,8 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Social groups | Town: directed chat, joining/leaving multi-person conversations | Partial: two-person hosted visits; flexible conversation groups missing |
 | Household activities | Town seating, drinks, TV and transition animation | Players can share soup or tune a living-room television together. Every generated home has three animated programs and a saved channel. Furniture approach/use/exit blends remain open. |
 | Public/outdoor seating | Town: usable benches, loungers, picnic and game seats | Partial: roadside and venue benches; all furnished outdoor lots need an object-by-object audit |
-| Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
-| Room discovery | Sky Lounge port: automatic common lobby and roster | Two fresh profiles meet through the game URL. The HUD shows the player count. Named rosters remain open. |
+| Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Display names, six shirt colors and animated wave and cheer work across public and private visits. Browser-stored appearance survives reload. Mottos, more clothing and cross-device profile transfer remain open. |
+| Room discovery | Sky Lounge port: automatic common lobby and roster | Players meet through the game URL. Multiplayer lists each current player by name and shirt color. Selecting a name follows that player. |
 | Private access | Sky Lounge: invitation, closed/listed rooms, admission and owner controls | Partial street invites/listing; private home capabilities and moderation missing |
 | Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Encrypted file recovery preserves the owner and existing invite. Devices retain separate selectable saves. Offline history merging remains open. |
 | Host departure | Sky Lounge port: successor host and retained layout | Remaining peers elect a new host. Full NPC scheduler and in-flight action handover remain open. |

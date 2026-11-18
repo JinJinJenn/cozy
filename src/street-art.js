@@ -701,6 +701,51 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       }
     }
   };
+  // Clothing is instance-colored. Recolor the existing batches on a profile
+  // change, including any activity rigs already created for this person.
+  g.setShirt=next=>{
+    if(color===next)return;
+    const old=new THREE.Color(color),replacement=new THREE.Color(next),sample=new THREE.Color();
+    body.traverse(mesh=>{
+      if(!mesh.instanceColor)return;
+      let changed=false;
+      for(let i=0;i<mesh.count;i++){
+        mesh.getColorAt(i,sample);
+        if(Math.abs(sample.r-old.r)+Math.abs(sample.g-old.g)+Math.abs(sample.b-old.b)>1e-6)continue;
+        mesh.setColorAt(i,replacement);changed=true;
+      }
+      if(changed)mesh.instanceColor.needsUpdate=true;
+    });
+    color=next;
+  };
+  let gestureRig,gestureArms;
+  g.setGesture=(kind,phase,seated)=>{
+    if(phase===null){if(gestureRig)gestureRig.visible=false;return;}
+    if(!gestureRig){
+      gestureRig=new THREE.Group();gestureRig.name='greeting';torso.add(gestureRig);
+      gestureArms=limbs.map(({side})=>{
+        const upper=new THREE.Group(),elbow=new THREE.Group();
+        upper.position.set(side*.276,1.17,0);elbow.position.set(side*.018,-.23,.014);
+        gestureRig.add(upper);upper.add(elbow);
+        const sleeve=new Pieces(upper),hand=new Pieces(elbow);
+        sleeve.ball(0,-.105,0,.21,.30,.235,color);
+        hand.ball(0,-.095,.01,.14,.22,.15,skin);
+        hand.ball(0,-.215,.022,.15,.16,.11,skin);
+        hand.ball(-side*.068,-.182,.044,.061,.095,.06,skin);
+        sleeve.finish();hand.finish();return {upper,elbow,side};
+      });
+    }
+    gestureRig.visible=true;restingArms.visible=false;
+    const lift=Math.min(1,phase*7,(1-phase)*7),swing=Math.sin(phase*Math.PI*8);
+    for(const {upper,elbow,side} of gestureArms){
+      const raised=kind==='cheer'||side>0;
+      upper.rotation.z=side*(raised?lift*(kind==='cheer'?2.50+.10*swing:1.85):.06);
+      upper.rotation.x=seated?-.28:0;
+      elbow.rotation.z=side*(raised?lift*(kind==='cheer'?.22:.82+.46*swing):0);
+      elbow.rotation.x=seated?-.70+lift*(raised?.55:0):-.15*lift;
+    }
+    for(const limb of limbs)limb.arm.visible=false;
+  };
   g.traverse(m=>{if(m.isMesh)m.castShadow=false;});
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(.95,.76).rotateX(-Math.PI/2),new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,

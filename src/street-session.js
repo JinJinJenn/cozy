@@ -15,6 +15,7 @@ import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js
 import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
 import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
 import {PublicAddresses} from './public-parcels.js';
+import {canGesture,canGreet,gesturePhase,loadProfile,readProfile,sameProfile,storeProfile} from './player-profile.js';
 
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
@@ -65,7 +66,8 @@ export class StreetSession {
     this.space=streetSpace(island,params);this.visit=params.get('visit');this.owner=this.space==='personal';
     if(this.space==='visit'&&island.homesById?.has(params.get('home')))this.invitedHome=params.get('home');
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
-    this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:''});
+    this.profile=loadProfile(this.id);
+    this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:'',profile:this.profile});
     this.activities=new StreetActivities(this);this.commandSeq=0;this.motion=0;
     this.start=this.init();
   }
@@ -141,7 +143,7 @@ export class StreetSession {
     this.pendingCommand=null;this.actionSeq=0;this.residentTargets=null;
     this.peers.clear();this.controls.clear();this.activities=new StreetActivities(this);
     const local=this.actors.get(this.id)||this.spawn;
-    this.actors=new Map([[this.id,{id:this.id,x:local.x,z:local.z,yaw:local.yaw,activity:'',part:''}]]);
+    this.actors=new Map([[this.id,{id:this.id,x:local.x,z:local.z,yaw:local.yaw,activity:'',part:'',profile:this.profile}]]);
     if(this.owner){this.coffeeVisits={};this.startPatrol();}
     if(previous)this.notice(this.owner?'You are hosting the public town.':'Joining the public town host.');
   }
@@ -396,12 +398,29 @@ export class StreetSession {
     }
   }
   use(){if(this.owner)this.interact(this.id);else if(this.connected){this.actionSeq++;this.sendInput();}}
+  changeProfile(value){
+    const profile=readProfile(value);if(!profile)return false;
+    this.profile=profile;
+    if(this.owner)this.actors.get(this.id).profile=profile;
+    else if(this.connected)this.sendInput();
+    this.notice(storeProfile(profile)?'Your player profile is saved.':'Your profile is set for this visit.');return true;
+  }
   command(cmd){
     if(!this.ready||(!this.owner&&!this.connected))return;
     if(this.owner)this.applyCommand(this.actors.get(this.id),cmd);
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
   }
   applyCommand(actor,cmd){
+    if(cmd.type==='gesture'){
+      if(['wave','cheer'].includes(cmd.gesture)&&canGesture(actor)&&gesturePhase(actor,this.time)===null){
+        if(cmd.to!==undefined){
+          const other=this.actors.get(cmd.to);if(!canGreet(actor,other))return;
+          if(!actor.activity&&!actor.walking)actor.yaw=Math.atan2(other.x-actor.x,other.z-actor.z);
+        }
+        actor.gesture=cmd.gesture;actor.gestureAt=this.time;
+      }
+      return;
+    }
     if(cmd.type==='tv-channel'){
       if(actor.activity==='watch'&&actor.using?.lot===cmd.lot)tuneTelevision(this,cmd.lot,cmd.channel);
       return;
@@ -421,6 +440,7 @@ export class StreetSession {
     if(!this.owner&&this.connected)this.sendInput();
   }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
+    if(!this.connected||!sameProfile(this.profile,this.actors.get(this.id)?.profile))m.profile=this.profile;
     if(this.lobby){
       m.authority=this.pub;
       if(this.addresses.synced){m.parcelRevision=this.addresses.book.revision;m.parcelBoot=this.hostBoot;}
@@ -453,9 +473,13 @@ export class StreetSession {
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
       if(this.lobby&&m.parcelBoot===this.boot)state.parcelRevision=m.parcelRevision;
       const cmd=m.cmd,actor=this.actors.get(m.id);
+      if(m.profile&&(!actor.profile||performance.now()-(state.profileAt??0)>=500)){
+        const profile=readProfile(m.profile);
+        if(profile&&!sameProfile(profile,actor.profile)){actor.profile=profile;state.profileAt=performance.now();}
+      }
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['ride','dismount','teleport','tv-channel','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['gesture','ride','dismount','teleport','tv-channel','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
@@ -484,7 +508,7 @@ export class StreetSession {
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
-        this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
+        this.actors=new Map(f.actors.map(a=>{if(a.profile)a.profile=readProfile(a.profile);return [a.id,a];}));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(this.invitedHome&&this.inviteBoot!==f.boot){
           this.inviteBoot=f.boot;
@@ -548,6 +572,7 @@ export class StreetSession {
           a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);
         }else this.activities?.advance(a,dt);
         a.motion=id===this.id?this.motion:remote?.motion??0;
+        if(a.gesture&&gesturePhase(a,this.time)===null){delete a.gesture;delete a.gestureAt;}
         a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);
       }
     }else{

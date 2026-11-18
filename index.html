@@ -67,7 +67,12 @@ body.shot #ui,body.shot #mini{display:none}
         <div><button id="terrace-rotate">Rotate</button> <button id="terrace-apply" class="primary">Place table</button> <button id="terrace-remove">Remove</button> <button id="terrace-undo">Undo table edit</button></div>
       </div></div>
     <div id="social-pane" class="street-drawer" hidden><div><a id="personal-street" href="?space=personal">My private street</a> <a id="public-street" href="./">Return to public town</a></div><div id="owner-room" hidden><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label>
-      </div><section id="address-panel" hidden aria-labelledby="address-name">
+      </div><section aria-labelledby="players-title"><strong id="players-title">Players here</strong>
+        <div id="player-roster"></div><div><button id="player-wave">Wave</button> <button id="player-cheer">Cheer</button></div>
+      </section><details id="profile-options"><summary>My player profile</summary>
+        <form id="player-profile"><label>Display name <input id="profile-name" required maxlength="48" autocomplete="off" dir="auto"></label>
+          <label>Shirt color <select id="profile-shirt"></select></label><button class="primary">Save profile</button></form>
+      </details><section id="address-panel" hidden aria-labelledby="address-name">
         <strong id="address-name">Public address</strong><p id="address-status" role="status"></p>
         <button id="address-claim" hidden>Claim address</button><button id="address-alternative" hidden>Claim nearby home</button>
         <button id="address-travel" hidden>Go to my address</button> <a id="address-private" hidden>Enter my private home</a>

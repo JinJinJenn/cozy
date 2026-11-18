@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.11.0 adds player profiles, named rosters and two animated greetings.
+Choose **Multiplayer → My player profile** to set a display name and shirt color.
+The browser remembers them across public town, private streets and reloads.
+Choose a name under **Players here** to follow that person's camera target.
+Click a nearby player and choose **Wave to** to turn toward them and greet them.
+Wave and Cheer in the multiplayer panel also work while walking or sitting with free hands.
+Run `npm run test:lobby -- --players` for the public and private three-profile playtest.
+
 Version 0.10.1 also applies committed room edits to the resident simulation
 worker. A resident whose walking route crosses a newly placed object gets a
 new route to the same destination when one is available.

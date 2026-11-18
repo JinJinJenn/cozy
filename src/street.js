@@ -13,6 +13,8 @@ import {TerraceEditor} from './terrace-editor.js';
 import {HomeEditor} from './home-editor.js';
 import {SaveMenu} from './save-menu.js';
 import {AddressMenu} from './address-menu.js';
+import {PlayerMenu} from './player-menu.js';
+import {canGreet,gesturePhase,shirts} from './player-profile.js';
 
 const $=id=>document.getElementById(id);
 const names={home:'Sit on the sofa',wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
@@ -44,6 +46,7 @@ export class Street {
     this.homeEditor=new HomeEditor(this,listen);
     this.saveMenu=new SaveMenu(this,listen);
     this.addressMenu=new AddressMenu(this,listen);
+    this.playerMenu=new PlayerMenu(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -198,7 +201,7 @@ export class Street {
     listen(grip,'lostpointercapture',()=>{if(this.drag){this.drag=null;this.resetPreview();}});
     listen($('social-open'),'click',()=>{
       const open=$('social-pane').hidden;this.closePanels();$('social-pane').hidden=!open;
-      if(open)this.refreshAddressMenu();
+      if(open){this.refreshAddressMenu();this.playerMenu.open();}
     });
     listen($('copy-street'),'click',async()=>{
       const url=await this.session.invite();if(!url)return;
@@ -278,10 +281,13 @@ export class Street {
       depth=distance;best={command,label,focus,followLabel,point:command?.type==='walk'?{x:command.x,z:command.z}:{x:p.x,z:p.z}};
     };
     for(const [id,m] of this.meshes){
-      const invite=id.startsWith('resident')&&!local?.outing&&!local?.vehicle&&!s.actors.get(id)?.invitedBy;
-      if(!invite&&!context)continue;
-      const command=invite?{type:'coffee',friend:id}:null,label=invite?'Invite '+neighborName(id)+' for coffee':'';
-      const followLabel='Follow '+(id===s.id?'me':id.startsWith('resident')?neighborName(id):'player');
+      const other=s.actors.get(id),invite=id.startsWith('resident')&&!local?.outing&&!local?.vehicle&&!other?.invitedBy;
+      const greet=canGreet(local,other);
+      if(!invite&&!greet&&!context)continue;
+      const name=id===s.id?'me':id.startsWith('resident')?neighborName(id):other?.profile?.name||'player';
+      const command=invite?{type:'coffee',friend:id}:greet?{type:'gesture',gesture:'wave',to:id}:null;
+      const label=invite?'Invite '+name+' for coffee':greet?'Wave to '+name:'';
+      const followLabel='Follow '+name;
       for(const h of [.55,1.02,1.48])offer(this.point.set(m.position.x,m.position.y+h,m.position.z),.37,command,label,{actor:id},followLabel);
     }
     for(const [i,person] of s.town.people.entries()){
@@ -329,7 +335,7 @@ export class Street {
     const dt=Math.min(.15,Math.max(0,(now-this.lastAdvance)/1000));this.lastAdvance=now;
     if(this.active)this.input();this.session.tick(dt);
     if(this.active&&now>=(this.nextAddressUI||0)){
-      this.nextAddressUI=now+180;this.refreshAddressMenu();
+      this.nextAddressUI=now+180;this.refreshAddressMenu();this.playerMenu.refresh();
     }
   }
   refreshAddressMenu(){
@@ -498,7 +504,9 @@ export class Street {
     const dt=Math.max(0,Math.min(.18,(now-(this.lastRender??now))/1000));this.lastRender=now;
     for(const [id,a] of s.actors){
       let mesh=this.meshes.get(id);
-      if(!mesh){const npc=id.startsWith('resident');mesh=avatar(id===s.id?'#c55b61':npc?(id==='resident1'?'#94799b':'#659681'):'#6687bd',id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
+      const shirt=shirts[a.profile?.shirt]||(id===s.id?'#c55b61':id.startsWith('resident')?(id==='resident1'?'#94799b':'#659681'):'#6687bd');
+      if(!mesh){mesh=avatar(shirt,id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
+      mesh.setShirt(shirt);
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
@@ -508,6 +516,7 @@ export class Street {
       mesh.setSeated(seated||a.vehicle==='car',a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
       mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom,watching?(s.layout.homeTV?.[a.using?.lot]||0):null);
+      mesh.setGesture(a.gesture,a.gesture?gesturePhase(a,s.time):null,seated);
       if(mesh.userData.vehicle!==a.vehicle){
         const old=mesh.userData.ride;if(old){mesh.remove(old);disposeGroup(old);}
         mesh.userData.vehicle=a.vehicle;mesh.userData.ride=a.vehicle?vehicleArt(a.vehicle):null;
