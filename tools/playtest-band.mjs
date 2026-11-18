@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 
 async function monitor(page){
   await page.evaluate(()=>{
-    const st=window.__cozy.street,{ctx,master}=st.music;
-    window.bandAudio={notes:[],outputPeak:0,pressed:[]};
+    const st=window.__cozy.street,{ctx}=st.music;
+    window.bandAudio={notes:[],outputPeak:0,pressed:[],input:[]};
+    const keys=document.getElementById('piano-keys');
+    for(const type of ['pointerdown','touchstart','click','keydown'])keys.addEventListener(type,e=>{
+      const key=e.target.closest('button');
+      if(key)window.bandAudio.input.push([type,e.pointerType||'',e.detail,key.getAttribute('aria-label')]);
+    },true);
     const bass=st.art.g.getObjectByName('bass keys'),melody=st.art.g.getObjectByName('melody keys');
     const create=ctx.createBufferSource.bind(ctx);
     ctx.createBufferSource=()=>{
@@ -69,6 +74,8 @@ export async function playBand({host,guest,profile,ready,wait}){
     await wait(guest,()=>window.bandAudio.notes.includes(73));
     await wait(guest,()=>window.bandAudio.pressed.includes('melody keys13'));
     assert.ok(!(await visitor.evaluate(()=>window.bandAudio.notes)).includes(48));
+    await host.getByRole('button',{name:'Play C5',exact:true}).press('Enter');
+    await wait(visitor,()=>window.bandAudio.notes.filter(n=>n===72).length===1);
     await Promise.all([host.keyboard.press('j'),guest.keyboard.press('f')]);
     await wait(visitor,()=>[83,53].every(n=>window.bandAudio.notes.includes(n)));
     const touch=await host.context().newCDPSession(host);
@@ -78,10 +85,14 @@ export async function playBand({host,guest,profile,ready,wait}){
       await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height*.83}]});
       await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await wait(visitor,()=>window.bandAudio.notes.includes(79));
+      // Consecutive taps on the same key must both sound exactly once.
+      await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height*.83}]});
+      await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await wait(visitor,()=>window.bandAudio.notes.filter(n=>n===79).length>=2);
     }finally{await touch.send('Emulation.setTouchEmulationEnabled',{enabled:false});await touch.detach();}
     await visitor.locator('#piano-sound').click();assert.ok(await visitor.evaluate(()=>window.__cozy.street.music.muted));
     await guest.keyboard.press('w');await wait(host,()=>window.bandAudio.notes.includes(49));
-    assert.equal(await visitor.evaluate(()=>window.bandAudio.notes.filter(n=>n===79).length),1);
+    assert.equal(await visitor.evaluate(()=>window.bandAudio.notes.filter(n=>n===79).length),2);
     await visitor.locator('#piano-sound').click();
     if(process.env.COZY_BAND_SHOT)await host.setViewportSize({width:1280,height:720});
     const point=await host.evaluate(async()=>{

@@ -31,8 +31,19 @@ export class PianoMenu{
       if(keyShape[i].black)key.style.left=whites*12.5+'%';
       else whites++;
       shortcut.textContent=binding;key.append(name,shortcut);this.keys.push(key);
-      listen(key,'pointerdown',e=>{if(e.button===0){e.preventDefault();this.strike(this.octave+i);}});
-      listen(key,'click',e=>{if(e.detail===0)this.strike(this.octave+i);});
+      // Cancel the native touch gesture so Chromium cannot follow it with a
+      // second, mouse-compatible press when the player lifts their finger.
+      key.addEventListener('touchstart',e=>{
+        e.preventDefault();
+        for(const contact of e.changedTouches)if(key.contains(contact.target))this.strike(this.octave+i);
+      },{passive:false,signal:street.abort.signal});
+      listen(key,'pointerdown',e=>{
+        if(e.button!==0||e.pointerType==='touch'||e.sourceCapabilities?.firesTouchEvents)return;
+        e.preventDefault();this.strike(this.octave+i);
+      });
+      listen(key,'click',e=>{
+        if(e.detail===0&&!e.pointerType&&!e.sourceCapabilities?.firesTouchEvents)this.strike(this.octave+i);
+      });
     }
     row.replaceChildren(...this.keys);
     listen(el('piano-mode'),'click',()=>{

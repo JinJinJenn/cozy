@@ -4,7 +4,7 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
-Version 0.17.1 lets two visitors play the Moon Room keyboards live. Open
+Version 0.17.2 lets two visitors play the Moon Room keyboards live. Open
 **Travel → Join the Moon Room band**, then choose **Play freely**. Use the
 on-screen keyboard, the letter shortcuts printed on its keys, or the keys on
 the stage instrument. The octave selector covers two octaves per instrument.
