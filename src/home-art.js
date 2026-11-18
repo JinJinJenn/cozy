@@ -81,7 +81,7 @@ function furnish(a,b){
   for(const r of b.walls.filter(r=>r.side==='inside')){
     a.box(r.x,1.24,r.z,r.w,2.48,r.d,'#e6d8bf');a.box(r.x,.15,r.z,r.w+.04,.23,r.d+.04,accent);
   }
-  for(const f of b.furniture){const p=a.frame(f.x,0,f.z);
+  for(const f of b.furniture){const p=a.frame(f.x,0,f.z,f.flip?Math.PI:0);
     if(f.type==='tile'){
       p.box(0,.07,0,f.w,.025,f.d,'#d6d7c3');
       for(let x=-f.w/2+.4;x<f.w/2;x+=.4)p.box(x,.085,0,.016,.008,f.d,'#a4b2aa');
@@ -118,6 +118,9 @@ function furnish(a,b){
       p.box(0,.57,-f.d/2+.05,f.w+.02,.95,.10,wood);
       p.ball(0,.70,-f.d*.32,f.w*.73,.18,.49,'#f3e7d5');
       for(let i=0;i<4;i++)p.box(0,.735,.12+i*.22,f.w-.08,.018,.035,'#c6d1b7');
+      for(const s of [-1,1])p.round(s*(f.w/2-.09),.51,-f.d/2+.04,.12,1.03,.12,wood);
+      for(let x=-f.w*.35;x<f.w*.4;x+=.18)p.box(x,.82,-f.d/2+.065,.055,.38,.07,'#b7976e');
+      for(const z of [-.12,.1,.32])p.box(0,.744,z,f.w*.88,.009,.025,'#e0c9a5');
     }else if(f.type==='kitchen'){
       p.box(0,.45,0,f.w,.9,f.d,accent);p.box(0,.96,0,f.w+.06,.12,f.d+.05,cream);
       const units=Math.max(2,Math.round(f.d/.65));
@@ -129,15 +132,26 @@ function furnish(a,b){
       p.round(.20,1.22,-f.d*.23,.045,.36,.045,metal);p.box(.05,1.40,-f.d*.23,.33,.04,.04,metal);
       p.box(0,1.035,f.d*.28,f.w*.83,.03,.65,'#454d49');
       for(const x of [-.20,.20])for(const z of [-.17,.17])p.round(x,1.06,f.d*.28+z,.19,.025,.19,'#2e3b3b');
+      // Working kitchen detail is allocated only in the occupied home.
+      p.box(-f.w/2-.05,.43,f.d*.28,.04,.47,.52,'#364b4d');p.box(-f.w/2-.08,.45,f.d*.28,.025,.32,.40,'#697e7b');
+      p.box(-f.w/2-.12,.72,f.d*.28,.045,.04,.49,metal);
+      for(const z of [-.16,0,.16])p.ball(-f.w/2-.09,.85,f.d*.28+z,.055,.065,.065,'#dac9a6');
+      p.box(f.w/2,1.43,0,.035,.8,f.d,'#d6dfd3');
+      for(let z=-f.d/2+.2;z<f.d/2;z+=.2)p.box(f.w/2-.025,1.43,z,.008,.78,.01,'#aebdb4');
+      p.box(.16,2.0,f.d*.28,.64,.12,.84,'#9cafa7');p.box(.28,2.24,f.d*.28,.30,.45,.42,'#abbab1');
+      p.round(-.05,1.18,f.d*.28,.30,.25,.30,'#986f54');
+      for(const x of [-.26,.16])p.box(x,1.22,f.d*.28,.14,.05,.055,metal);
+      p.box(-.06,1.055,-f.d/2+.10,.48,.035,.20,'#bb9667');
     }else if(f.type==='sofa'){
       p.box(0,.34,0,f.w,.44,f.d,wood);p.ball(.08,.60,0,f.w*.86,.32,f.d*.84,accent);
       p.box(-f.w*.39,.78,0,.16,.63,f.d,accent);
       for(const s of [-1,1]){p.box(0,.67,s*(f.d/2-.10),f.w,.42,.15,accent);p.ball(-.08,.82,s*f.d*.29,.38,.32,.30,'#e4c5a2');}
+      for(const z of [-f.d*.20,f.d*.20]){p.box(.10,.765,z,.65,.012,.018,'#a8b39b');p.ball(-.08,.84,z,.035,.035,.035,wood);}
     }else if(f.type==='shelf'){
-      for(const y of [.15,.7,1.25,1.8])p.box(0,y,0,f.w,.07,f.d,wood);
-      p.box(-f.w/2,1,0,.05,1.8,f.d,wood);
-      for(let n=0;n<9;n++)p.box(.03,.95,(n-4)*.073,.20,.40+(n%3)*.06,.055,['#9c756e','#7a927e','#c0a36c'][n%3]);
-      p.round(0,1.96,.15,.19,.27,.19,cream);p.ball(0,2.16,.15,.30,.27,.30,'#6c8c55');
+      for(const y of [1.42,1.94,2.46])p.box(0,y,0,f.w,.07,f.d,wood);
+      p.box(-f.w/2,1.94,0,.05,1.1,f.d,wood);
+      for(let n=0;n<9;n++)p.box(.03,1.68,(n-4)*.073,.20,.36+(n%3)*.045,.055,['#9c756e','#7a927e','#c0a36c'][n%3]);
+      p.round(0,2.10,.15,.19,.27,.19,cream);p.ball(0,2.28,.15,.30,.27,.30,'#6c8c55');
     }else if(f.type==='desk'){
       p.box(0,.76,0,f.w,.11,f.d,wood);for(const s of [-1,1])p.box(s*f.w*.4,.36,0,.08,.72,.08,metal);
       p.box(.12,.84,0,.38,.04,.28,'#e7d8bb');p.round(-.36,1.03,0,.10,.42,.10,metal);p.ball(-.36,1.23,0,.34,.16,.33,cream);
@@ -146,17 +160,31 @@ function furnish(a,b){
 }
 export class HomeInteriors {
   constructor(island,parent){this.island=island;this.parent=parent;this.open=null;this.group=null;}
-  update(pos,eye){
+  update(pos,eye,session){
     const home=homeAt(this.island,pos,.16);
     if(home!==this.open){
       if(this.open)for(const handle of Object.values(this.open.renderHandles))setPieceVisibility(handle,true);
       if(this.group){this.parent.remove(this.group);this.group.traverse(m=>{if(m.isInstancedMesh)m.dispose();});this.group=null;}
       this.open=home;
-      if(home){this.group=new THREE.Group();const a=new Pieces(this.group).frame(home.x,home.y,home.z,home.yaw);furnish(a,home);a.finish();this.parent.add(this.group);}
+      if(home){
+        this.group=new THREE.Group();const a=new Pieces(this.group).frame(home.x,home.y,home.z,home.yaw);furnish(a,home);a.finish();this.parent.add(this.group);
+        this.effects=new Map();
+        for(const f of home.furniture.filter(f=>['kitchen','shower','basin'].includes(f.type))){
+          const fx=new THREE.Group(),p=new Pieces(fx);this.group.add(fx);fx.rotation.y=home.yaw;
+          fx.position.set(home.x+home.c*f.x+home.s*f.z,home.y,home.z-home.s*f.x+home.c*f.z);
+          for(let n=0;n<6;n++)p.ball((n%2-.5)*.18,1.43+n*.08,f.type==='kitchen'?f.d*.28:0,.07,.12,.07,f.type==='kitchen'?'#f2e5cc':'#a5d6dc');
+          p.finish();this.effects.set(f.id,fx);
+        }
+      }
     }
     if(!home)return;
     const p=homeLocal(home,eye);setPieceVisibility(home.renderHandles.roof,false);
     for(const [side,hide] of [['left',p.x<0],['right',p.x>0],['back',p.z<0],['front',p.z>0]])setPieceVisibility(home.renderHandles[side],!hide);
+    for(const [id,fx] of this.effects||[]){
+      const actor=session&&[...session.actors.values()].find(a=>a.using?.lot===home.id&&a.using.object===id);
+      fx.visible=!!actor&&['cook','wash','shower'].includes(actor.activity);
+      fx.position.y=home.y+.035*Math.sin((session?.time||0)*7);
+    }
     return home.id;
   }
 }

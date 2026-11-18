@@ -93,6 +93,7 @@ function makeMesh(data,isWater){
   else g.setAttribute('color',new THREE.BufferAttribute(data.colors,3));
   g.setIndex(new THREE.BufferAttribute(data.indices,1));
   const m=new THREE.Mesh(g,isWater?waterMat:town.terrainMaterial);
+  m.matrixAutoUpdate=false;
   if(isWater)m.renderOrder=2;
   else{
     // Terrain already carries baked slope lighting. A level receiver normal keeps
@@ -185,10 +186,10 @@ function streetLighting(){
 }
 const orbitEye=new THREE.Vector3();
 function renderScene(){
-  town?.posePeople(performance.now());
   const fraction=street?.cameraFraction()??1;
   orbitEye.copy(camera.position);
   camera.position.lerp(controls.target,1-fraction);
+  town?.posePeople(performance.now(),camera);
   renderer.render(scene,camera);
   camera.position.copy(orbitEye);
   camera.updateMatrixWorld();
@@ -262,12 +263,16 @@ async function load(presetId,seed,view='oblique',viewOpts){
     island.deckHeight=town.decks.heightAt;
     scene.add(town.group);
     street=new Street(island,scene,camera,controls,town);
+    await town.bindStreet(street,!params.has('shot'));
     $('centre-view').hidden=!island.townSquare;
     captureTime=0;
     const tGen=performance.now()-t0;
     applyPalette(island.preset.palette);buildOcean(island.half);
     setView(view,viewOpts);
     const t1=performance.now();await flushChunks();
+    if(generation!==loadGen) return;
+    $('busy').textContent='Preparing town materials...';
+    await town.crowd.warm(renderer,scene,camera);
     if(generation!==loadGen) return;
     const tChunks=performance.now()-t1;
     const px=await client.minimap(208,208);
@@ -319,7 +324,8 @@ window.__cozy={ready:false,load,setView,flushChunks,
     waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderScene();
   },
   info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
-    roads:island?.plan.roads.length,plots:island?.plan.lots.length,homes:island?.homes?.length,graphics:graphics.info(),residents:town?.current,tick:town?.sim?.tick};},
+    roads:island?.plan.roads.length,plots:island?.plan.lots.length,homes:island?.homes?.length,graphics:graphics.info(),residents:town?.current,tick:town?.sim?.tick,
+    simulation:{worker:!!town?.worker,lastWorkMs:town?.workerMs,backlogSeconds:town?.elapsed,visible:town?.crowd.visible,error:town?.workerError}};},
   get island(){return island;},get street(){return street;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
 const streamedAt=new THREE.Vector3(Infinity,Infinity,Infinity),streamedEye=streamedAt.clone();

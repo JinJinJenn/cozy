@@ -4,6 +4,7 @@ import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
+import {encodeResidents,decodeResidents} from './resident-wire.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
@@ -16,7 +17,9 @@ const furniture={
   house:[[1.38,-.14,'sit'],[1.38,-1.80,'sit']],cottage:[[1.38,-.14,'sit']]
 };
 export function stationsFor(b){
-  if(b.kind==='home')return b.seats.map((p,index)=>({...toWorld(b,p.x,p.z),yaw:p.yaw,action:p.action,index,part:''}));
+  if(b.kind==='home')return (b.uses||b.seats).map((p,index)=>({...p,...toWorld(b,p.x,p.z),
+    target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
+    pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
   return (furniture[b.kind]||[]).map(([x,z,action,part=''],index)=>({...toWorld(b,x,z),action,part,index,
     yaw:b.yaw+((b.kind==='wayside'||b.kind==='terrace'&&index===0||b.kind==='house'&&index===1||b.kind==='restaurant'&&index>=2)?0:Math.PI)}));
 }
@@ -213,6 +216,11 @@ export class StreetSession {
       .sort((a,c)=>a.dist-c.dist)[0];
   }
   available(actor,b,spot){
+    if(this.town?.people.some(p=>p.visible&&Math.hypot(p.position.x-spot.x,p.position.z-spot.z)<.55))return false;
+    if(spot.object){
+      if([...this.actors.values()].some(a=>a.id!==actor.id&&a.using?.lot===b.id&&a.using.object===spot.object))return false;
+      for(const [id,r] of this.activities.routes)if(id!==actor.id&&r.arrival?.lot===b.id&&this.furnitureAt(b.id,r.arrival.index)?.spot.object===spot.object)return false;
+    }
     if((b.kind==='terrace'||b.kind==='house')&&this.activities?.tableBooked(b.id))return false;
     if(b.kind==='garden'&&this.activities?.reserved.has(spot.index))return false;
     if(this.activities?.stationClaimed(b.id,spot.index,actor.id))return false;
@@ -232,8 +240,9 @@ export class StreetSession {
     const a=this.actors.get(id),b=a&&this.near(a);if(!b)return;
     if(a.dinnerSeat!==undefined&&this.activities){this.activities.finish(a);return;}
     if(a.outing==='chat'||a.outing==='waiting'){this.activities.finish(a);return;}
-    if(a.activity){a.activity='';a.part='';return;}
+    if(a.activity){this.activities?.leaveFurniture(a);a.activity='';a.part='';return;}
     const spot=this.station(a,b);if(!spot)return;
+    if(b.kind==='home'){this.activities.command(a,{type:'furniture',lot:b.id,index:spot.index});return;}
     if(b.cafe){this.layout.lights=!this.layout.lights;this.layout.revision++;this.persist();}
     else{
       if(spot.action==='dine'&&this.activities){
@@ -289,12 +298,14 @@ export class StreetSession {
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
-        if(Array.isArray(f.residents)&&f.residents.length===this.town.people.length){
-          this.residentTargets=f.residents.map((r,i)=>{
-            if(!Array.isArray(r)||r.length!==5||!r.every(Number.isFinite))return null;
+        const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
+        if(Array.isArray(residents)&&residents.length===this.town.people.length){
+          this.residentTargets=residents.map((r,i)=>{
+            if(!Array.isArray(r)||![5,6].includes(r.length)||!r.every(Number.isFinite))return null;
             const m=this.town.people[i],p=m.position,visible=!!r[3];
             if(newHost||m.visible!==visible||Math.hypot(r[0]-p.x,r[2]-p.z)>3)p.set(r[0],r[1],r[2]);
             m.visible=visible;m.scale.y=r[4];
+            if(r.length===6)m.userData.heading=r[5];
             return {x:p.x,y:p.y,z:p.z,to:r};
           });
         }
@@ -304,7 +315,7 @@ export class StreetSession {
   async broadcast(){
     if(this.sending||!this.peers.size||!this.connections.length||!this.privateKey)return;
     this.sending=true;
-    try{const residents=this.town.people.map(m=>[m.position.x,m.position.y,m.position.z,Number(m.visible),m.scale.y]);
+    try{const residents=encodeResidents(this.town.people);
       const body=JSON.stringify({room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents});
       const sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));if(!this.closed)this.connections.forEach(c=>c.send({kind:'frame',body,sig}));
     }finally{this.sending=false;}
@@ -329,6 +340,7 @@ export class StreetSession {
         const input=id===this.id?this.keys:remote&&now-remote.at<600?remote:zero;
         const oldX=a.x,oldZ=a.z;
         if(input.x||input.z){
+          this.activities?.leaveFurniture(a);
           if(a.walking||a.outing&&a.outing!=='carry')this.activities?.manual(a);
           a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);
         }else this.activities?.advance(a,dt);

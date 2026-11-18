@@ -6,6 +6,7 @@ export const neighborName=id=>id==='resident1'?'Bea':'Robin';
 export class StreetActivities {
   constructor(session){this.s=session;this.routes=new Map();this.reserved=new Set();}
   go(actor,goal,arrival='walk'){
+    this.leaveFurniture(actor);
     const {island,plots,layout}=this.s;
     let points;
     if(Math.hypot(goal.x-actor.x,goal.z-actor.z)>65){
@@ -26,7 +27,13 @@ export class StreetActivities {
     return true;
   }
   cancelRoute(actor){this.routes.delete(actor.id);actor.walking=false;delete actor.goal;}
+  leaveFurniture(actor){
+    if(!actor.using)return;
+    Object.assign(actor,{x:actor.using.exit.x,z:actor.using.exit.z,activity:'',part:''});
+    delete actor.using;delete actor.useUntil;
+  }
   finish(actor){
+    this.leaveFurniture(actor);
     this.cancelRoute(actor);
     if(actor.dinnerSeat!==undefined){
       actor.activity='';delete actor.dinnerSeat;delete actor.dish;delete actor.orderTime;
@@ -214,6 +221,12 @@ export class StreetActivities {
       const target=s.furnitureAt(arrival.lot,arrival.index);
       if(target&&s.available(a,target.b,target.spot)){
         const {spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
+        if(spot.object){
+          a.using={lot:target.b.id,object:spot.object,index:spot.index,exit:{x:spot.x,z:spot.z},height:spot.pose?.height||0,scale:spot.pose?.scale||1};
+          if(spot.pose)Object.assign(a,{x:spot.pose.x,z:spot.pose.z,yaw:spot.pose.yaw});
+          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6}[spot.action];
+          if(duration)a.useUntil=s.time+duration;
+        }
         if(a.dinnerSeat!==undefined)a.outing='menu';
       }else{if(a.dinnerSeat!==undefined)this.finish(a);a.feedback='Someone else is using that spot.';}
       return;
@@ -244,6 +257,10 @@ export class StreetActivities {
     }
   }
   advance(a,dt){
+    if(a.useUntil!==undefined&&this.s.time>=a.useUntil){
+      const action=a.activity;this.leaveFurniture(a);
+      a.feedback={cook:'Your meal is ready.',wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',eat:'That hit the spot.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
+    }
     if(a.outing==='ordered')this.startOrder(a);
     if(a.cookUntil!==undefined&&this.s.time>=a.cookUntil){
       const diner=this.s.actors.get(a.invitedBy),room=this.s.plots.find(b=>b.kind==='restaurant');

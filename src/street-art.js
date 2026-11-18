@@ -556,7 +556,8 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   a.ball(0,1.47,.210,.09,.095,.086,skin);
   a.box(0,1.408,.202,.074,.015,.013,'#ad7767');
   for(const s of [-1,1])a.ball(s*.09,1.48,.207,.037,.049,.028,dark);
-  a.finish();seated.finish();arms.finish();sitting.add(restingArms);g.add(torso,standing,sitting);
+  a.finish();seated.finish();arms.finish();sitting.add(restingArms);
+  const body=new THREE.Group();body.add(torso,standing,sitting);g.add(body);
   const serving=new THREE.Group(),drinks=[];
   torso.add(serving);
   for(const side of [-1,1]){
@@ -574,7 +575,8 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   trayParts.ball(.285,1.02,.07,.205,.30,.22,color);trayParts.ball(.27,.95,.24,.136,.15,.33,skin);
   trayParts.round(.24,1.035,.38,.34,.032,.34,cream);
   trayParts.finish();torso.add(tray);
-  g.setStride=(distance,dt,seated,cup,chat,dish)=>{
+  g.setStride=(distance,dt,seated,cup,chat,dish,gait)=>{
+    if(gait){phase=gait.phase??0;strength=gait.strength??0;}
     tray.visible=!!dish;
     carrying=cup;serving.visible=cup;
     drinks[0].visible=!chat;drinks[1].visible=true;
@@ -584,13 +586,16 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     const pace=seated||dt<=0?0:Math.min(1,distance/dt/2.1);
     strength+=(pace-strength)*(1-Math.exp(-dt*18));
     bob=.027*strength*Math.abs(Math.sin(phase));
+    if(gait){gait.phase=phase;gait.strength=strength;}
     for(const limb of limbs){
       limb.leg.rotation.x=-limb.side*Math.sin(phase)*.48*strength;
       limb.arm.rotation.x=limb.side*Math.sin(phase)*.31*strength;
+      limb.arm.rotation.z=0;
       limb.arm.visible=!cup&&(!dish||limb.side<0);
     }
   };
   g.setSeated=(value,part,time=0)=>{
+    torso.rotation.x=0;
     standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
     restingArms.visible=!part&&!carrying;
     for(const [i,arm] of hands.entries()){
@@ -599,10 +604,27 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
         arm.rotation.x=noteAtStep(part,step)!==null&&i===step%2?.13*Math.sin((beat-step)*Math.PI):0;}
     }
   };
+  const book=new THREE.Group(),bookArt=new Pieces(book);body.add(book);
+  bookArt.box(0,1.04,.42,.42,.055,.29,'#9b6657');bookArt.box(0,1.075,.42,.38,.025,.26,'#eee0c6');
+  bookArt.box(0,1.09,.42,.015,.018,.26,'#bfa988');bookArt.finish();book.visible=false;
+  g.setDomestic=(action,time,use)=>{
+    const lying=action==='rest',reading=action==='read'||action==='write';
+    body.rotation.x=lying?-Math.PI/2:0;body.position.y=lying?(use?.height||.82):0;
+    body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
+    if(action==='read'){
+      restingArms.visible=false;for(const arm of hands){arm.visible=true;arm.rotation.x=0;}
+    }
+    if(lying||!['read','write','cook','wash','shower','eat','stretch','bathroom'].includes(action))return;
+    for(const limb of limbs){
+      limb.arm.rotation.x=reading?-.9:action==='stretch'?-2.3+.25*Math.sin(time*2):-.75+.17*Math.sin(time*5+limb.side);
+      limb.arm.rotation.z=action==='stretch'?limb.side*.45:0;
+    }
+    torso.rotation.x=action==='bathroom'?.12:action==='write'?.08:0;
+  };
   g.traverse(m=>{if(m.isMesh)m.castShadow=false;});
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(.95,.76).rotateX(-Math.PI/2),new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,
-    vertexShader:'varying vec2 pos;void main(){pos=uv*2.-1.;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    vertexShader:'varying vec2 pos;void main(){pos=uv*2.-1.;vec4 p=vec4(position,1.);\n#ifdef USE_INSTANCING\np=instanceMatrix*p;\n#endif\ngl_Position=projectionMatrix*modelViewMatrix*p;}',
     fragmentShader:'varying vec2 pos;void main(){float a=1.-smoothstep(.12,1.,dot(pos,pos));gl_FragColor=vec4(.14,.12,.10,.24*a);}'
   }));shadow.position.y=.06;shadow.renderOrder=1;g.add(shadow);
   g.setStride(0,0,false,false,false);g.setSeated(false);return g;
@@ -706,7 +728,7 @@ export function townExteriors(island,detail,scene){
       }}
   const interiors=new HomeInteriors(island,parent);
   const dispose=()=>{scene.remove(parent);disposeGroup(parent);};
-  dispose.update=(pos,eye)=>interiors.update(pos,eye);
+  dispose.update=(pos,eye,session)=>interiors.update(pos,eye,session);
   dispose.interiors=interiors;
   return dispose;
 }

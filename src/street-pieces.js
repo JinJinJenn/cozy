@@ -87,7 +87,10 @@ export class Pieces {
   ball(...args){this.put(ball,...args);}
   leaves(...args){this.put(foliage,...args);}
   finish(){for(const [shape,items] of this.batches){const mesh=new THREE.InstancedMesh(shape,shape===clapboard?sidingFinish:shape===foliage?leafMaterial:shape.userData.slate?roofFinish:material,items.length);
-    items.forEach(([m,c,visibility],i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,c);if(visibility)(visibility.instances??=[]).push({mesh,index:i,matrix:m});});mesh.computeBoundingSphere();mesh.castShadow=true;mesh.receiveShadow=true;this.parent.add(mesh);}}
+    items.forEach(([m,c,visibility],i)=>{mesh.setMatrixAt(i,m);mesh.setColorAt(i,c);if(visibility)(visibility.instances??=[]).push({mesh,index:i,matrix:m});});mesh.computeBoundingSphere();mesh.castShadow=true;mesh.receiveShadow=true;
+    // Instance transforms carry the geometry. The batch's local transform never
+    // changes, even when its animated parent does.
+    mesh.matrixAutoUpdate=false;this.parent.add(mesh);}}
 }
 const hiddenMatrix=new THREE.Matrix4().makeScale(0,0,0);
 export function setPieceVisibility(handle,visible){

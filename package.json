@@ -1,6 +1,6 @@
 {
   "name": "cozy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Cozy island open world: seeded heightmap island generator and viewer.",
@@ -11,6 +11,7 @@
     "test:viewer": "node tools/test-viewer.mjs",
     "test:street": "node tools/test-street.mjs",
     "test:homes": "node tools/test-homes.mjs",
+    "test:domestic": "node tools/test-domestic.mjs",
     "shots": "node tools/shots.mjs"
   },
   "dependencies": { "three": "0.180.0" },

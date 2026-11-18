@@ -77,7 +77,7 @@ export class Simulation {
     this.stats = { teleports: 0, maxStuck: 0, chats: 0, seatClaims: 0, seatRefusals: 0, lampsUsed: 0, greets: 0 };
     const homes = this._assignHomes();
     const host = createObjects();
-    placeDefaults(host, ctx, homes, this.rng);
+    if(ctx.placeObjects)ctx.placeObjects(host);else placeDefaults(host, ctx, homes, this.rng);
     this.objects = asNpcReplica(host);
     this.npcs = homes.map((h, i) => this._makeNpc(i, h));
     this.lastWeather = this.weather().state;
@@ -89,13 +89,18 @@ export class Simulation {
     const cand = [];
     for (const lot of ctx.plan.lots) {
       if (!lot.buildable||lot.use) continue;
-      const c = centroid(lot.poly);
+      const location=ctx.homeLocations?.get(lot.id);
+      if(ctx.homeLocations&&!location)continue;
+      const c = location?[location.x,location.z]:centroid(lot.poly);
       if (!nav.land(c[0], c[1])) continue;
       const node = nav.nearestNode(c[0], c[1], 80);
       if (node < 0) continue;
       cand.push({ lotId: lot.id, x: r2(c[0]), z: r2(c[1]), door: nav.nodes[node].slice(), comp: nav.comp[node] });
     }
     if (!cand.length) throw new NoUsableHomesError('sim: settlement has no usable home lots');
+    // The live city gives each usable parcel its own household. Keep the small
+    // clustered population mode for deterministic package fixtures and replays.
+    if(cfg.population==='town')return cand;
     const per = new Map();
     for (const c of cand) per.set(c.comp, (per.get(c.comp) || 0) + 1);
     let best = null;
@@ -123,13 +128,14 @@ export class Simulation {
     const wake = r2(6 + traits.nightOwl * 0.9 + rng.range(-0.35, 0.35));
     const bed = r2(20.8 + traits.nightOwl * 0.9 + rng.range(-0.2, 0.2));
     const n = {
-      id: `n${i}`, name: NAMES[i % NAMES.length], traits, wake, bed, pace: r2(rng.range(0.9, 1.1)),
+      id: `n${i}`, name: NAMES[i % NAMES.length]+(i>=NAMES.length?' '+(1+Math.floor(i/NAMES.length)):''), traits, wake, bed, pace: r2(rng.range(0.9, 1.1)),
       home: { lotId: home.lotId, x: home.x, z: home.z, door: home.door, comp: home.comp },
       pos: [home.x, home.z], heading: 0, mood: 0, sleeping: false, homeMode: false, recheck: false,
       action: null, seat: null, lastSat: -1e9, lastChat: -1e9, greeted: {}, fails: 0, stuck: 0, lastPos: [home.x, home.z],
     };
     const h = this.hourOfDay();
     if (h >= bed || h < wake) { n.sleeping = true; n.action = { kind: 'sleep', interruptible: false }; }
+    else if(this.cfg.population==='town')n.action={kind:'idle',until:i%16,interruptible:true};
     return n;
   }
 
@@ -418,6 +424,7 @@ export class Simulation {
     for (const o of this.objects.world.list()) {
       const info = seatInfo(o);
       if (!info) continue;
+      if(this.ctx.canUseSeat&&!this.ctx.canUseSeat(o))continue;
       if (info.cap - info.users.length - this._reservedByOthers(o.id, n.id) <= 0) continue;
       if (!this._tethered(n, o.pos[0], o.pos[2])) continue;
       const d = Math.hypot(o.pos[0] - n.pos[0], o.pos[2] - n.pos[1]);
@@ -572,10 +579,11 @@ export class Simulation {
       case 'sit': {
         this._unreserve(then.objectId, n.id);
         const o = this.objects.world.get(then.objectId), info = o && o.alive ? seatInfo(o) : null;
-        const res = info ? tryAct(this.objects, o.id, info.layerId, info.join, { who: npcWho(n.id) }) : { ok: false, code: 'gone' };
+        const res = info&&(!this.ctx.canUseSeat||this.ctx.canUseSeat(o)) ? tryAct(this.objects, o.id, info.layerId, info.join, { who: npcWho(n.id) }) : { ok: false, code: 'gone' };
         if (!res.ok) { this.stats.seatRefusals++; this._log(n.id, 'seatRefused', { object: then.objectId, code: res.code }); this._idle(n, 2); break; }
         this.stats.seatClaims++;
         n.pos = [r3(o.pos[0]), r3(o.pos[2])];
+        if(this.cfg.population==='town')n.heading=Math.PI/2-o.rot*Math.PI/180;
         n.seat = { objectId: o.id, layerId: info.layerId, leave: info.leave };
         n.action = { kind: 'sit', until: tk + this._steps(this.rng.range(40, 140)), since: tk, interruptible: true };
         this._log(n.id, 'sitAndRest', { object: o.id, def: o.defId });

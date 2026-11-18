@@ -194,8 +194,8 @@ export class Street {
       if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
       }
-      const label=q.part?'Play '+q.part:q.action==='dance'?'Dance':names[place.kind];
-      offer(this.point.set(q.x,y+.55,q.z),.70,{type:'furniture',lot:place.id,index:q.index},label);
+      const label=q.label||(q.part?'Play '+q.part:q.action==='dance'?'Dance':names[place.kind]);
+      offer(q.target?this.point.set(q.target.x,q.target.y,q.target.z):this.point.set(q.x,y+.55,q.z),.55,{type:'furniture',lot:place.id,index:q.index},label);
     }
     return best;
   }
@@ -353,9 +353,10 @@ export class Street {
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
       mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
-      const seated=['sit','dine','relax','piano'].includes(a.activity);
+      const seated=['sit','dine','relax','piano','bathroom','eat','read'].includes(a.activity);
       mesh.setSeated(seated,a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
+      mesh.setDomestic(a.activity,s.time,a.using);
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
@@ -365,7 +366,7 @@ export class Street {
       target.set(m.position.x,m.position.y+1.48,m.position.z);
     }
     const detailRoof=this.art.update(m.position,s.layout,this.camera.position,this.buildLot?.id);
-    this.openRoof=this.clearExteriors.update(m.position,this.camera.position)||detailRoof;
+    this.openRoof=this.clearExteriors.update(m.position,this.camera.position,s)||detailRoof;
     this.walkMarker.visible=!this.buildLot&&local.walking===true&&Array.isArray(local.goal);
     if(this.walkMarker.visible){
       const [x,z]=local.goal;this.walkMarker.position.set(x,floorAt(this.island,this.plots,x,z,s.layout)+.20,z);
@@ -415,7 +416,7 @@ export class Street {
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
     $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
-    if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing'}[local.activity]||local.activity):spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind];
+    if(near)use.textContent=local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',cook:'cooking',wash:'washing',shower:'showering',bathroom:'bathroom visit',eat:'eating',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }

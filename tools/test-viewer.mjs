@@ -116,7 +116,7 @@ try {
       await page.evaluate(id => window.__cozy.load(id, 'cozy-1', 'town'), preset);
     }
     const i = await info();
-    assert.ok(i.roads > 0 && i.plots > 0 && i.residents.length === 8);
+    assert.ok(i.roads > 0 && i.plots > 0 && i.residents.length > 8);
     console.log(preset, i.roads, 'road pieces,', i.plots, 'plots,', i.residents.length, 'residents');
   }
   await page.evaluate(async () => {

@@ -1,6 +1,6 @@
 # Cozy working spec
 
-Version 0.2, 17 November 2026. This records the current direction and the gaps that
+Version 0.3, 17 November 2026. This records the current direction and the gaps that
 remain; it is not a claim that the complete game or editor is finished.
 
 ## Direction
@@ -16,7 +16,32 @@ landmarks and deliberate public space. Populate both sides where the terrain and
 parcels permit. Preserve parks, water and the countryside between neighborhoods.
 More parcels alone will not resolve repetitive architecture or empty scenery.
 
-## What 0.2 delivers
+## What 0.3 adds
+
+The public-town and private-home direction is selected. Read the
+[multiplayer and save contract](MULTIPLAYER-PLAN.md) before changing ownership,
+joining or persistence. Automatic public joining and permanent parcel ownership
+are not features of this release.
+
+Generated homes support resting, reading, cooking, washing and stretching, plus
+desk, dining and washroom activities where those furnishings fit. The host reserves
+the object, routes to a validated approach and releases it to a safe floor point.
+Timed activities have visible poses or effects and completion feedback. These are
+social activities, not an inventory, food-economy or needs system. Kitchen and bed
+models gain detail; wall-mounted bookshelves leave compact studios navigable.
+
+Petalwood simulates 457 generated-home residents plus the two waterfront social
+residents. The town simulation runs in a dedicated worker, through real home doors
+and around the same collision geometry. Residents use visible roadside benches.
+The camera draws their original articulated avatar geometry in shared batches;
+offscreen residents keep their routines. Signed guest frames include the full
+population in a compact representation. No population is removed to improve FPS.
+
+The runtime prepares material programs before play and avoids recomposing static
+mesh transforms. Worker tick timings and render-frame timings must be reported
+separately; moving work off the render thread does not make that work free.
+
+## What 0.2 delivered
 
 - Petalwood keeps its 534 published parcel boundaries and gains 54 frontage parcels.
   Nine of the additions are on the waterfront road. Harbor Green remains open.

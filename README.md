@@ -2,6 +2,8 @@
 
 Walk Harbor Town on a continuous island. The waterfront has two homes, Jenn's Café, Bay Kitchen, Tidepool Spa, Harbor Gym and The Moon Room. Find a place points toward its front door. [Play Jenn's Cozy Town](https://jinjinjenn.github.io/cozy/) · [Devlog](docs/DEVLOG.html)
 
+Version 0.3 runs 457 generated-home residents in a dedicated worker, with two additional waterfront social residents. All continue their routines offscreen. [Public town and personal home plan](docs/MULTIPLAYER-PLAN.md) records the selected multiplayer direction; automatic public joining and personal-home claims are still pending.
+
 ## Live mode and building
 
 Under **Find a place**, choose **Bluebell House** and **Visit Bea for tea**. Bea brings tea from her kitchen and sits opposite you. During the visit, the owner can open **Build**, choose **Bluebell House** and drag its front-right corner. The two sliders adjust either wall individually. Undo restores both dimensions of a corner edit.
@@ -10,7 +12,7 @@ Walk with WASD, the arrow keys or the touch pad. Drag to orbit and press E or ta
 
 Open Build and choose Peach Cottage, Bluebell House, The Moon Room or Jenn's Café. Drag the wall handle and release it to commit, or set the offset with the slider and choose Move wall and door. Each home and the club can grow or shrink toward the street by up to 1.5 metres. Its doorway, porch, roof and floor follow the front wall. The café has a movable interior partition. Undo applies to the selected property. The owner edits while guests keep playing. Layout and lanterns are stored on the owner's browser. Multiplayer opens a guest link and optional public listing. Keep the owner tab open while friends visit.
 
-Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Petalwood now has 588 parcels, with 54 new frontage lots and homes on both sides of the waterfront road. All 457 generated residential homes can be entered: click a door or choose a home under Find a place. Inside, the roof cuts away and the sofa can be reserved by a visitor. The seven original waterfront venues retain their activities and building tools. The civic hall and market buildings remain exterior models.
+Island map opens the terrain and settlement inspector. Walk in Harbor Town returns to the waterfront. Petalwood now has 588 parcels, with 54 new frontage lots and homes on both sides of the waterfront road. All 457 generated residential homes can be entered: click a door or choose a home under Find a place. Inside, the roof cuts away. Click beds to rest, bookshelves to read, kitchens to cook or wash, and rugs to stretch. Larger plans add desk, dining and washroom activities. The host reserves each object and releases it safely when you leave. The seven original waterfront venues retain their activities and building tools. The civic hall and market buildings remain exterior models.
 
 Scroll farther out while walking to see the neighborhood. Graphics at the top right offers Auto, Low, Balanced and High. Low retains the buildings and interiors, caps rendering at one million pixels and turns off shadows. See the [working spec](docs/WORKING-SPEC.md) for the room-editor direction and the remaining visual and performance targets.
 
