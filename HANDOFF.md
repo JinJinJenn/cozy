@@ -19,6 +19,12 @@ lamp. The host reloaded and recovered its state. The same run exercised both
 sinks, the stove, shower and occupied bed. All 457 residents moved in its
 120-step simulation check and zero occupied a blocked position.
 
+Both [hosted WebRTC jobs](https://github.com/JinJinJenn/cozy/actions/runs/44221410432)
+passed on the release commit. At 720p on the physical Intel 0x7D67 adapter,
+Low street and town orbits sustained 59.66 and 59.82 completed FPS. The longest
+street frame took 62.1 ms. See the [rendering measurements](docs/RENDERING-REVIEW.md)
+for the workload, repeatable command and device coverage.
+
 Version 0.3.2 lights the graded terrain with the same sun as the houses. Open
 sea uses fewer triangles and the minimap paints roads into its 208-pixel map.
 All 111 unit checks and the four-locale viewer passed. With 457 residents

@@ -12,11 +12,16 @@ const baseline=process.argv.find(s=>s.startsWith('--baseline='))?.split('=')[1];
 if(baseline&&!/^[a-f0-9]{7,40}$/.test(baseline))throw Error('Expected a commit hash');
 const software=process.argv.includes('--software'),cache=new Map(),results=[];
 const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')?4:1;
+const trackCompletion=process.argv.includes('--gpu-completion');
+const adapter=process.env.COZY_ADAPTER_LUID,expectedGpu=process.env.COZY_EXPECT_GPU;
+if(adapter&&(software||!/^-?\d+,\d+$/.test(adapter)))throw Error('Use a decimal high,low Windows adapter LUID in hardware mode');
+const viewport=process.argv.includes('--720p')?{width:1280,height:720}:{width:1920,height:1080};
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
-  args:['--mute-audio','--enable-unsafe-swiftshader',...(software?['--use-angle=swiftshader']:[])]});
+  args:['--mute-audio','--enable-unsafe-swiftshader',...(software?['--use-angle=swiftshader']:[]),
+    ...(adapter?['--use-angle=d3d11','--use-adapter-luid='+adapter]:[])]});
 try{
   for(const mode of [...baseline?['baseline']:[],'balanced','low']){
-    const page=await browser.newPage({viewport:{width:1920,height:1080},deviceScaleFactor:1});
+    const page=await browser.newPage({viewport,deviceScaleFactor:1});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     if(cpu>1){const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate:cpu});}
     await page.addInitScript(()=>{window.benchLong=[];new PerformanceObserver(l=>window.benchLong.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask',buffered:true});});
@@ -35,29 +40,53 @@ try{
     await page.goto('https://cozy.test/cozy/?net=local&view=street');
     await page.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});
     const gpu=await page.evaluate(()=>{const gl=document.querySelector('canvas').getContext('webgl2'),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown';});
+    if(expectedGpu&&!gpu.toLowerCase().includes(expectedGpu.toLowerCase()))throw Error('Unexpected WebGL adapter: '+gpu);
     for(const distance of [24,180]){
       await page.evaluate(async d=>{const c=window.__cozy;c.controls.maxDistance=420;const t=c.controls.target;
         if(d>100)c.setView('centre');
         await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();},distance);
-      const sample=await page.evaluate(async ({count,orbit,distance})=>{
+      const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion})=>{
         for(let i=0;i<30;i++)await new Promise(requestAnimationFrame);
         window.benchLong=[];
         let peakCalls=0,peakTriangles=0,maxVisibleResidents=0;
-        const intervals=[];let last=performance.now();
+        const intervals=[],pending=[],queueDepths=[];
+        const gl=trackCompletion?document.querySelector('#gl').getContext('webgl2'):null;
+        function retireFrames(){
+          while(pending.length){
+            const status=gl.clientWaitSync(pending[0],0,0);
+            if(status===gl.TIMEOUT_EXPIRED)break;
+            if(status===gl.WAIT_FAILED)throw Error('Could not observe GPU frame completion');
+            gl.deleteSync(pending.shift());
+          }
+        }
+        const start=performance.now();let last=start;
         for(let i=0;i<count;i++){
           await new Promise(requestAnimationFrame);const now=performance.now();intervals.push(now-last);last=now;
           const info=window.__cozy.info();peakCalls=Math.max(peakCalls,info.calls);peakTriangles=Math.max(peakTriangles,info.tris);maxVisibleResidents=Math.max(maxVisibleResidents,info.simulation?.visible||0);
+          if(gl){
+            retireFrames();queueDepths.push(pending.length);
+            const fence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);
+            if(!fence)throw Error('WebGL frame fence unavailable');
+            pending.push(fence);gl.flush();
+          }
           if(orbit){const c=window.__cozy,t=c.controls.target,a=i*.012;c.camera.position.set(t.x+Math.sin(a)*distance*.8,t.y+distance*.6,t.z+Math.cos(a)*distance*.8);c.controls.update();}
         }
-        intervals.sort((a,b)=>a-b);
+        while(pending.length){
+          await new Promise(requestAnimationFrame);retireFrames();
+          if(performance.now()-last>10000)throw Error('Last GPU frame did not finish');
+        }
+        const completedFps=count*1000/(performance.now()-start);
+        intervals.sort((a,b)=>a-b);queueDepths.sort((a,b)=>a-b);
         const pct=(a,p)=>a[Math.floor((a.length-1)*p)];
-        return {frames:count,peakCalls,peakTriangles,maxVisibleResidents,frameMs:{p50:pct(intervals,.5),p95:pct(intervals,.95),p99:pct(intervals,.99),max:intervals.at(-1)},longTasks:window.benchLong,info:window.__cozy.info()};
-      },{count:software?60:360,orbit,distance});
+        return {frames:count,peakCalls,peakTriangles,maxVisibleResidents,frameMs:{p50:pct(intervals,.5),p95:pct(intervals,.95),p99:pct(intervals,.99),max:intervals.at(-1)},
+          ...(gl?{gpuCompletion:{framesPerSecond:completedFps,previousFramesInFlightP95:pct(queueDepths,.95)}}:{}),
+          longTasks:window.benchLong,info:window.__cozy.info()};
+      },{count:software?60:360,orbit,distance,trackCompletion});
       sample.residents=sample.info.residents.length;
       delete sample.info.residents;
       const record={mode,distance,gpu,...sample,errors};results.push(record);console.log(JSON.stringify(record));
     }
     await page.close();
   }
-}finally{await browser.close();await mkdir(path.dirname(out),{recursive:true});await writeFile(out,JSON.stringify({time:new Date().toISOString(),baseline,software,orbit,mainThreadCpuThrottle:cpu,viewport:[1920,1080],results},null,2));}
+}finally{await browser.close();await mkdir(path.dirname(out),{recursive:true});await writeFile(out,JSON.stringify({time:new Date().toISOString(),baseline,software,orbit,mainThreadCpuThrottle:cpu,viewport:[viewport.width,viewport.height],results},null,2));}
 if(results.some(r=>r.errors.length))process.exitCode=1;

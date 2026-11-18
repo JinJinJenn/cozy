@@ -100,7 +100,7 @@ larger visual upgrade requested for the trees and terrain.
 
 Use `--full-only` to sample the whole renderer without isolation variants.
 
-## Terrain findings
+## Terrain findings on the v0.3 baseline
 
 - Terrain slope light, heightfield shadows and cavity shade are baked into vertex
   colors in `packages/island-gen/src/chunks.js`.
@@ -119,7 +119,7 @@ Use `--full-only` to sample the whole renderer without isolation variants.
   deformed subdivision-2 icosahedron repeated into tree crowns. In the measured view
   foliage accounted for approximately 431,000 submitted triangles.
 
-## Work order
+## Startup and frame measurements
 
 Version 0.3.3 moves furniture station routing out of city startup. Full home
 geometry data for collision and the resident worker are available at startup.
@@ -128,6 +128,40 @@ Six alternating headless desktop Chrome loads used 1280 × 720 Low, localhost,
 fresh browser contexts and local networking. Navigation to the ready viewer and
 street session took 2.889, 2.811 and 2.619 seconds on v0.3.2 and 1.712, 1.744
 and 1.697 seconds on v0.3.3. Every sample had 457 residents and the worker.
+
+### Physical integrated GPU
+
+Headless Chrome reported Intel(R) Graphics, PCI device 0x7D67, via ANGLE
+Direct3D 11 on Windows. The installed graphics driver was 32.0.101.5869.
+At 1280 × 720 Low, both fixed cameras had 16.7 ms median and 16.8 ms p95
+frame intervals with 457 residents. GPU fences confirmed 59.65 completed frames
+per second over the bay and 59.70 at the café over 240 frames each. In both
+samples, at least 95 percent of frames had retired the previous frame's fence
+by the following callback. The bay submitted 1,639,019 triangles in 1,142 calls.
+
+Each moving-camera sample covered 360 frames after warmup. The street orbit
+ran in walking mode. The town orbit included up to 89 visible residents.
+
+| Preset and orbit | Completed FPS | p95 frame interval | Longest interval |
+| --- | ---: | ---: | ---: |
+| Low, street | 59.66 | 17.5 ms | 62.1 ms |
+| Low, town | 59.82 | 17.9 ms | 36.1 ms |
+| Balanced, street | 59.83 | 17.5 ms | 26.0 ms |
+| Balanced, town | 59.82 | 17.6 ms | 38.2 ms |
+
+The isolated 62.1 ms interval occurred on Low during the street orbit. A longer
+walk through several districts with profiling enabled would help locate hitches.
+
+To run the moving-camera comparison on a Windows hybrid machine, set
+`COZY_ADAPTER_LUID` to the target adapter's current decimal high,low DXGI LUID
+and `COZY_EXPECT_GPU` to a distinguishing substring of its WebGL renderer.
+Run `node tools/benchmark.mjs --720p --orbit --gpu-completion`. The harness checks
+the renderer name before timing and waits for the final GPU fence. The result
+measures browser rendering on a desktop processor with this particular iGPU.
+Older laptops, phones, thermal throttling and display presentation need their
+own measurements.
+
+### Terrain and water changes
 
 The v0.3.2 terrain pass supplies packed slope normals and unlit albedo, removes
 skirts from equal-resolution viewer tiles and simplifies nearly uniform offshore
@@ -140,16 +174,18 @@ poses with all 457 residents active. Hardware draws at the bay went from
 603,434 to 401,962 in 503 calls. Desktop median and p95 frame intervals held
 at 16.7 and 16.8 ms over 120 frames per view. In 30-frame SwiftShader samples,
 bay median/p95 went from 466.6/466.8 to 416.7/433.3 ms and café median/p95 from
-166.6/183.3 to 116.7/133.3 ms. Physical low-end device measurements remain open.
+166.6/183.3 to 116.7/133.3 ms.
+
+## Remaining renderer work
 
 1. Improve the actual models and scene representation first. Build original tree
    crowns and architecture with deliberate silhouettes, shared materials and less
    hidden geometry. Preserve detail from street to town; no abrupt cheap-model swap.
-2. Separate terrain albedo from lighting. Use coherent slope normals, material
-   variation and contact shading. Keep a measured Low path and compare both street
-   and whole-town views. Better terrain composition is also a generator/art task.
-3. Review unnecessary terrain skirts, offshore water topology and static scene
-   traversal. Benchmark each change against unchanged geometry and visual captures.
+2. Improve contact shading, transitions at the riverbank and terrain composition.
+   Compare both street and whole-town views on the Intel adapter.
+3. Profile terrain draw submission. In the wide bay view, terrain uses 319 calls
+   and water uses 243 of 1,142 total. Exterior crowns contribute 489,116 triangles.
+   Compare future changes at this same camera, including the visible result.
 4. Keep canonical home/world/object state independent of Three.js objects. A view
    adapter consumes snapshots and stable IDs; saves and network authority stay in
    the game model. This also serves the connected-room editor and prop contracts.
