@@ -74,7 +74,7 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   let signalling=!isolatedRelay;
   const visitor=await profile(()=>signalling);
   try{
-    await visitor.goto(link);await ready(visitor);await panel(visitor);
+    await visitor.goto(link);await ready(visitor);
     const actor=await visitor.evaluate(async interrupt=>{
       const s=window.__cozy.street.session;await s.wide;
       if(interrupt){
@@ -85,6 +85,7 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
     },isolatedRelay);
     signalling=true;
     await wait(visitor,()=>window.__cozy.street.session.connected);
+    await panel(visitor);
     await Promise.all([visibleName(visitor,'Marigold'),visibleName(visitor,'River')]);
     await wait(visitor,()=>document.querySelectorAll('#player-roster button').length===3);
     assert.equal(await visitor.evaluate(()=>window.__cozy.street.session.id),actor);

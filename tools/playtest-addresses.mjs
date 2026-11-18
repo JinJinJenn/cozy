@@ -46,22 +46,9 @@ export async function playAddresses({host,guest,paired,ready,wait,navigate,profi
     return {lot:s.near(s.actors.get(s.id))?.id,pub:s.pub,revision:s.layout.revision,owner:s.canBuild};
   });
   assert.deepEqual(privateHome,{lot:mine.home,...originals[0],owner:true});
-  await host.locator('#social-open').click();await host.locator('#copy-street').click();
-  const invite=await host.locator('#invite-url').inputValue();assert.equal(new URL(invite).searchParams.get('home'),mine.home);
-  const friend=await profile();
-  try{
-    await friend.goto(invite);await ready(friend);
-    await wait(friend,lot=>{const s=window.__cozy.street.session;return s.space==='visit'&&s.connected&&!s.canBuild&&s.near(s.actors.get(s.id))?.id===lot;},mine.home);
-  }catch(error){
-    for(const [role,p] of [['host',host],['visitor',friend]])console.error('Private admission',role,await p.evaluate(async()=>{
-      const s=window.__cozy?.street?.session;if(!s)return {started:false};
-      const {homeAt}=await import('./src/home-plan.js'),a=s.actors.get(s.id);
-      return {space:s.space,ready:s.ready,connected:s.connected,actors:s.actors.size,peers:s.peers.size,transports:s.connections.length,
-        seq:s.seq,signed:s.verifiedSeq,invited:s.invitedHome,home:a&&homeAt(s.island,a)?.id,near:a&&s.near(a)?.id,
-        entry:a?.entryHome,feedback:a?.feedback,transportError:s.transportError,sessionError:s.error};
-    }));
-    throw error;
-  }finally{await friend.context().close();}
+  // Return during the real address grace period. Starting a third software
+  // renderer and negotiating a separate private visit tests a different clock.
+  await host.locator('#social-open').click();
   await wait(guest,()=>window.__cozy.street.session.owner);
   await wait(guest,id=>window.__cozy.street.session.addresses.book.byLot(id)?.until>Date.now(),mine.lot);
   assert.equal((await own(guest)).lot,theirs.lot);
@@ -76,5 +63,22 @@ export async function playAddresses({host,guest,paired,ready,wait,navigate,profi
   if(!await guest.locator('#social-pane').isVisible())await guest.locator('#social-open').click();
   await navigate(guest,'#address-private');await ready(guest);
   assert.deepEqual(await guest.evaluate(()=>{const s=window.__cozy.street.session;return {pub:s.pub,revision:s.layout.revision,home:s.near(s.actors.get(s.id))?.id};}),{...originals[1],home:lot});
+  await guest.locator('#social-open').click();await guest.locator('#copy-street').click();
+  await guest.locator('#invite-url').waitFor({state:'visible'});
+  const invite=await guest.locator('#invite-url').inputValue();assert.equal(new URL(invite).searchParams.get('home'),theirs.home);
+  const friend=await profile();
+  try{
+    await friend.goto(invite);await ready(friend);
+    await wait(friend,lot=>{const s=window.__cozy.street.session;return s.space==='visit'&&s.connected&&!s.canBuild&&s.near(s.actors.get(s.id))?.id===lot;},theirs.home);
+  }catch(error){
+    for(const [role,p] of [['host',guest],['visitor',friend]])console.error('Private admission',role,await p.evaluate(async()=>{
+      const s=window.__cozy?.street?.session;if(!s)return {started:false};
+      const {homeAt}=await import('./src/home-plan.js'),a=s.actors.get(s.id);
+      return {space:s.space,ready:s.ready,connected:s.connected,actors:s.actors.size,peers:s.peers.size,transports:s.connections.length,
+        seq:s.seq,signed:s.verifiedSeq,invited:s.invitedHome,home:a&&homeAt(s.island,a)?.id,near:a&&s.near(a)?.id,
+        entry:a?.entryHome,feedback:a?.feedback,transportError:s.transportError,sessionError:s.error};
+    }));
+    throw error;
+  }finally{await friend.context().close();}
   console.log('PASS competing public house claims, explicit compatible alternative, two isolated private saves, private house invite, signed host handover, reconnect, teleport and release');
 }

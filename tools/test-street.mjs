@@ -20,7 +20,7 @@ try{
     // Keep the CSS viewport intact for pointer tests while three isolated
     // WebRTC profiles share the CI runner's software rasterizer.
     const photo=process.argv.some(arg=>arg.endsWith('-shot')||arg==='--shot');
-    const scale=relay && !photo ? 0.6 : 1;
+    const scale=relay && !photo ? (process.env.CI ? .4 : .6) : 1;
     const context=await browser.newContext({viewport:{width:720,height:432},deviceScaleFactor:scale,...options});
     if(installRelay)await installRelay(context);
     if(relay&&!photo)await context.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
@@ -170,10 +170,16 @@ try{
   const chair=await guest.evaluate(async()=>{
     const {Vector3}=await import('three'),{toWorld}=await import('./src/street-world.js');
     const c=window.__cozy,b=c.street.plots.find(p=>p.kind==='house'),q=toWorld(b,1.38,-.14);
+    // Walking keys leave the camera pointed along the last step. Frame the
+    // chair from above so its seat stays clear of the seated avatar and HUD.
+    const eye=toWorld(b,2.8,3.5);
+    c.camera.position.set(eye.x,b.y+5.5,eye.z);c.controls.update();c.street.render();
     const camera=c.camera.clone();camera.position.lerp(c.controls.target,1-c.street.cameraFraction());camera.updateMatrixWorld();
     const point=new Vector3(q.x,b.y+.55,q.z).project(camera);
-    return {x:(1+point.x)*innerWidth/2,y:(1-point.y)*innerHeight/2};
+    const x=(1+point.x)*innerWidth/2,y=(1-point.y)*innerHeight/2;
+    return {x,y,hit:document.elementFromPoint(x,y)?.id};
   });
+  assert.equal(chair.hit,'gl','The Bluebell chair must be visible through the canvas');
   await guest.mouse.click(chair.x,chair.y);
   await guest.getByRole('button',{name:'Sit down',exact:true}).and(guest.locator('#world-action')).click();
   await host.waitForFunction(id=>window.__cozy.street.session.actors.get(id)?.activity==='sit',guestId);
