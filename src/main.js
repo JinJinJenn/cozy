@@ -271,8 +271,9 @@ async function load(presetId,seed,view='oblique',viewOpts){
     const t1=performance.now();terrainReady=buildIslandSurface(generation);await terrainReady;
     if(generation!==loadGen) return;
     $('busy').textContent='Preparing town materials...';
-    await town.crowd.warm(renderer,scene,camera);
-    if(generation!==loadGen) return;
+    // Submit every material while this island owns it. The GPU can compile while
+    // the minimap worker runs, even if a new seed disposes this scene meanwhile.
+    renderer.compile(scene,camera);
     const tChunks=performance.now()-t1;
     const px=await client.minimap(208,208);
     if(generation!==loadGen) return;

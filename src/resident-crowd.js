@@ -153,12 +153,6 @@ export class ResidentCrowd {
       }
     }
   }
-  async warm(renderer,scene,camera){
-    const previous=[];
-    for(const b of this.batches.values()){previous.push(b.mesh.visible);b.mesh.visible=true;}
-    try{await renderer.compileAsync(scene,camera);}
-    finally{let i=0;for(const b of this.batches.values())b.mesh.visible=previous[i++];}
-  }
   dispose(){
     for(const b of this.batches.values()){this.parent.remove(b.mesh);b.mesh.dispose();}
     for(const rig of [this.rig,this.car])rig.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.geometry.dispose();m.material.dispose();}});

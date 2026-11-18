@@ -653,7 +653,10 @@ export class StreetSession {
       }
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
-      state.brake=m.brake===true?(Number.isFinite(m.brakePressure)&&m.brakePressure>0&&m.brakePressure<1?m.brakePressure:1):0;
+      state.brake=m.brake===true;
+      if(state.brake&&Number.isFinite(m.brakePressure)&&m.brakePressure>0&&m.brakePressure<1){
+        state.brake=m.brakePressure;
+      }
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
       if(this.lobby&&m.parcelBoot===this.boot)state.parcelRevision=m.parcelRevision;
       const cmd=m.cmd,actor=this.actors.get(m.id);

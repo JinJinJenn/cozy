@@ -152,6 +152,26 @@ try {
   assert.notEqual(await page.evaluate(() => window.__cozy.island.seed), 'cozy-1');
   assert.deepEqual(errors, []);
   console.log('PASS four locales, resident movement, overlapping loads, Town camera, minimap, locale and Re-roll controls');
+  // A seed change can dispose the old programs before a slow driver finishes.
+  // Exercise the WebGL path used by GPUs without parallel shader status queries.
+  await page.addInitScript(()=>{
+    const gl=WebGL2RenderingContext.prototype,get=gl.getExtension;
+    gl.getExtension=function(name){return name==='KHR_parallel_shader_compile'?null:get.call(this,name);};
+  });
+  await page.goto(origin+'?shot=1&preset=harborTown&seed=petalwood');await ready();
+  await page.evaluate(async()=>{
+    const c=window.__cozy,busy=document.querySelector('#busy');
+    const second=new Promise((resolve,reject)=>{
+      const observer=new MutationObserver(()=>{
+        if(busy.textContent!=='Preparing town materials...')return;
+        observer.disconnect();c.load('meadowCove','warm-retry','town').then(resolve,reject);
+      });
+      observer.observe(busy,{childList:true,subtree:true});
+    });
+    await Promise.all([c.load('harborTown','warm-first','town'),second]);
+  });
+  assert.equal(await page.evaluate(()=>window.__cozy.island.seed),'warm-retry');
+  assert.deepEqual(errors,[]);console.log('PASS replaced an island during material warm-up on a renderer without parallel shader queries');
   let failures=0;
   await page.route('**/src/street-art.js',route=>{
     if(failures>=2)return route.fallback();

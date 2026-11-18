@@ -4,6 +4,11 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.23.1 preserves the original pressed and released states for touch and
+keyboard brakes over WebRTC. Controller triggers still send intermediate pressures.
+Replacing an island during shader warm-up now completes both load requests. The
+renderer submits the materials before waiting for the minimap worker.
+
 Version 0.23.0 gives the roadster and resident cars a shared three-speed automatic.
 Use Travel, then Drive a car. The gear affects wheel torque, engine braking and sound.
 Rear-tire slip limits acceleration through tight bends. Standard gamepads support
