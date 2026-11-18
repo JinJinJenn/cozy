@@ -1,25 +1,31 @@
 import assert from 'node:assert/strict';
 
 async function clickItem(page,lot,id,label){
-  const point=await page.evaluate(async ({lot,id,label})=>{
-    const c=window.__cozy,st=c.street,h=c.island.homesById.get(lot);
-    const {stationsFor}=await import('./src/street-session.js'),{homeWorld}=await import('./src/home-plan.js'),{Vector3}=await import('three');
-    const spot=stationsFor(h).find(u=>u.object===id),item=h.furniture.find(f=>f.id===id),t=spot.target;
-    st.cameraFocus={x:t.x,z:t.z};
-    for(const [dx,dz] of [[1.7,2.8],[2.2,1.8],[-1.8,2.6],[-2.8,1.7],[.2,2.8]]){
+  const angles=[[1.7,2.8],[2.2,1.8],[-1.8,2.6],[-2.8,1.7],[.2,2.8]],hits=[];
+  for(const [dx,dz] of angles){
+    const point=await page.evaluate(async ({lot,id,label,dx,dz})=>{
+      const c=window.__cozy,st=c.street,h=c.island.homesById.get(lot);
+      const {stationsFor}=await import('./src/street-session.js'),{homeWorld}=await import('./src/home-plan.js'),{Vector3}=await import('three');
+      const spot=stationsFor(h).find(u=>u.object===id),item=h.furniture.find(f=>f.id===id),t=spot.target;
+      st.cameraFocus={x:t.x,z:t.z};
       const eye=homeWorld(h,item.x+dx,item.z+dz);
-      await c.setCamera([eye.x,h.y+2.25,eye.z],[t.x,t.y,t.z]);c.render();
+      await c.setCamera([eye.x,h.y+2.25,eye.z],[t.x,h.y+1.48,t.z]);c.render();
       const cam=c.camera.clone();cam.position.lerp(st.controls.target,1-st.cameraFraction());cam.updateMatrixWorld();
       const v=new Vector3(t.x,t.y,t.z).project(cam),rect=st.controls.domElement.getBoundingClientRect();
       const x=Math.round(rect.left+(1+v.x)*rect.width/2),y=Math.round(rect.top+(1-v.y)*rect.height/2);
-      if(document.elementFromPoint(x,y)!==st.controls.domElement)continue;
+      if(document.elementFromPoint(x,y)!==st.controls.domElement)return null;
       const ray=st.pointerRay({clientX:x,clientY:y});
       if(st.pickAction(ray,false,st.floorPoint(ray,cam.far))?.label===label)return {x,y};
-    }
-    throw Error('Could not pick '+label);
-  },{lot,id,label});
-  await page.mouse.click(point.x,point.y);
-  await page.locator('#world-choice').getByRole('button',{name:label,exact:true}).click();
+      return null;
+    },{lot,id,label,dx,dz});
+    if(!point)continue;
+    await page.mouse.click(point.x,point.y);
+    const choice=page.locator('#world-choice').getByRole('button',{name:label,exact:true});
+    if(await choice.isVisible()){await choice.click();return;}
+    hits.push(await page.locator('#world-action').textContent());
+    await page.keyboard.press('Escape');
+  }
+  throw Error('Could not click '+label+' in the rendered room. Pointer hits: '+JSON.stringify(hits));
 }
 
 export async function playtestStudio({host,guest,open,out}){

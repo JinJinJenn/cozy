@@ -3,7 +3,12 @@ import {randomUUID} from 'node:crypto';
 
 export async function playtestRecovery({host,guest,open,origin,out}){
   const pass=randomUUID(),lot='l93';
-  const menu=async p=>{await p.locator('#social-open').click();await p.locator('#street-saves summary').click();};
+  const menu=async p=>{
+    const social=p.locator('#social-open'),saves=p.locator('#street-saves summary');
+    await social.waitFor({state:'visible',timeout:60000});
+    await social.press('Enter');
+    await saves.waitFor({state:'visible'});await saves.press('Enter');
+  };
   const invite=await host.evaluate(()=>window.__cozy.street.session.invite());
   const source=await host.evaluate(lot=>{
     const c=window.__cozy,s=c.street.session,b=c.island.homesById.get(lot);

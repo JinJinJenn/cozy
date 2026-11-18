@@ -36,12 +36,13 @@ self.onmessage=e=>{
       const start=performance.now(),session=street.session;
       const previous=session.layout;
       session.layout=m.layout;session.actors=new Map(m.actors.map(a=>[a.id,a]));session.activities.routes=new Map(m.routes);
-      if(firstLayout||previous.revision!==m.layout.revision){
+      const revised=previous.revision!==m.layout.revision;
+      if(firstLayout||revised){
         firstLayout=false;
         const homes=[];
         if(!syncInteriors(street.island,previous,m.layout,false,homes))throw Error('The resident worker could not apply the room layout.');
         rerouteResidents(sim,homes);
-        if(!homes.length||m.layout.revision!==previous.revision+1)sim._recheckAll();
+        if(revised&&(!homes.length||m.layout.revision!==previous.revision+1))sim._recheckAll();
       }
       const times=[];
       for(let i=0;i<m.steps;i++){const t=performance.now();sim.step();times.push(performance.now()-t);}

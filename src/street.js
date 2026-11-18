@@ -102,7 +102,7 @@ export class Street {
         }
         this.camera.position.add(target);this.controls.update();return;
       }
-      if(e.code==='Enter'&&!e.target.closest('button,a')){e.preventDefault();this.centerOnPlayer();}
+      if(e.code==='Enter'&&!e.target.closest('button,a,summary')){e.preventDefault();this.centerOnPlayer();}
       if(directions.has(e.code)){e.preventDefault();this.cameraFocus=null;$('world-choice').hidden=true;this.keys.add(e.code);this.input();}
       if(e.code==='KeyE'&&!e.repeat&&!this.buildLot){e.preventDefault();this.use();}
     });

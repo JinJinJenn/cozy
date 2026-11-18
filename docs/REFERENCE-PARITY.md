@@ -38,8 +38,8 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Encrypted file recovery preserves the owner and existing invite. Devices retain separate selectable saves. Offline history merging remains open. |
 | Host departure | Sky Lounge port: successor host and retained layout | Remaining peers elect a new host. Full NPC scheduler and in-flight action handover remain open. |
 | Room creation | Sky Lounge: templates, entrances, named rooms and navigation | Missing general personal-home creation and connected-room editing |
-| Build catalog | Sky Lounge: broad catalog, coordinated sets and configuration | Partial venue-specific terrace placement; reusable catalog and set placement missing |
-| Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Preview, place, rotate and undo existing furniture inside a generated home. Duplicate, remove and multi-item transactions remain open. |
+| Build catalog | Sky Lounge: broad catalog, coordinated sets and configuration | Terrace furnishings and four reusable home items are available. Set placement and catalog expansion remain open. |
+| Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Preview, move, rotate and undo in a generated home. Owners can place chairs and easels from storage and pack them again. Duplication and multi-item edits remain open. |
 | Surface placement | Sky Lounge: floor/wall/shelf support and attached children | Desk and bedside lamps follow their support, including the switch target and light pool. Free shelf placement, stacking and height checks remain open. |
 | Parametric construction | Sky Lounge: cabinet runs and configurable strings | Missing cabinet-span and anchored-strand tools |
 | Linked controls | Sky Lounge: switches, remotes, screens and speakers | Owners can link the desk and bedside lamps to the entry switch. Visitors can use the switch and each individual lamp. Both the wiring and lamp states survive a reload or encrypted transfer. General control links for other devices remain open. |

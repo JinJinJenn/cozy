@@ -4,6 +4,9 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+In v0.14.1, Enter opens a focused disclosure such as street backups or graphics settings.
+When focus is on the town, Enter returns the camera to your character.
+
 Version 0.14.0 opens a painting studio in public Harbor Town. Choose **Travel → Visit art studio**.
 Two players can paint at separate easels and download a finished 640 × 480 print.
 Public canvases belong to the current lobby. The visitor at a finished easel can choose **Paint another**.

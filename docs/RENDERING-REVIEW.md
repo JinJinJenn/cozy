@@ -5,6 +5,15 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Painting in the v0.14.0 public studio
+
+At 1280 × 720 on Intel Graphics 0x7D67, both Low and Balanced delivered
+59.8 GPU-completed FPS. The camera faced the active painter with two easels
+and two club chairs in the room. Each preset ran for 360 frames with 457
+residents simulated. Both recorded a 17.3 ms p95 frame interval and zero
+long tasks. Run `node tools/benchmark.mjs --studio --720p --gpu-completion`
+to reproduce the view.
+
 ### Home lighting in v0.13.0
 
 With 457 residents simulated, a fixed view of Home 5 on Intel Graphics 0x7D67
