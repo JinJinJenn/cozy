@@ -1,3 +1,5 @@
+import {driveAcceleration} from './powertrain.js';
+
 // Distances are metres, angles are radians. Body-forward is +Z and yaw turns toward +X.
 export const wheelbase=2.02;
 const frontArm=.96,rearArm=wheelbase-frontArm,gravity=9.81,grip=.96;
@@ -16,12 +18,14 @@ function lateralForce(slip,load,longitudinal,stiffness){
 
 export function stepRoadster(car,input,dt,grade=0){
   const u=car.speed||0,v=car.sideSpeed||0,r=car.yawRate||0,throttle=input.z||0;
-  const brake=!!input.brake||throttle*u<0;
+  const pressure=throttle*u<0?1:clamp(Number(input.brake)||0,0,1);
+  const brake=pressure>0;
   if(brake)car.reverseHold=.2;
   else car.reverseHold=throttle<0?Math.max(0,(car.reverseHold||0)-dt):0;
-  const target=brake||car.reverseHold?0:throttle*(throttle<0?3.4:17.5);
-  const rate=brake?8.5:!throttle?.42+.004*u*u:(target<0?3.2:6.0)/(1+.0028*u*u);
-  const demand=(approach(u,target,rate*dt)-u)/dt;
+  const pedal=brake||car.reverseHold?0:Math.abs(throttle);
+  const reverse=u<-.1||u<=0&&throttle<0&&!brake&&!car.reverseHold;
+  const power=driveAcceleration(car,u,pedal,dt,reverse);
+  const demand=brake?(approach(u,0,8.5*pressure*dt)-u)/dt:power;
   const steering=car.steer||0,requested=input.x||0;
   const crossing=steering*requested<0;
   const rateIn=3.8/(1+.025*Math.abs(u));
@@ -33,17 +37,26 @@ export function stepRoadster(car,input,dt,grade=0){
   const frontLoad=gravity*rearArm/wheelbase-demand*.42/wheelbase;
   const rearLoad=gravity-frontLoad;
   const frontX=brake?clamp(demand*.66,-grip*frontLoad,grip*frontLoad):0;
-  const rearX=clamp(demand-frontX,-grip*rearLoad,grip*rearLoad);
   const frontV=v+frontArm*r,rearV=v-rearArm*r;
+  const rearSlip=Math.atan2(rearV,Math.max(2,Math.abs(u)));
+  const rearGrip=grip*rearLoad;
+  let driveLimit=rearGrip;
+  if(pedal){
+    // Ease off the driven wheels when existing rear slip is using their grip.
+    const cornerForce=lateralForce(rearSlip,rearLoad,0,43);
+    driveLimit=Math.sqrt(Math.max(0,rearGrip*rearGrip-cornerForce*cornerForce));
+  }
+  const rearX=clamp(demand-frontX,-driveLimit,driveLimit);
+  if(pedal&&Math.abs(demand)>driveLimit)car.engineLoad*=driveLimit/Math.abs(demand);
   const frontY=lateralForce(Math.atan2(frontV*cs-u*sn,Math.max(2,Math.abs(u*cs+frontV*sn))),frontLoad,frontX,37);
-  const rearY=lateralForce(Math.atan2(rearV,Math.max(2,Math.abs(u))),rearLoad,rearX,43);
+  const rearY=lateralForce(rearSlip,rearLoad,rearX,43);
   const frontSide=frontY*cs+frontX*sn;
   const bankForce=frontSide+rearY;
   const accel=frontX*cs+rearX-frontY*sn;
   let speed=u+(accel+v*r-gravity*grade)*dt;
   // A stopped car holds on a hill. The reverse gate also holds the car until
   // an opposing pedal has brought it to rest.
-  if(!target&&(!u||Math.sign(speed)!==Math.sign(u)||brake&&Math.abs(u)<.10))speed=0;
+  if(!pedal&&(!u||Math.sign(speed)!==Math.sign(u)||brake&&Math.abs(u)<.10))speed=0;
   car.speed=clamp(speed,-3.4,17.5);
 
   // Blend into the rolling (no-slip) solution at parking speed, where tire

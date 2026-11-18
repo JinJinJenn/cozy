@@ -7,6 +7,7 @@ import {bindResidentTraffic} from '../src/resident-traffic.js';
 import {planResidentVisits} from '../src/resident-car-routes.js';
 import {carriagewayAt,sidewalkStop} from '../src/street-road-index.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
+import {driveGamepad} from '../src/drive-gamepad.js';
 import {stepRoadster,cornerSpeeds} from '../packages/sim/src/roadster.js';
 
 function street(){
@@ -132,6 +133,53 @@ test('front and rear tires build yaw, share grip under braking and settle after 
   assert.ok(up.speed<flat.speed-.7&&down.speed>flat.speed+.7);
   for(let i=0;i<180;i++)stepRoadster(down,{x:0,z:1,brake:true},1/60,-.2);
   assert.equal(down.speed,0);
+});
+
+test('each automatic upshift interrupts wheel torque and the car pulls again in the new ratio',()=>{
+  const car={speed:0},shifts=[];
+  for(let i=0;i<360;i++){
+    const previousGear=car.gear,previousAccel=car.longAccel;
+    stepRoadster(car,{x:0,z:1},1/60);
+    if(previousGear&&car.gear!==previousGear){
+      assert.ok(car.longAccel<previousAccel*.4&&car.engineLoad<.3);
+      shifts.push({gear:car.gear,speed:car.speed});
+    }
+    if(car.shiftLeft===0&&car.speed>8&&car.speed<15)assert.ok(car.longAccel>2);
+  }
+  assert.deepEqual(shifts.map(s=>s.gear),[2,3]);
+  assert.ok(shifts[0].speed>7&&shifts[0].speed<8&&shifts[1].speed>11&&shifts[1].speed<12);
+  assert.ok(car.speed>17&&car.longAccel<.1);
+});
+
+test('power backs off with rear slip and gives the driven tires room to settle',()=>{
+  const straight={speed:9,gear:2},sliding={...straight,sideSpeed:2.8,yawRate:-.35};
+  stepRoadster(straight,{z:1},1/60);stepRoadster(sliding,{z:1},1/60);
+  assert.ok(sliding.engineLoad<straight.engineLoad*.6);
+  assert.ok(Math.abs(sliding.lateralAccel)>5);
+});
+
+test('partial accelerator controls wheel torque and a lower gear gives more lift-off braking',()=>{
+  const light={speed:4},full={speed:4};
+  stepRoadster(light,{z:.3},1/60);stepRoadster(full,{z:1},1/60);
+  assert.ok(light.longAccel>0&&light.longAccel<full.longAccel*.4);
+  const first={gear:1,speed:5.5},second={gear:2,speed:5.5};
+  stepRoadster(first,{z:0},1/60);stepRoadster(second,{z:0},1/60);
+  assert.equal(first.gear,1);assert.equal(second.gear,2);assert.ok(first.longAccel<second.longAccel&&second.longAccel<0);
+});
+
+test('partial brake pressure survives physics and a resting or unmapped pad does not steal driving input',()=>{
+  const light={speed:10},hard={speed:10};
+  for(let i=0;i<30;i++){
+    stepRoadster(light,{z:1,brake:.375},1/60);stepRoadster(hard,{z:1,brake:true},1/60);
+  }
+  assert.ok(light.speed>8&&hard.speed<6.5&&light.engineLoad===0);
+  const buttons=Array.from({length:17},()=>({value:0,pressed:false}));
+  const idle={index:1,mapping:'standard',connected:true,axes:[.09],buttons:[]};
+  const pad={index:2,mapping:'standard',connected:true,axes:[-.56],buttons};
+  buttons[6].value=.375;buttons[7].value=.625;
+  assert.deepEqual(driveGamepad([null,idle,pad]),{index:2,steer:-.5,pedal:.625,brake:.375,exit:false});
+  assert.equal(driveGamepad([{...pad,mapping:''},idle]).index,1);
+  assert.equal(driveGamepad([{...pad,connected:false}]),null);
 });
 
 test('drivers carry the braking distance for a sharp corner upstream',()=>{

@@ -10,6 +10,7 @@ export function presentWalker(session,actor,state,now,dt){
   if(reset||!guest){
     state.x=actor.x;state.z=actor.z;state.yaw=reset?actor.yaw:state.yaw;
     state.speed=actor.speed||0;state.steer=actor.steer||0;state.reverseHold=actor.reverseHold||0;
+    state.gearSeq=session.verifiedSeq;state.gear=actor.gear;state.shiftLeft=actor.shiftLeft;state.engineLoad=actor.engineLoad;
     state.sideSpeed=actor.sideSpeed||0;state.yawRate=actor.yawRate||0;
     state.longAccel=actor.longAccel||0;state.lateralAccel=actor.lateralAccel||0;
     state.roadPitch=actor.roadPitch||0;
@@ -21,6 +22,10 @@ export function presentWalker(session,actor,state,now,dt){
       const gain=1-Math.exp(-dt*12);
       state.x+=(actor.x+(actor.vx||0)*age-state.x)*gain;
       state.z+=(actor.z+(actor.vz||0)*age-state.z)*gain;
+      // Import the host's gear and shift clock together after it acknowledges the input.
+      if(actor.gear!==undefined&&state.gearSeq!==session.verifiedSeq){
+        state.gearSeq=session.verifiedSeq;state.gear=actor.gear;state.shiftLeft=Math.max(0,(actor.shiftLeft||0)-age);
+      }
       state.speed+=(actor.speed-state.speed)*gain;
       state.sideSpeed+=((actor.sideSpeed||0)-state.sideSpeed)*gain;
       state.yawRate+=((actor.yawRate||0)-state.yawRate)*gain;

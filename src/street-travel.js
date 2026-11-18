@@ -40,6 +40,7 @@ function fits(s,kind,x,z,yaw,people){
 function clearActivity(s,a){
   s.activities.finish(a);a.activity='';a.part='';a.feedback='';
   delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;delete a.brakeHeld;
+  delete a.gear;delete a.shiftLeft;delete a.engineLoad;
   delete a.sideSpeed;delete a.yawRate;delete a.longAccel;delete a.lateralAccel;delete a.roadPitch;
 }
 export function takeVehicle(s,a,kind){

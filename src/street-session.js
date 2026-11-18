@@ -1,3 +1,4 @@
+import {validGear} from '../packages/sim/src/powertrain.js';
 import {StreetActivities} from './street-activities.js';
 import {chairs,maxTables,tableFeet,tableFit} from './terrace.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
@@ -60,6 +61,9 @@ const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
 const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw)&&validPiano(p.piano)
+  && (p.gear===undefined||validGear(p.gear))
+  && (p.shiftLeft===undefined||Number.isFinite(p.shiftLeft)&&p.shiftLeft>=0&&p.shiftLeft<=1)
+  && (p.engineLoad===undefined||Number.isFinite(p.engineLoad)&&p.engineLoad>=0&&p.engineLoad<=1)
   && (p.tableRound===undefined||validRound(p.tableRound,p)) && (p.activity!=='tablegame'||typeof p.using?.lot==='string');
 function linkFor(pub,home){const u=new URL(location.href);u.search='';u.hash='';
   u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(home)u.searchParams.set('home',home);
@@ -572,7 +576,7 @@ export class StreetSession {
     this.activities.command(actor,cmd);
   }
   setInput(x,z,brake=false){
-    if(brake===!!this.keys.brake&&Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
+    if(Number(brake)===Number(this.keys.brake||0)&&Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
     this.keys={x,z,brake};this.motion++;
     if(!this.owner&&this.connected)this.sendInput();
   }
@@ -592,7 +596,10 @@ export class StreetSession {
     return true;
   }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
-    if(this.keys.brake)m.brake=true;
+    if(this.keys.brake){
+      m.brake=true;
+      if(Number(this.keys.brake)<1)m.brakePressure=this.keys.brake;
+    }
     if(this.pendingNotes?.length){
       const piano=this.actors.get(this.id)?.piano,now=performance.now();
       this.pendingNotes=this.pendingNotes.filter(([seq,,at])=>piano?.id===this.playingId&&seq>piano.seq&&now-at<650);
@@ -646,7 +653,7 @@ export class StreetSession {
       }
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
-      state.brake=m.brake===true;
+      state.brake=m.brake===true?(Number.isFinite(m.brakePressure)&&m.brakePressure>0&&m.brakePressure<1?m.brakePressure:1):0;
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
       if(this.lobby&&m.parcelBoot===this.boot)state.parcelRevision=m.parcelRevision;
       const cmd=m.cmd,actor=this.actors.get(m.id);
@@ -700,11 +707,18 @@ export class StreetSession {
         }
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
         if(Array.isArray(residents)&&residents.length===this.town.people.length){
-          const drivers=new Set(Array.isArray(f.drivers)?f.drivers.filter(i=>Number.isInteger(i)&&i>=0&&i<residents.length):[]);
+          const drivers=new Map();
+          if(Array.isArray(f.drivers))f.drivers.forEach((id,index)=>{
+            if(Number.isInteger(id)&&id>=0&&id<residents.length)drivers.set(id,f.driverPower?.[index]);
+          });
           this.residentTargets=residents.map((r,i)=>{
             if(!Array.isArray(r)||![5,6].includes(r.length)||!r.every(Number.isFinite))return null;
             const m=this.town.people[i],p=m.position,visible=!!r[3];
             m.userData.driving=drivers.has(i);
+            const power=drivers.get(i);
+            const powered=Number.isInteger(power)&&power>=16&&power<=63;
+            m.userData.gear=powered?power>>4:undefined;
+            m.userData.engineLoad=powered?(power&15)/15:undefined;
             const destination=f.driverHomes?.[i];
             m.userData.destination=m.userData.driving&&this.island.homesById?.has(destination)?destination:undefined;
             if(newHost||m.visible!==visible||Math.hypot(r[0]-p.x,r[2]-p.z)>(m.userData.driving?10:3))p.set(r[0],r[1],r[2]);
@@ -722,10 +736,12 @@ export class StreetSession {
     try{const residents=encodeResidents(this.town.people);
       const layout=this.layout?.furnishings?{...this.layout,furnishings:wireFurnishings(this.layout.furnishings)}:this.layout;
       const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout,actors:[...this.actors.values()],residents};
-      frame.drivers=[];frame.driverHomes={};
+      frame.drivers=[];frame.driverHomes={};frame.driverPower=[];
       this.town.people.forEach((p,i)=>{
         if(!p.userData?.driving)return;
         frame.drivers.push(i);
+        const {gear,engineLoad}=p.userData;
+        frame.driverPower.push(gear>0?(gear<<4)+Math.round(15*(engineLoad||0)):0);
         if(p.userData.destination)frame.driverHomes[i]=p.userData.destination;
       });
       if(this.addresses){

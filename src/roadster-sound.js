@@ -1,19 +1,14 @@
 import {carSteerAngle,wheelbase} from '../packages/sim/src/roadster.js';
+import {engineRpm,selectGear,validGear} from '../packages/sim/src/powertrain.js';
 
 const clamp=(value,lo=0,hi=1)=>Math.max(lo,Math.min(hi,value));
-const ratios=[16,10.5,7.4];
-const wheelRpm=60/(2*Math.PI*.28);
 const range=26;
 
 export function engineFeedback(drive,lastGear=1,pedal=0){
   const forward=drive.speed||0,speed=Math.abs(forward);
-  const load=clamp(Math.max((drive.longAccel||0)*Math.sign(forward)/5,pedal*Math.sign(forward||pedal)));
-  let gear=forward<-.1?-1:clamp(lastGear,1,3);
-  if(gear>0){
-    while(gear<3&&speed*wheelRpm*ratios[gear-1]>3400+load*800)gear++;
-    while(gear>1&&speed*wheelRpm*ratios[gear-1]<1750+load*250)gear--;
-  }
-  const rpm=Math.max(820+130*load,speed*wheelRpm*(gear<0?15:ratios[gear-1]));
+  const load=clamp(drive.engineLoad??Math.max((drive.longAccel||0)*Math.sign(forward)/5,pedal*Math.sign(forward||pedal)));
+  const gear=validGear(drive.gear)?drive.gear:selectGear(forward,lastGear,load);
+  const rpm=engineRpm(forward,gear,load);
   const steer=-carSteerAngle(drive.steer||0,forward);
   const frontSide=(drive.sideSpeed||0)+.96*(drive.yawRate||0);
   const rearSide=(drive.sideSpeed||0)-(wheelbase-.96)*(drive.yawRate||0);
@@ -106,7 +101,7 @@ export class RoadsterSound{
         const measured=Math.hypot(id.position.x-last.x,id.position.z-last.z)/dt;
         if(measured<25)speed=last.speed+(measured-last.speed)*(1-Math.exp(-dt*6));
       }
-      motion={speed};this.lastNeighbor={id,time:now,x:id.position.x,z:id.position.z,speed};
+      motion={speed,gear:source.gear,engineLoad:source.engineLoad};this.lastNeighbor={id,time:now,x:id.position.x,z:id.position.z,speed};
     }else this.lastNeighbor=null;
     const feedback=motion?engineFeedback(motion,id===previous?passing?.gear:1):null;
     this.play('street',id,feedback,.62*(1-d/range)**2,clamp((dx*right[0]+dz*right[2])/Math.max(2,d),-1,1));

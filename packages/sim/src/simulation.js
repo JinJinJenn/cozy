@@ -2,6 +2,7 @@
 //
 // State = seed + config + ordered input log (events from the host/players) + the op log of the objects replica.
 // There is no wall clock and no Math.random: step() advances exactly one fixed timestep.
+import {driveAcceleration} from './powertrain.js';
 import { Replica } from '../../objects/index.js';
 import { Rng, hashSeed, hashFloat } from './rng.js';
 import { buildContext } from './context.js';
@@ -555,7 +556,7 @@ export class Simulation {
       case 'move': {
         if(a.driveStart!==undefined){
           let time=this.cfg.stepDt;
-          const accelerated=(a.speed||0)+4*time;
+          let accelerated;
           a.waitingForTraffic=false;
           while(time>1e-7&&a.i<a.pts.length){
             const to=a.pts[a.i],dx=to[0]-n.pos[0],dz=to[1]-n.pos[1],len=Math.hypot(dx,dz);
@@ -571,16 +572,22 @@ export class Simulation {
               }
               const corner=a.cornerSpeeds?.[a.i-a.driveStart];
               const cruise=Math.min(limit*n.pace,corner===undefined?Infinity:Math.sqrt(corner*corner+7*len));
-              speed=Math.min(cruise,accelerated);
               const previous=a.speed||0;
+              if(accelerated===undefined){
+                const pedal=Math.max(0,Math.min(.82,(cruise-previous)*.65+.13));
+                const power=driveAcceleration(a,previous,pedal,time,false);
+                accelerated=Math.max(0,previous+power*time);
+              }
+              speed=Math.min(cruise,accelerated);
               const lookahead=Math.min(len,speed*time+previous*previous/7);
               if(this.ctx.trafficClear&&lookahead>speed*time+.2&&
                 !this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,lookahead,false)){
                 speed=Math.min(speed,Math.max(1,previous-3.5*time));
               }
               if(this.ctx.trafficClear&&!this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,Math.min(len,speed*time))){
-                a.speed=0;a.waitingForTraffic=true;break;
+                a.speed=0;a.engineLoad=0;a.waitingForTraffic=true;break;
               }
+              if(speed<previous)a.engineLoad=0;
               a.speed=speed;
             }
             const distance=boarding?len:Math.min(len,speed*time);
@@ -711,6 +718,7 @@ export class Simulation {
     return this.npcs.map((n) => ({
       id: n.id, who: npcWho(n.id), name: n.name, x: n.pos[0], z: n.pos[1], y: r2(this.ctx.nav.height(n.pos[0], n.pos[1])),
       heading: n.heading, driving:n.action?.driveStart!==undefined&&n.action.i>=n.action.driveStart&&n.action.i<n.action.driveEnd,
+      ...(n.action?.gear&&n.action.i<n.action.driveEnd?{gear:n.action.gear,engineLoad:n.action.engineLoad}:{}),
       destination: n.action?.destination,
       action: n.action ? n.action.kind : 'none', purpose: n.action && n.action.purpose ? n.action.purpose : null,
       asleep: n.sleeping, seat: n.seat ? n.seat.objectId : null, mood: r2(n.mood), moodLabel: MOODS.find((m) => n.mood >= m[0])[1], homeLotId: n.home.lotId,

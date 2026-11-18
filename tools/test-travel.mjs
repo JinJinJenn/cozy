@@ -56,7 +56,10 @@ try{
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
-  if(touch)await testTouchDriving({visitor,owner,actor,synced,until});
+  if(process.argv.includes('--gamepad')){
+    const {testGamepad}=await import('./playtest-gamepad.mjs');
+    await testGamepad({visitor,owner,actor,synced,until});
+  }else if(touch)await testTouchDriving({visitor,owner,actor,synced,until});
   else await testDesktop(owner,visitor);
   assert.deepEqual(errors,[]);
 }catch(err){
@@ -162,7 +165,7 @@ async function testDesktop(owner,visitor){
   const start=await actor(visitor);
   await visitor.keyboard.down('w');
   try{await until(owner,({id,x,z})=>{const a=window.__cozy.street.session.actors.get(id);
-    return a.speed>2&&Math.hypot(x-a.x,z-a.z)>2;},start);
+    return a.speed>2&&a.gear===1&&a.engineLoad>0&&Math.hypot(x-a.x,z-a.z)>2;},start);
     await visitor.keyboard.down('a');
     try{await until(owner,({id,yaw})=>Math.abs(window.__cozy.street.session.actors.get(id).yaw-yaw)>.09,start);}
     finally{await visitor.keyboard.up('a');}
@@ -309,7 +312,7 @@ async function testDesktop(owner,visitor){
       if(!p.userData.driving||!destination){previous.delete(i);continue;}
       const start=previous.get(i);
       if(!start){previous.set(i,{x:v.x,z:v.z});continue;}
-      if(Math.hypot(start.x-v.x,start.z-v.z)>3){
+      if(Math.hypot(start.x-v.x,start.z-v.z)>3&&p.userData.gear>=2&&p.userData.engineLoad>0){
         const neighbors=s.town.current,style=s.town.crowd.styles[i];
         return {i,name:neighbors[i].name,destination:destination.name,population:people.length,styles:new Set(s.town.crowd.styles.map(s=>s.cut+'-'+s.outfit)).size,
           names:new Set(neighbors.map(p=>p.name)).size,cut:style.cut};

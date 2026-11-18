@@ -4,6 +4,17 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.23.0 gives the roadster and resident cars a shared three-speed automatic.
+Use Travel, then Drive a car. The gear affects wheel torque, engine braking and sound.
+Rear-tire slip limits acceleration through tight bends. Standard gamepads support
+analog steering, throttle and brake. The toolbar shows the active controls, gear and RPM.
+
+In Harbor Town the car shifted at 28 and 42 km/h under full throttle and stopped
+from 51 km/h in about 12 m. A virtual controller drove a visiting player over WebRTC.
+The host received fractional steering, throttle and brake, and releasing or unplugging
+the controller cleared its input. In a six-minute replay with 459 residents, 73 drove,
+shifted and returned home. The unit suite passed 179 tests.
+
 Version 0.22.0 reduces steering sensitivity at road speed and retains parking lock.
 The roadster has a synthesized exhaust, axle-slip tire noise and a three-gear
 sound model shared with the HUD. Wheel torque still comes from the tire model

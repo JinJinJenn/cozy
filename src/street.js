@@ -7,6 +7,7 @@ import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsFo
 import {homeAt} from './home-plan.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic,withinStage} from './street-music.js';
+import {driveGamepad} from './drive-gamepad.js';
 import {RoadsterSound} from './roadster-sound.js';
 import {StreetTouch} from './street-touch.js';
 import {PianoMenu,pickPiano} from './piano-menu.js';
@@ -604,11 +605,25 @@ export class Street {
     const vehicle=this.session.actors.get(this.session.id)?.vehicle;
     this.touch.setDriving(vehicle==='car'&&!this.buildLot);
     if(this.buildLot){this.session.setInput(0,0);return;}
+    let pad=null;
+    if(vehicle==='car'&&!this.padUnavailable&&!document.hidden&&document.hasFocus()&&!document.activeElement?.closest('input,select,textarea,[contenteditable="true"]')){
+      try{pad=driveGamepad(navigator.getGamepads?.()||[]);}
+      catch{this.padUnavailable=true;}
+    }
+    if(pad&&this.padIndex!==pad.index)this.padDriving=true;
+    if(pad?.exit&&this.padIndex===pad.index&&!this.padExitDown)this.session.use();
+    this.padIndex=pad?.index;this.padExitDown=pad?.exit;
     const keys=this.keys,down=(a,b)=>Number(keys.has(a)||keys.has(b));
     const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+(vehicle==='car'?this.touch.throttle:this.touch.z);
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.touch.x;
-    if(forward||side)this.cameraFocus=null;
-    if(vehicle){this.session.setInput(Math.max(-1,Math.min(1,side)),Math.max(-1,Math.min(1,forward)),vehicle==='car'&&(keys.has('Space')||this.touch.brake));return;}
+    if(!pad||forward||side||keys.has('Space')||this.touch.brake)this.padDriving=false;
+    else if(pad.steer||pad.pedal||pad.brake)this.padDriving=true;
+    if(forward||side||pad?.pedal||pad?.steer)this.cameraFocus=null;
+    if(vehicle){
+      const turn=side||pad?.steer||0,gas=forward||pad?.pedal||0;
+      const brake=vehicle==='car'&&(keys.has('Space')||this.touch.brake||pad?.brake||0);
+      this.session.setInput(Math.max(-1,Math.min(1,turn)),Math.max(-1,Math.min(1,gas)),brake);return;
+    }
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
     const pace=(this.sprint?1:.73)/Math.max(1,Math.hypot(forward,side));
     this.session.setInput(pace*(forward*dx-side*dz)/n,pace*(forward*dz+side*dx)/n);
@@ -726,9 +741,10 @@ export class Street {
       detail.textContent=[home,trait,activity].filter(Boolean).join(' · ');
     }
     const gearbox=local.vehicle==='car'?this.motors.driver:null;
-    const speed=gearbox?`${Math.round(gearbox.speed*3.6)} km/h \u00b7 ${gearbox.gear<0?'Reverse':'D'+gearbox.gear}`:'';
+    const speed=gearbox?`${Math.round(gearbox.speed*3.6)} km/h \u00b7 ${gearbox.gear<0?'Reverse':'D'+gearbox.gear} \u00b7 ${100*Math.round(gearbox.rpm/100)} rpm`:'';
     if(speed&&$('car-speed').textContent!==speed)$('car-speed').textContent=speed;
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
+      local.vehicle==='car'&&this.padDriving?speed+' \u00b7 Left stick steer \u00b7 RT gas \u00b7 LT brake \u00b7 B / Circle reverse \u00b7 Y / Triangle get out':
       local.vehicle==='car'?speed+' · W gas · Space brake · S brake / reverse · A/D steer · E get out':
       local.vehicle?'W/S pedal or reverse · A/D steer · E to get off':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
