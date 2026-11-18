@@ -195,7 +195,10 @@ function clampCamera(){
   sky.position.copy(camera.position);streetLighting();
   const g=island.sample(camera.position.x,camera.position.z);
   const floor=Math.max(g,SEA_LEVEL)+3;
-  if(camera.position.y<floor) camera.position.y=floor;
+  if(camera.position.y<floor){
+    camera.position.y=floor;
+    camera.lookAt(controls.target);
+  }
 }
 function setView(name,opts={}){
   if(!island) return;

@@ -4,6 +4,10 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.18.1 keeps the selected target under the cursor when terrain lifts the
+camera in a close-up. The travel playtest checks camera direction on the first
+corrected frame. The studio playtest covers clicking an easel and a framed print.
+
 Version 0.18.0 lets players collect a finished painting in the public studio or
 on a private visit. Choose **Keep for home**, enter a generated home on your
 private street and open **Build → Wall art**. Hang the print in oak or antique

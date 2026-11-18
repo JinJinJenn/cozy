@@ -54,6 +54,16 @@ try{
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
+  const clamped=await visitor.evaluate(()=>{
+    const c=window.__cozy,{camera,controls}=c.street,eye=camera.position.clone();
+    try{
+      camera.position.copy(controls.target);camera.position.x+=4;camera.position.z+=3;
+      controls.update();const before=camera.position.y;c.render();
+      const targetDirection=controls.target.clone().sub(camera.position).normalize();
+      return {rise:camera.position.y-before,angle:camera.getWorldDirection(eye.clone()).angleTo(targetDirection)};
+    }finally{camera.position.copy(eye);controls.update();}
+  });
+  assert.ok(clamped.rise>.1&&clamped.angle<.00001,'the first terrain-clamped frame still points at the selected target: '+JSON.stringify(clamped));
   const cameraPose=()=>visitor.evaluate(()=>{const {controls,camera}=window.__cozy.street;
     return {radius:controls.getDistance(),angle:controls.getAzimuthalAngle(),offset:camera.position.clone().sub(controls.target).toArray()};});
   const initial=await cameraPose();
@@ -66,12 +76,14 @@ try{
   assert.ok(wide.radius>3000,'street zoom reached the island scale');
   await visitor.keyboard.press('Equal');
   const keyboardZoom=(await cameraPose()).radius;assert.ok(keyboardZoom<wide.radius*.83);
-  const wheelPoint=await visitor.evaluate(()=>{
+  const surface=await visitor.waitForFunction(()=>{
     const canvas=document.querySelector('#gl'),r=canvas.getBoundingClientRect();
-    const x=r.left+r.width*.5,y=r.top+r.height*.48;
-    if(document.elementFromPoint(x,y)!==canvas)throw Error('World zoom point is covered');
-    return {x,y};
-  });
+    for(const fy of [.38,.24,.56,.72])for(const fx of [.63,.48,.82,.26]){
+      const x=Math.round(r.left+r.width*fx),y=Math.round(r.top+r.height*fy);
+      if(document.elementFromPoint(x,y)===canvas)return {x,y};
+    }
+  },null,{polling:125,timeout:45000});
+  const wheelPoint=await surface.jsonValue();await surface.dispose();
   await visitor.mouse.move(wheelPoint.x,wheelPoint.y);
   await visitor.mouse.wheel(0,-160);
   await until(visitor,d=>window.__cozy.street.controls.getDistance()<d*.99,keyboardZoom);
