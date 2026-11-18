@@ -11,11 +11,11 @@ export function bindResidentTraffic(ctx,street){
     const visit=returning?(circle.find(v=>v.dest.id===n.visitingLot)||next):next;
     const route=returning?visit.inbound:visit.outbound;
     const home=returning?visit.source:visit.dest,door=home.inside;
-    const approach=ctx.nav.findPath(n.pos,route.points[0],n.home.comp);
+    const approach=ctx.nav.findPath(n.pos,route.curb,n.home.comp);
     const walkIn=ctx.nav.findPath(route.points.at(-1),[door.x,door.z],n.home.comp);
     if(!approach||!walkIn)return null;
-    const driveStart=approach.pts.length,driveEnd=driveStart+route.points.length-1;
-    return {pts:[...approach.pts,...route.points.slice(1),...walkIn.pts],driveStart,driveEnd,
+    const driveStart=approach.pts.length+1,driveEnd=driveStart+route.points.length-1;
+    return {pts:[...approach.pts,...route.points,...walkIn.pts],driveStart,driveEnd,curbPickup:true,
       destination:home.id,junctions:route.junctions};
   };
   ctx.hasCarVisit=id=>visits.has(id);
@@ -39,7 +39,9 @@ export function bindResidentTraffic(ctx,street){
       }
       for(const a of street.session?.actors.values()||[])add(a,a.x,a.z);
     }
-    const range=distance+4;
+    // The lookup was built at the start of this tick. Include the cells a
+    // resident could have left before this driver's turn.
+    const range=distance+4+Math.max(3,9*sim.cfg.stepDt);
     for(let ix=Math.floor((x-range)/8);ix<=Math.floor((x+range)/8);ix++){
       for(let iz=Math.floor((z-range)/8);iz<=Math.floor((z+range)/8);iz++){
         for(const p of cells.get(ix+','+iz)||[]){

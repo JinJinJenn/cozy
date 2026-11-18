@@ -33,6 +33,11 @@ try {
   });
   const ready = () => page.waitForFunction(() => window.__cozy?.ready, null, { timeout: 120000 });
   const info = () => page.evaluate(() => window.__cozy.info());
+  if(process.argv.includes('--traffic')){
+    const {playtestTraffic}=await import('./playtest-traffic.mjs');
+    await playtestTraffic(page,origin);assert.deepEqual(errors,[]);
+    await browser.close();process.exit(0);
+  }
   await page.goto(origin + '?shot=1&preset=harborTown&seed=petalwood&view=town');
   await ready();
   const initial = await info();

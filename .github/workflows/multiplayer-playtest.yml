@@ -45,6 +45,7 @@ on:
       - 'src/mesh-index.js'
       - 'src/vehicle-art.js'
       - 'tools/test-travel.mjs'
+      - 'tools/playtest-traffic.mjs'
       - 'src/terrace*.js'
       - 'tools/test-street.mjs'
       - 'tools/test-public-town.mjs'
@@ -130,7 +131,11 @@ jobs:
           fi
       - name: Drive, cycle and use pointer controls with a friend
         if: matrix.signalling == 'travel'
-        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:travel -- --software
+        env:
+          PLAYWRIGHT_FROM: ${{ runner.temp }}/cozy-browser/package.json
+        run: |
+          npm run test:travel -- --software
+          node tools/test-viewer.mjs --traffic
       - name: Transfer a private street between browser profiles
         if: matrix.signalling == 'recovery'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --recovery --software

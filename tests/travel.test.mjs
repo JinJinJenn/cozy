@@ -5,6 +5,7 @@ import {cameraClearance,defaultLayout} from '../src/street-world.js';
 import {StreetSession} from '../src/street-session.js';
 import {bindResidentTraffic} from '../src/resident-traffic.js';
 import {planResidentVisits} from '../src/resident-car-routes.js';
+import {carriagewayAt,sidewalkStop} from '../src/street-road-index.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
 
 function street(){
@@ -150,6 +151,34 @@ test('a household rotates its calls and returns from the address it actually vis
   const back=ctx.carTrip(n,true),pickup=back.pts[back.driveStart-1];
   assert.equal(back.destination,home.id);
   assert.ok(Math.hypot(n.pos[0]-pickup[0],n.pos[1]-pickup[1])<8);
+});
+
+test('a resident waits on the pavement for a passing car before they occupy the lane',()=>{
+  const homes=[0,70].map((x,i)=>({id:'lot'+i,entry:{x,z:5},inside:{x,z:8}}));
+  const ctx={seed:'pickup',plan:{roads:[{class:'street',width:7,pts:[[-20,0],[100,0]]}]},
+    nav:{findPath:(_from,to)=>({pts:[to.slice()]})}};
+  bindResidentTraffic(ctx,{island:{homes}});
+  const home=homes.find(h=>ctx.hasCarVisit(h.id));
+  const n={home:{lotId:home.id},pos:[home.inside.x,8],pace:1};
+  const a=n.action={kind:'move',...ctx.carTrip(n,false),i:0};
+  const pickup=a.pts[a.driveStart-1],curb=a.pts[a.driveStart-2];
+  const sign=Math.sign(a.pts[a.driveStart][0]-pickup[0]);
+  const passer={pos:[pickup[0]-2.5*sign,pickup[1]],pace:1,action:{kind:'move',driveStart:0,driveEnd:1,i:0,
+    pts:[[pickup[0]+18*sign,pickup[1]]],speed:6}};
+  n.pos=curb.slice();a.i=a.driveStart-1;
+  const sim=Object.assign(Object.create(Simulation.prototype),{ctx,npcs:[n,passer],tick:0,cfg:{stepDt:.5,walkSpeed:3}});
+  sim._advance(n);assert.deepEqual(n.pos,curb);assert.ok(a.waitingForTraffic&&Math.abs(n.pos[1])>3.5);
+  for(let i=0;i<12&&a.i<a.driveStart;i++){sim.tick++;sim._advance(passer);sim._advance(n);}
+  assert.ok(a.i===a.driveStart&&Math.abs(passer.pos[0]-pickup[0])>3.35);
+  assert.deepEqual(n.pos,pickup);
+});
+
+test('residents choose a walkable corner clear of both roads for a sidewalk stop',()=>{
+  const island={plan:{roads:[{width:7,pts:[[-40,0],[40,0]]},{width:5.5,pts:[[0,-40],[0,40]]}]}};
+  const stop=sidewalkStop(island,[0,0],[-12,-5],(x,z)=>x<0&&z<0);
+  assert.ok(stop&&stop[0]<0&&stop[1]<0&&!carriagewayAt(island,...stop));
+  assert.equal(sidewalkStop(island,[0,0],[-12,-5],()=>false),null);
+  assert.deepEqual(sidewalkStop(island,[20,10],[10,10],()=>true),[20,10]);
 });
 
 test('a resident walks out, yields to a player, drives to a neighbor, visits the house and drives home',()=>{

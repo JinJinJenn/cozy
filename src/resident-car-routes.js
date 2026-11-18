@@ -81,7 +81,11 @@ function laneRoute(ids, graph, roads) {
     legs.push({dx, dz, length, start: [a[0] - dz * lane, a[1] + dx * lane],
       end: [b[0] - dz * lane, b[1] + dx * lane]});
   }
-  const points = [legs[0].start];
+  const first = legs[0], start = nodes[ids[0]];
+  const pickupRoad = adj[ids[0]].find(edge => edge[0] === ids[1])[2];
+  const curbOffset = roads[pickupRoad].width / 2 + .7;
+  const curb = [start[0] - first.dz * curbOffset, start[1] + first.dx * curbOffset];
+  const points = [first.start];
   for (let i = 1; i < legs.length; i++) {
     const before = legs[i - 1], after = legs[i], id = ids[i];
     if (adj[id].length >= 3) junctions.push({id, x: nodes[id][0], z: nodes[id][1]});
@@ -104,7 +108,7 @@ function laneRoute(ids, graph, roads) {
     }
   }
   points.push(legs.at(-1).end);
-  return {points, junctions};
+  return {points, junctions, curb};
 }
 
 export function planResidentVisits(plan, homes, seed) {

@@ -1,3 +1,4 @@
+import {roadsOf,project} from './street-road-index.js';
 import {homeAt} from './home-plan.js';
 import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
 
@@ -5,27 +6,6 @@ const specifications={
   car:{top:15.5,reverse:3.3,accel:6.6,brake:12,coast:1.35,halfWidth:.86,halfLength:1.55},
   bike:{top:7.5,reverse:1.15,accel:3.4,brake:6,coast:1.5,turn:.93,halfWidth:.28,halfLength:.79}
 };
-const roadIndexes=new WeakMap();
-function roadsOf(island){
-  if(roadIndexes.has(island))return roadIndexes.get(island);
-  const segments=[],cells=new Map();
-  for(const road of island.plan.roads)for(let i=1;i<road.pts.length;i++){
-    const [x,z]=road.pts[i-1],[ex,ez]=road.pts[i],length=Math.hypot(ex-x,ez-z);
-    if(!length)continue;
-    const dx=(ex-x)/length,dz=(ez-z)/length,r=road.width/2;
-    const line={x,z,dx,dz,length,r,drivable:road.class!=='path'&&road.width>=4};segments.push(line);
-    for(let ix=Math.floor((Math.min(x,ex)-r)/32);ix<=Math.floor((Math.max(x,ex)+r)/32);ix++)
-      for(let iz=Math.floor((Math.min(z,ez)-r)/32);iz<=Math.floor((Math.max(z,ez)+r)/32);iz++){
-        const key=ix+','+iz;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(line);
-      }
-  }
-  const result={segments,cells};roadIndexes.set(island,result);return result;
-}
-function project(line,p){
-  const t=Math.min(line.length,Math.max(0,(p.x-line.x)*line.dx+(p.z-line.z)*line.dz));
-  const x=line.x+t*line.dx,z=line.z+t*line.dz;
-  return {x,z,distance:Math.hypot(x-p.x,z-p.z)};
-}
 function outdoors(s,p){
   if(!walkable(s.island,s.plots,s.layout,p)||homeAt(s.island,p))return false;
   return !s.plots.some(b=>{const q=toRoom(b,p);return q.x> -b.w/2-.25&&q.x<sideAt(b,s.layout)+.25&&q.z> -b.d/2-.25&&q.z<frontAt(b,s.layout)+.25;});

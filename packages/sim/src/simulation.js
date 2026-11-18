@@ -433,6 +433,7 @@ export class Simulation {
       }
       if (c.length) target = nav.nodes[c[rng.int(c.length)]];
     }
+    if(target&&this.ctx.leisureStop)target=this.ctx.leisureStop(target,n.pos);
     if (!target) return this._idle(n, 3);
     this._move(n, 'wander', target, { kind: 'idle', lo: 3, hi: 14 }, {});
   }
@@ -458,13 +459,14 @@ export class Simulation {
   }
 
   _chatPartner(n) {
+    if(this.ctx.inTrafficLane?.(n.pos))return null;
     let best = null;
     for (const o of this.npcs) {
       if (o === n || o.sleeping || o.homeMode || !o.action) continue;
       const k = o.action.kind;
       if (o.returnVisit||!(k === 'idle' || k === 'sit' || (k === 'move' && o.action.purpose === 'wander'))) continue;
       const d = dist(o.pos, n.pos);
-      if (d <= 16 && (!best || d < best.d)) best = { id: o.id, d };
+      if (d <= 16 && (!best || d < best.d) && !this.ctx.inTrafficLane?.(o.pos)) best = { id: o.id, d };
     }
     return best;
   }
@@ -475,6 +477,8 @@ export class Simulation {
     if (c.d <= 2.6) return this._beginChat(n, p);
     const dx = n.pos[0] - p.pos[0], dz = n.pos[1] - p.pos[1], l = Math.hypot(dx, dz) || 1;
     let dest = [p.pos[0] + (dx / l) * 2, p.pos[1] + (dz / l) * 2];
+    if(this.ctx.leisureStop)dest=this.ctx.leisureStop(dest,p.pos)||p.pos.slice();
+    if(dist(dest,p.pos)>4)dest=p.pos.slice();
     if (!this.ctx.nav.land(dest[0], dest[1])) dest = p.pos.slice();
     this._move(n, 'chat', dest, { kind: 'chat', partner: p.id }, { with: p.id });
     if ((!n.action || n.action.kind !== 'move') && p.action && p.action.partner === n.id) p.action = null;
@@ -555,7 +559,8 @@ export class Simulation {
           a.waitingForTraffic=false;
           while(time>1e-7&&a.i<a.pts.length){
             const to=a.pts[a.i],dx=to[0]-n.pos[0],dz=to[1]-n.pos[1],len=Math.hypot(dx,dz);
-            if(len<.001){n.pos=to.slice();a.i++;continue;}
+            const pickup=a.i+1===a.driveStart,boarding=pickup&&a.curbPickup;
+            if(len<.001&&!boarding){n.pos=to.slice();a.i++;continue;}
             const driving=a.i>=a.driveStart&&a.i<a.driveEnd;
             let speed=n.pace*this.cfg.walkSpeed;
             if(driving){
@@ -571,11 +576,16 @@ export class Simulation {
               }
               a.speed=speed;
             }
-            const distance=Math.min(len,speed*time);
-            if(distance===len&&a.i+1===a.driveStart&&this.ctx.trafficClear){
+            const distance=boarding?len:Math.min(len,speed*time);
+            if(distance===len&&pickup){
               const next=a.pts[a.driveStart],nx=next[0]-to[0],nz=next[1]-to[1],span=Math.hypot(nx,nz)||1;
-              if(!this.ctx.trafficClear(this,n,...to,nx/span,nz/span,0,false)||
-                !this.ctx.trafficClear(this,n,...to,-nx/span,-nz/span,0)){a.waitingForTraffic=true;break;}
+              if(this.ctx.trafficClear&&(!this.ctx.trafficClear(this,n,...to,nx/span,nz/span,0,false)||
+                !this.ctx.trafficClear(this,n,...to,-nx/span,-nz/span,0))){
+                a.waitingForTraffic=true;break;
+              }
+              // Keep the visitor on the pavement until the seat is available.
+              // The next driver in this tick sees the newly occupied car.
+              if(boarding){n.pos=to.slice();n.heading=Math.atan2(nz,nx);a.i++;break;}
             }
             n.pos=[n.pos[0]+dx/len*distance,n.pos[1]+dz/len*distance];n.heading=Math.atan2(dz,dx);
             time-=distance/speed;

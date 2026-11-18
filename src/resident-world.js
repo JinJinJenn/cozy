@@ -3,6 +3,7 @@ import {defaultLayout,walkable,toWorld} from './street-world.js';
 import {homeAt,homeWalkable} from './home-plan.js';
 import {distSeg} from '../packages/settlement/src/geom.js';
 import {bindResidentTraffic} from './resident-traffic.js';
+import {carriagewayAt,sidewalkStop} from './street-road-index.js';
 
 function crossesSolid(home,a,b){
   const radius=Math.hypot(home.w,home.d)/2+.8,dx=b[0]-a[0],dz=b[1]-a[1];
@@ -48,6 +49,11 @@ export function bindResidentWorld(ctx,street){
   };
   const cache=new Map();let revision=-1;
   const layout=()=>street.session?.layout||defaultLayout();
+  ctx.inTrafficLane=pos=>!!carriagewayAt(island,...pos);
+  ctx.leisureStop=(target,from)=>sidewalkStop(island,target,from,(x,z)=>{
+    const p={x,z};
+    return nav.land(x,z)&&!homeAt(island,p)&&walkable(island,street.plots,layout(),p);
+  });
   ctx.canUseSeat=o=>{
     const session=street.session;if(!session)return true;
     const p={x:o.pos[0],z:o.pos[2]};

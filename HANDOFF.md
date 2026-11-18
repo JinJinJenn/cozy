@@ -4,6 +4,13 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.20.1 keeps residents on the pavement until they can board a car.
+Residents choose a clear spot outside the junction to stand and talk. In a
+six-minute replay of Harbor Town's browser worker, all 73 drivers returned
+home. The longest stationary wait for a driver fell from 301 seconds in
+0.20.0 to 8 seconds with the same town and starting clock.
+Run `node tools/test-viewer.mjs --traffic` to repeat the six-minute drive.
+
 Version 0.20.0 gives resident drivers a circle of up to three neighboring
 households. They leave at different times, follow connected streets and road
 bridges, take turns at junctions, visit the house on foot and drive home on the
