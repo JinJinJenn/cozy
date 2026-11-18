@@ -106,6 +106,9 @@ export class Street {
       if(e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;
       if(e.target.id==='piano-octave'&&this.pianoMenu.keydown(e))return;
       if(e.target.closest('input,select,textarea'))return;
+      if(e.code==='Space'&&!e.target.closest('button,a,summary')&&this.session.actors.get(this.session.id)?.vehicle==='car'){
+        e.preventDefault();this.keys.add(e.code);this.input();return;
+      }
       if(this.pianoMenu.keydown(e))return;
       if(!this.buildLot&&['Equal','NumpadAdd','Minus','NumpadSubtract','Comma','Period'].includes(e.code)){
         e.preventDefault();
@@ -579,7 +582,8 @@ export class Street {
     const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+this.joy.z;
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
     if(forward||side)this.cameraFocus=null;
-    if(this.session.actors.get(this.session.id)?.vehicle){this.session.setInput(Math.max(-1,Math.min(1,side)),Math.max(-1,Math.min(1,forward)));return;}
+    const vehicle=this.session.actors.get(this.session.id)?.vehicle;
+    if(vehicle){this.session.setInput(Math.max(-1,Math.min(1,side)),Math.max(-1,Math.min(1,forward)),vehicle==='car'&&keys.has('Space'));return;}
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
     const pace=(this.sprint?1:.73)/Math.max(1,Math.hypot(forward,side));
     this.session.setInput(pace*(forward*dx-side*dz)/n,pace*(forward*dz+side*dx)/n);
@@ -640,7 +644,8 @@ export class Street {
       }
       if(a.vehicle){
         const predicted=id===s.id&&!s.owner&&a.vehicle==='car';
-        const phase=mesh.userData.ride.updateRide(predicted?pose.speed:a.speed||0,dt,predicted?pose.steer:(a.steer||0));
+        const brake=(predicted?s.keys.brake:a.brakeHeld)||undefined;
+        const phase=mesh.userData.ride.updateRide(predicted?pose.speed:a.speed||0,dt,predicted?pose.steer:(a.steer||0),undefined,brake);
         mesh.setRide(a.vehicle,phase);
       }
     }
@@ -686,10 +691,12 @@ export class Street {
       const trait=best===t.curiosity?'Explorer':best===t.sociability?'Social butterfly':best===t.nightOwl?'Night owl':'Likes a quiet afternoon';
       const home=this.island.homesById.get(resident.home.lotId)?.name;
       const person=this.town.people[following];
-      detail.textContent=[home,trait,person.userData.driving?'Driving':person.scale.y<.9?'Sitting':null].filter(Boolean).join(' · ');
+      const destination=this.island.homesById.get(person.userData.destination)?.name;
+      const activity=person.userData.driving?(destination?'Driving to '+destination:'Driving'):person.scale.y<.9?'Sitting':null;
+      detail.textContent=[home,trait,activity].filter(Boolean).join(' · ');
     }
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
-      local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''} · W gas · S brake / reverse · A/D steer · E get out`:
+      local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''} · W gas · Space brake · S brake / reverse · A/D steer · E get out`:
       local.vehicle?'W/S pedal or reverse · A/D steer · E to get off':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
       'Left-click to walk or interact · Right-click for options · Drag to orbit · Scroll or +/− to zoom';

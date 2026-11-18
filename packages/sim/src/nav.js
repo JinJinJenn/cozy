@@ -70,8 +70,7 @@ class Heap {
   }
 }
 
-export function buildNav(plan, island, { joinDist = 10 } = {}) {
-  const lnd = makeLand(island);
+export function buildRoadGraph(roads, joinDist, labelEdges = false) {
   const nodes = [];
   const adj = [];
   const roadOf = [];
@@ -81,15 +80,15 @@ export function buildNav(plan, island, { joinDist = 10 } = {}) {
     roadOf.push(rid);
     return nodes.length - 1;
   };
-  const link = (i, j) => {
+  const link = (i, j, road = null) => {
     if (i === j) return;
     const w = Math.hypot(nodes[i][0] - nodes[j][0], nodes[i][1] - nodes[j][1]);
-    adj[i].push([j, w]);
-    adj[j].push([i, w]);
+    adj[i].push(labelEdges ? [j, w, road] : [j, w]);
+    adj[j].push(labelEdges ? [i, w, road] : [i, w]);
   };
   // 1. road points become nodes, consecutive points become segments (linked later, once crossings are known)
   const segs = [];
-  for (const r of plan.roads) {
+  for (const r of roads) {
     let prev = -1;
     for (const p of r.pts) {
       const k = add(p[0], p[1], r.id);
@@ -150,7 +149,7 @@ export function buildNav(plan, island, { joinDist = 10 } = {}) {
   }
   for (const sg of segs) {
     const chain = [{ t: 0, node: sg.a }, ...sg.extra.sort((p, q) => p.t - q.t || p.node - q.node), { t: 1, node: sg.b }];
-    for (let k = 0; k + 1 < chain.length; k++) link(chain[k].node, chain[k + 1].node);
+    for (let k = 0; k + 1 < chain.length; k++) link(chain[k].node, chain[k + 1].node, sg.road);
   }
   // 3. endpoint-to-endpoint joins within joinDist
   const CELL = 4;
@@ -167,6 +166,33 @@ export function buildNav(plan, island, { joinDist = 10 } = {}) {
     if (!grid.has(k)) grid.set(k, []);
     grid.get(k).push(i);
   });
+  return { nodes, adj, roadOf };
+}
+
+// Distances along the streets for all possible visits from one address.
+export function roadsWithin(adj, start, limit) {
+  const distance = new Float64Array(adj.length).fill(Infinity);
+  const previous = new Int32Array(adj.length).fill(-1);
+  const heap = new Heap();
+  distance[start] = 0;
+  heap.push({ n: start, f: 0 });
+  while (heap.size) {
+    const { n, f } = heap.pop();
+    if (f !== distance[n]) continue;
+    for (const [next, length] of adj[n]) {
+      const d = f + length;
+      if (d >= distance[next] || d > limit) continue;
+      distance[next] = d;
+      previous[next] = n;
+      heap.push({ n: next, f: d });
+    }
+  }
+  return { distance, previous };
+}
+
+export function buildNav(plan, island, { joinDist = 10 } = {}) {
+  const lnd = makeLand(island);
+  const { nodes, adj, roadOf } = buildRoadGraph(plan.roads, joinDist);
   // components
   const comp = new Int32Array(nodes.length).fill(-1);
   const compSize = [];

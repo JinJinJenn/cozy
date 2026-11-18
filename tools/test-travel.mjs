@@ -135,6 +135,14 @@ try{
     await visitor.keyboard.down('a');
     try{await until(owner,({id,yaw})=>Math.abs(window.__cozy.street.session.actors.get(id).yaw-yaw)>.09,start);}
     finally{await visitor.keyboard.up('a');}
+    await visitor.keyboard.down('Space');
+    try{
+      await until(owner,id=>{
+        const a=window.__cozy.street.session.actors.get(id);
+        return a.brakeHeld&&a.speed===0;
+      },driver);
+      await until(visitor,()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).brakeHeld;});
+    }finally{await visitor.keyboard.up('Space');}
   }finally{await visitor.keyboard.up('w');}
   await visitor.locator('#use-place').click();await Promise.all(pages.map(p=>synced(p,driver,null)));
   const bike=await actor(owner);
@@ -266,12 +274,13 @@ try{
     const previous=window.trafficSamples||=new Map();
     for(let i=0;i<people.length;i++){
       const p=people[i],v=p.position;
-      if(!p.userData.driving){previous.delete(i);continue;}
+      const destination=s.island.homesById.get(p.userData.destination);
+      if(!p.userData.driving||!destination){previous.delete(i);continue;}
       const start=previous.get(i);
       if(!start){previous.set(i,{x:v.x,z:v.z});continue;}
       if(Math.hypot(start.x-v.x,start.z-v.z)>3){
         const neighbors=s.town.current,style=s.town.crowd.styles[i];
-        return {i,name:neighbors[i].name,population:people.length,styles:new Set(s.town.crowd.styles.map(s=>s.cut+'-'+s.outfit)).size,
+        return {i,name:neighbors[i].name,destination:destination.name,population:people.length,styles:new Set(s.town.crowd.styles.map(s=>s.cut+'-'+s.outfit)).size,
           names:new Set(neighbors.map(p=>p.name)).size,cut:style.cut};
       }
     }
@@ -279,17 +288,18 @@ try{
   const sample=await traffic.jsonValue();await traffic.dispose();
   assert.ok(sample.styles>=15);assert.equal(sample.names,sample.population);
   assert.equal(await owner.evaluate(i=>window.__cozy.street.town.current[i].name,sample.i),sample.name);
-  if(process.env.COZY_TRAFFIC_SHOT){
-    await visitor.evaluate(i=>{
+  await visitor.evaluate(i=>{
       const s=window.__cozy.street,p=s.town.people[i],v=p.position,yaw=p.userData.heading;
       s.cameraFocus={resident:i};s.controls.target.copy(v);s.controls.target.y+=1;
       s.camera.position.set(v.x+Math.sin(yaw+.73)*6,v.y+3,v.z+Math.cos(yaw+.73)*6);s.controls.update();
-    },sample.i);
+  },sample.i);
+  await until(visitor,({name,destination})=>document.querySelector('#place').textContent===name&&
+    document.querySelector('#resident-detail').textContent.includes('Driving to '+destination),sample);
+  if(process.env.COZY_TRAFFIC_SHOT){
     await visitor.evaluate(async()=>{await window.__cozy.flushChunks();});
-    await until(visitor,name=>document.querySelector('#place').textContent===name&&!document.querySelector('#resident-detail').hidden,sample.name);
     await visitor.screenshot({path:process.env.COZY_TRAFFIC_SHOT,type:'jpeg',quality:92});
   }
-  console.log('PASS a visitor saw resident',sample.name,'drive over three metres;',sample.names,'named residents and',sample.styles,'hair/outfit combinations.');
+  console.log('PASS a visitor followed',sample.name,'driving to',sample.destination+';',sample.names,'named residents and',sample.styles,'hair/outfit combinations.');
   assert.deepEqual(errors,[]);
 }catch(err){
   for(const p of pages)console.error(await p.evaluate(()=>{const s=window.__cozy?.street;return {actor:s?.session?.actors.get(s.session.id),

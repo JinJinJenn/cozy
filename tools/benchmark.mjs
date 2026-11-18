@@ -18,6 +18,8 @@ const studio=process.argv.includes('--studio');
 const gallery=process.argv.includes('--gallery');
 const flowers=process.argv.includes('--flowers');
 const wideStreet=process.argv.includes('--wide-street');
+const traffic=process.argv.includes('--traffic');
+if(traffic&&!wideStreet)throw Error('Use --wide-street with --traffic to profile the whole town.');
 if(gallery&&(studio||flowers||entryLight||television||wideStreet||orbit||baseline))throw Error('The framed print uses a fixed private home camera.');
 if(flowers&&(studio||entryLight||television||wideStreet||orbit||baseline))throw Error('The flower box uses a fixed street camera.');
 if(studio&&(entryLight||television||wideStreet||orbit||baseline))throw Error('The art studio uses a fixed interior camera.');
@@ -139,10 +141,13 @@ try{
         await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();
         if(wideStreet&&(!c.street.active||c.controls.getDistance()<d*.96))throw Error('Street camera did not reach island scale');
       },{distance,wideStreet});
-      const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion,wideStreet})=>{
+      if(traffic)await page.waitForFunction(()=>window.__cozy.street.town.current.filter(n=>n.driving).length>=20,
+        null,{polling:250,timeout:120000});
+      const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion,wideStreet,traffic})=>{
         for(let i=0;i<30;i++)await new Promise(requestAnimationFrame);
         window.benchLong=[];
         let peakCalls=0,peakTriangles=0,maxVisibleResidents=0;
+        let minDrivers=Infinity,maxDrivers=0,lastTick=-1;
         const intervals=[],pending=[],queueDepths=[];
         const gl=trackCompletion?document.querySelector('#gl').getContext('webgl2'):null;
         function retireFrames(){
@@ -157,6 +162,10 @@ try{
         for(let i=0;i<count;i++){
           await new Promise(requestAnimationFrame);const now=performance.now();intervals.push(now-last);last=now;
           const info=window.__cozy.info();peakCalls=Math.max(peakCalls,info.calls);peakTriangles=Math.max(peakTriangles,info.tris);maxVisibleResidents=Math.max(maxVisibleResidents,info.simulation?.visible||0);
+          if(traffic&&info.tick!==lastTick){
+            const n=window.__cozy.street.town.current.filter(r=>r.driving).length;
+            minDrivers=Math.min(minDrivers,n);maxDrivers=Math.max(maxDrivers,n);lastTick=info.tick;
+          }
           if(gl){
             retireFrames();queueDepths.push(pending.length);
             const fence=gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE,0);
@@ -175,8 +184,8 @@ try{
         const pct=(a,p)=>a[Math.floor((a.length-1)*p)];
         return {frames:count,peakCalls,peakTriangles,maxVisibleResidents,frameMs:{p50:pct(intervals,.5),p95:pct(intervals,.95),p99:pct(intervals,.99),max:intervals.at(-1)},
           ...(gl?{gpuCompletion:{framesPerSecond:completedFps,previousFramesInFlightP95:pct(queueDepths,.95)}}:{}),
-          longTasks:window.benchLong,info:window.__cozy.info()};
-      },{count:software?60:360,orbit,distance,trackCompletion,wideStreet});
+          ...(traffic?{minDrivers,maxDrivers}:{}),longTasks:window.benchLong,info:window.__cozy.info()};
+      },{count:software?60:360,orbit,distance,trackCompletion,wideStreet,traffic});
       sample.residents=sample.info.residents.length;
       delete sample.info.residents;
       const record={mode,...scene,gpu,...sample,errors};results.push(record);console.log(JSON.stringify(record));

@@ -173,6 +173,7 @@ export class SettlementView {
       actor.visible = !p.asleep;
       actor.scale.y = p.seat ? 0.73 : 1;
       actor.userData.driving=!!p.driving;
+      actor.userData.destination=p.destination;
       if(prev.driving&&p.driving){
         const delta=p.heading-prev.heading;
         actor.userData.heading=Math.PI/2-prev.heading-alpha*Math.atan2(Math.sin(delta),Math.cos(delta));

@@ -4,6 +4,7 @@ import {takeVehicle,moveVehicle,dismount,teleport} from '../src/street-travel.js
 import {cameraClearance,defaultLayout} from '../src/street-world.js';
 import {StreetSession} from '../src/street-session.js';
 import {bindResidentTraffic} from '../src/resident-traffic.js';
+import {planResidentVisits} from '../src/resident-car-routes.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
 
 function street(){
@@ -76,6 +77,79 @@ test('a glancing curb contact scrubs speed and guides the car along the road whi
   const start=a.z;
   for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:1},1/60);
   assert.equal(a.speed,0);assert.ok(a.z<start+2.3);
+});
+
+test('the brake holds a stopped car with throttle or reverse held and releases immediately',()=>{
+  const {s,a}=street();takeVehicle(s,a,'car');a.speed=10;
+  const start=a.z;
+  for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:1,brake:true},1/60);
+  assert.equal(a.speed,0);assert.ok(a.z-start>3.9&&a.z-start<4.4);
+  const stop=a.z;
+  for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:-1,brake:true},1/60);
+  assert.equal(a.z,stop);assert.equal(a.brakeHeld,true);
+  moveVehicle(s,a,{x:0,z:1},1/60);assert.ok(a.speed>0);assert.equal(a.brakeHeld,false);
+});
+
+test('visits turn through a T junction, cross a short bridge and take the opposite lane home',()=>{
+  const road=(id,pts,options={})=>({id,class:'street',width:7,pts,...options});
+  const roads=[road('main',[[-80,0],[50,0]]),road('arm',[[0,.1],[0,30]]),
+    road('bridge',[[0,30],[0,38]],{bridge:true}),road('north',[[0,38],[0,80]]),
+    road('trail',[[15,0],[15,-30]],{class:'path'}),road('isolated',[[0,-30],[35,-30]])];
+  const home=(id,road,x,z)=>({id,road,entry:{x,z},inside:{x,z:z+2}});
+  const homes=[home('start','main',-45,4),home('visit','north',4,65),home('island','isolated',15,-34)];
+  const visits=planResidentVisits({roads},homes,'bridge');
+  assert.equal(visits.has('island'),false);
+  const [{dest,outbound,inbound}]=visits.get('start');
+  assert.equal(dest.id,'visit');assert.equal(outbound.junctions.length,1);
+  assert.ok(outbound.points[0][1]>1&&inbound.points.at(-1)[1]<-1);
+  assert.ok(outbound.points.at(-1)[0]<-1&&inbound.points[0][0]>1);
+  assert.ok(outbound.points.filter(([x,z])=>Math.abs(x)<7&&Math.abs(z)<7).length>=4);
+  for(const route of [outbound,inbound])for(let i=1;i<route.points.length;i++){
+    const [ax,az]=route.points[i-1],[bx,bz]=route.points[i];
+    for(let t=0;t<=1;t+=.05){
+      const x=ax+t*(bx-ax),z=az+t*(bz-az);
+      assert.ok(Math.abs(z)<=3.5||Math.abs(x)<=3.5&&z>=0,'the turn stays on the two carriageways');
+    }
+  }
+  const cut=planResidentVisits({roads:roads.filter(r=>r.id!=='bridge')},homes,'bridge');
+  assert.equal(cut.size,0);
+});
+
+test('cross traffic yields before the junction and both residents clear it',()=>{
+  const ctx={plan:{roads:[]},seed:'junction'};
+  bindResidentTraffic(ctx,{island:{homes:[]}});
+  const gate={id:0,x:0,z:0};
+  const driver=(pos,to)=>({pos,pace:1,action:{kind:'move',driveStart:0,driveEnd:1,i:0,
+    pts:[to],speed:7,junctions:[gate]}});
+  const east=driver([-14,1.4],[18,1.4]),north=driver([-1.4,-14],[-1.4,18]);
+  const sim=Object.assign(Object.create(Simulation.prototype),{ctx,npcs:[east,north],tick:0,cfg:{stepDt:.5,walkSpeed:3}});
+  let waiting=false,minGap=Infinity;
+  for(let i=0;i<65;i++){
+    sim.tick++;sim._advance(east);sim._advance(north);
+    waiting||=!!north.action?.waitingForTraffic;
+    minGap=Math.min(minGap,Math.hypot(east.pos[0]-north.pos[0],east.pos[1]-north.pos[1]));
+  }
+  assert.ok(waiting&&minGap>3.4);assert.deepEqual(east.pos,[18,1.4]);assert.deepEqual(north.pos,[-1.4,18]);
+});
+
+test('a household rotates its calls and returns from the address it actually visited',()=>{
+  const roads=[{id:'east',class:'street',width:7,pts:[[-80,0],[80,0]]},
+    {id:'north',class:'street',width:7,pts:[[0,-80],[0,80]]}];
+  const homes=[['a','east',-50,5],['b','north',5,48],['c','north',5,-55],['d','east',58,5]]
+    .map(([id,road,x,z])=>({id,road,entry:{x,z},inside:{x,z}}));
+  const ctx={plan:{roads},seed:'rounds',nav:{findPath:(_from,to)=>({pts:[to.slice()]})}};
+  bindResidentTraffic(ctx,{island:{homes}});
+  const home=homes.find(h=>ctx.hasCarVisit(h.id));
+  const n={home:{lotId:home.id},pos:[home.inside.x,home.inside.z],completedVisits:0};
+  const first=ctx.carTrip(n,false);
+  n.completedVisits=1;
+  const next=ctx.carTrip(n,false);
+  assert.notEqual(first.destination,next.destination);
+  const visiting=homes.find(h=>h.id===next.destination);
+  Object.assign(n,{visitingLot:visiting.id,pos:[visiting.inside.x,visiting.inside.z],completedVisits:0});
+  const back=ctx.carTrip(n,true),pickup=back.pts[back.driveStart-1];
+  assert.equal(back.destination,home.id);
+  assert.ok(Math.hypot(n.pos[0]-pickup[0],n.pos[1]-pickup[1])<8);
 });
 
 test('a resident walks out, yields to a player, drives to a neighbor, visits the house and drives home',()=>{

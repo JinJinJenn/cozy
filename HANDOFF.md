@@ -4,6 +4,18 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.20.0 gives resident drivers a circle of up to three neighboring
+households. They leave at different times, follow connected streets and road
+bridges, take turns at junctions, visit the house on foot and drive home on the
+opposite lane. Follow a moving car to see its driver's name and destination on
+either player's screen. Hold **Space** to stop your own car, including while
+holding the accelerator. **S** still brakes into reverse.
+
+In a three-minute simulation of the default Harbor Town, 70 residents drove
+to a different street and 33 completed a return trip. There were 459 residents
+in the simulation. The travel tests exercise cross traffic, a short bridge,
+disconnected streets, repeat visits and braking across two browsers.
+
 Version 0.19.0 changes how the roadster steers, brakes and follows the curb.
 W accelerates, S brakes and then reverses, and A/D steer. The close driving
 camera follows turns and gives you time to look around after a manual orbit.

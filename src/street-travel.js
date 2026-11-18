@@ -13,7 +13,7 @@ function roadsOf(island){
     const [x,z]=road.pts[i-1],[ex,ez]=road.pts[i],length=Math.hypot(ex-x,ez-z);
     if(!length)continue;
     const dx=(ex-x)/length,dz=(ez-z)/length,r=road.width/2;
-    const line={x,z,dx,dz,length,r};segments.push(line);
+    const line={x,z,dx,dz,length,r,drivable:road.class!=='path'&&road.width>=4};segments.push(line);
     for(let ix=Math.floor((Math.min(x,ex)-r)/32);ix<=Math.floor((Math.max(x,ex)+r)/32);ix++)
       for(let iz=Math.floor((Math.min(z,ez)-r)/32);iz<=Math.floor((Math.max(z,ez)+r)/32);iz++){
         const key=ix+','+iz;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(line);
@@ -49,7 +49,7 @@ function fits(s,kind,x,z,yaw,people){
       const corner={x:cx+side*cos,z:cz-side*sin};
       if(kind==='car'){
         const lines=roadsOf(s.island).cells.get(Math.floor(corner.x/32)+','+Math.floor(corner.z/32));
-        if(!lines?.some(l=>project(l,corner).distance<=l.r))return false;
+        if(!lines?.some(l=>l.drivable&&project(l,corner).distance<=l.r))return false;
       }
       if(!outdoors(s,corner))return false;
     }
@@ -58,12 +58,13 @@ function fits(s,kind,x,z,yaw,people){
 }
 function clearActivity(s,a){
   s.activities.finish(a);a.activity='';a.part='';a.feedback='';
-  delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;
+  delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;delete a.brakeHeld;
 }
 export function takeVehicle(s,a,kind){
   if(!Object.hasOwn(specifications,kind))return;
   let best,line;
   for(const segment of roadsOf(s.island).segments){
+    if(kind==='car'&&!segment.drivable)continue;
     const p=project(segment,a);if(!best||p.distance<best.distance){best=p;line=segment;}
   }
   if(!line){a.feedback='There is no road here.';return;}
@@ -102,11 +103,12 @@ export function carSteerAngle(steer,speed){
 }
 function driveCar(s,a,input,dt){
   if(dt<=0)return;
+  a.brakeHeld=!!input.brake;
   const spec=specifications.car,people=nearbyPeople(s,a,a.x,a.z);
   const steps=Math.max(1,Math.ceil(dt*60)),step=dt/steps;
   for(let i=0;i<steps;i++){
     const previous=a.speed||0,throttle=input.z||0;
-    const braking=throttle*previous<0;
+    const braking=input.brake||throttle*previous<0;
     if(braking)a.reverseHold=.20;
     else if(!throttle||throttle>0)a.reverseHold=0;
     else a.reverseHold=Math.max(0,(a.reverseHold||0)-step);
@@ -126,7 +128,7 @@ function driveCar(s,a,input,dt){
     // through the same footprint, pedestrian and building checks as free travel.
     const lines=roadsOf(s.island).cells.get(Math.floor(a.x/32)+','+Math.floor(a.z/32))||[];
     let nearest,dist=Infinity;
-    for(const line of lines){const d=project(line,a).distance;if(d<dist){nearest=line;dist=d;}}
+    for(const line of lines){if(!line.drivable)continue;const d=project(line,a).distance;if(d<dist){nearest=line;dist=d;}}
     if(nearest){
       const along=nearest.dx*Math.sin(mid)+nearest.dz*Math.cos(mid);
       if(Math.abs(along)>.76){
