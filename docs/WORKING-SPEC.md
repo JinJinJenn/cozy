@@ -97,6 +97,12 @@ These are design references, not source to transplant.
 
 ## Next coherent slice: editable inhabited homes
 
+Shipped in v0.7.0: generated homes accept one owner-placed full-width divider
+with a repositionable open doorway. Its pose is stored against the lot ID in
+the versioned private layout. Guests and the resident simulation use both
+solid wall panels. Room resizing, moving furniture with a room and a general
+furniture catalog are still open.
+
 The existing venue-specific wall and terrace tools remain supported. The next
 editor should replace duplicated geometry rules with a committed home plan:
 

@@ -4,6 +4,7 @@ import {pointInPoly,polyCentroid} from '../packages/settlement/src/geom.js';
 import {readTerrace,terraceDefault} from './terrace.js';
 import {homeAt,homeLocal,homeWalkableLocal} from './home-plan.js';
 import {tvChannels} from './home-fixtures.js';
+import {readRooms} from './room-divider.js';
 
 export const radius = .31;
 const homeLots=['l106','l108'];
@@ -40,7 +41,10 @@ export function readLayout(s) {
     if(entries.length)fixtures[key]=Object.fromEntries(entries);
   }
   const terrace=readTerrace(s.terrace);if(!terrace)return null;
+  const rooms=s.rooms===undefined?undefined:readRooms(s.rooms);
+  if(rooms===null)return null;
   return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,...fixtures,
+    ...(rooms?{rooms}:{}),
     club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace,
     ...(s.restaurant?{restaurant:{wall:s.restaurant.wall,undo:[...s.restaurant.undo]}}:{})};
 }

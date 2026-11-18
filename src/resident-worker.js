@@ -1,6 +1,7 @@
 import {contextFromPlan} from '../packages/sim/src/context.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
 import {prepareHomes} from './home-plan.js';
+import {applyRoomPlans} from './room-divider.js';
 import {plotsForStreet,defaultLayout} from './street-world.js';
 import {bindResidentWorld} from './resident-world.js';
 let sim,street;
@@ -32,7 +33,10 @@ self.onmessage=e=>{
       self.postMessage({type:'ready'});
     }else if(m.type==='step'){
       const start=performance.now(),session=street.session;
-      if(session.layout.revision!==m.layout.revision)sim._recheckAll();
+      if(session.layout.revision!==m.layout.revision){
+        applyRoomPlans(street.island,session.layout.rooms?.lots,m.layout.rooms?.lots);
+        sim._recheckAll();
+      }
       session.layout=m.layout;session.actors=new Map(m.actors.map(a=>[a.id,a]));session.activities.routes=new Map(m.routes);
       const times=[];
       for(let i=0;i<m.steps;i++){const t=performance.now();sim.step();times.push(performance.now()-t);}

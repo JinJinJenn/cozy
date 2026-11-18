@@ -4,6 +4,16 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.7.0 adds a room divider to the Build tool in generated homes. Enter
+a house on a private street, open **Build**, and preview the wall and doorway.
+The owner can rotate, reposition, remove, or undo it while guests keep using
+the furniture. The host checks occupants, reserved destinations, furniture
+approaches and access to the front door before committing. Each house supports
+one added divider. Compact floor plans can have too little clearance to place
+one. The private save keeps the design and the latest room edit for undo.
+
+Run `npm run test:domestic -- --room` for the two-browser renovation playtest.
+
 In v0.6.0 each generated home has a television opposite the sofa. Click the
 set to watch. A friend takes the other sofa cushion or sits cross-legged on the rug in a studio. Either
 viewer can change the channel or turn it off. Private homes keep their last

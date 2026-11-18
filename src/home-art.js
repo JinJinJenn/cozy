@@ -3,6 +3,7 @@ import {Pieces,roof,setPieceVisibility} from './street-pieces.js';
 import {homeAt,homeLocal} from './home-plan.js';
 import {HomeAppliances} from './home-appliances.js';
 import {sideWindows,televisionIn} from './home-fixtures.js';
+import {dividerParts} from './room-divider.js';
 
 const cream='#f0e5cf',wood='#92704e',metal='#465d58';
 const palette=[['#e4cbb0','#596f75','#668574'],['#c99680','#71534d','#4d7773'],['#a2b8a3','#4c6471','#a97955'],['#d6bd83','#665b6c','#48777b'],['#a7bac5','#506578','#758265'],['#d1b2af','#675a6e','#547165']];
@@ -88,7 +89,7 @@ function furnish(a,b){
   for(let i=0;i<6;i++)set.box(.68,-.08-i*.039,.039,.15,.013,.025,'#463d34');
   // Floorboards and trims stay inside the footprint, even for the compact homes.
   for(let x=-b.w/2+.15;x<b.w/2;x+=.30)a.box(x,.052,0,.013,.009,b.d-.16,'#9b7c59');
-  for(const r of b.walls.filter(r=>r.side==='inside')){
+  for(const r of b.walls.filter(r=>r.side==='inside'&&!r.divider)){
     a.box(r.x,1.24,r.z,r.w,2.48,r.d,'#e6d8bf');a.box(r.x,.15,r.z,r.w+.04,.23,r.d+.04,accent);
   }
   for(const f of b.furniture){const p=a.frame(f.x,0,f.z,f.flip?Math.PI:0);
@@ -188,7 +189,30 @@ export class HomeInteriors {
     for(const handle of Object.values(this.open.renderHandles))setPieceVisibility(handle,true);
     this.appliances.dispose();this.appliances=null;
     this.group.removeFromParent();this.group.traverse(m=>{if(m.isInstancedMesh)m.dispose();});
-    this.group=null;this.open=null;
+    this.group=null;this.open=null;this.dividerMesh=null;this.drawnDivider=null;
+  }
+  updateDivider(home){
+    const plan=home.divider??null;
+    if(plan===(this.drawnDivider??null))return;
+    if(this.dividerMesh){
+      this.dividerMesh.removeFromParent();this.dividerMesh.traverse(m=>{if(m.isInstancedMesh)m.dispose();});this.dividerMesh=null;
+    }
+    this.drawnDivider=plan;if(!plan)return;
+    const group=new THREE.Group(),a=new Pieces(group).frame(home.x,home.y,home.z,home.yaw);
+    const [turn,line,door]=plan;
+    for(const r of dividerParts(home,plan)){
+      const f=a.frame(r.x,0,r.z,turn?Math.PI/2:0),w=turn?r.d:r.w;
+      f.box(0,.60,0,w,1.14,.14,'#869e90');
+      for(let x=-w/2+.18;x<w/2-.06;x+=.23)f.box(x,.61,0,.018,.93,.16,'#688479');
+      for(const y of [.14,1.19,2.26])f.box(0,y,0,w,.09,.20,cream);
+      const panes=Math.max(1,Math.ceil(w/.8));
+      for(let i=0;i<=panes;i++)f.box((i/panes-.5)*(w-.06),1.73,0,.065,1.05,.115,cream);
+      f.box(0,1.83,0,w,.045,.10,cream);
+    }
+    const trim=a.frame(turn?line/2:door/2,0,turn?door/2:line/2,turn?Math.PI/2:0);
+    for(const end of [-1,1])trim.box(end*.85,1.14,0,.075,2.28,.21,wood);
+    trim.box(0,2.27,0,1.78,.12,.23,wood);
+    a.finish();this.group.add(group);this.dividerMesh=group;
   }
   update(pos,eye,session){
     const home=homeAt(this.island,pos,.16);
@@ -201,6 +225,7 @@ export class HomeInteriors {
       }
     }
     if(!home)return;
+    this.updateDivider(home);
     const p=homeLocal(home,eye);setPieceVisibility(home.renderHandles.roof,false);
     for(const [side,hide] of [['left',p.x<0],['right',p.x>0],['back',p.z<0],['front',p.z>0]])setPieceVisibility(home.renderHandles[side],!hide);
     this.appliances.update(session);

@@ -4,6 +4,7 @@ import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
+import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
 import {tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
@@ -104,6 +105,7 @@ export class StreetSession {
         }
         if(this.owner)this.privateKey=id.privateKey;
         this.layout=readLayout(stored(project+'.layout.'+this.pub))||defaultLayout();this.saved=id.persistent!==false;
+        applyRoomPlans(this.island,{},this.layout.rooms?.lots);
       }
       if(this.owner){
         this.coffeeVisits=stored(project+'.coffee.'+this.pub)||{};
@@ -170,6 +172,27 @@ export class StreetSession {
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
   persist(){if(this.space==='public')return;this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
+  roomOccupants(home){
+    const nearby=p=>Math.abs(p.x-home.x)<=home.collisionHalfX&&Math.abs(p.z-home.z)<=home.collisionHalfZ;
+    return [...this.actors.values()].flatMap(a=>a.using?.exit?[a,a.using.exit]:[a]).filter(nearby)
+      .concat((this.town.current||[]).filter(nearby),[...this.activities.routes.values()].map(r=>r.goal).filter(nearby));
+  }
+  editRoom(id,draft,revision,undo=false){
+    if(!this.ready||!this.canBuild)return false;
+    const home=this.island.homesById.get(id),rooms=this.layout.rooms||{v:1,lots:{}};
+    if(!home||homeAt(this.island,this.actors.get(this.id))!==home)return false;
+    if(revision!==this.layout.revision){this.notice('The room changed. Review the preview and apply again.');return false;}
+    if(undo&&rooms.last?.[0]!==id)return false;
+    const next=undo?rooms.last[1]:draft,previous=rooms.lots[id]??null;
+    const reason=dividerLimit(home,next,this.roomOccupants(home),true);
+    if(reason){this.notice(reason);return false;}
+    if(sameDivider(previous,next))return false;
+    const lots={...rooms.lots};
+    if(next)lots[id]=[...next];else delete lots[id];
+    applyRoomPlans(this.island,rooms.lots,lots);
+    this.layout.rooms={v:1,lots,...(undo?{}:{last:[id,previous]})};
+    this.layout.revision++;this.town.sim?._recheckAll();this.persist();return true;
+  }
   rememberCoffee(id){
     const last=this.coffeeVisits[id];
     const count=Number.isSafeInteger(last)?Math.min(9999,last+1):1;
@@ -354,7 +377,7 @@ export class StreetSession {
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
-    }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<32768&&typeof m.sig==='string'&&m.sig.length<140){
+    }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<131072&&typeof m.sig==='string'&&m.sig.length<140){
       try{
         const epoch=this.boot;
         if(!await crypto.subtle.verify(signature,this.publicKey,decode(m.sig),utf8.encode(m.body)))return;
@@ -369,6 +392,7 @@ export class StreetSession {
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
+        if(this.layout.revision!==layout.revision||newHost)applyRoomPlans(this.island,this.layout.rooms?.lots,layout.rooms?.lots);
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;

@@ -45,6 +45,12 @@ body.shot #ui,body.shot #mini{display:none}
       <p id="wall-limit" role="status" hidden></p>
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
       <button id="terrace-open" hidden>Furnish café terrace</button>
+      <div id="room-tools" hidden>
+        <label>Divider position <input type="range" id="room-line" step="1"><output id="room-line-value"></output></label>
+        <label>Doorway position <input type="range" id="room-door" step="1"><output id="room-door-value"></output></label>
+        <p id="room-status" role="status"></p>
+        <div><button id="room-rotate">Rotate 90°</button> <button id="room-apply" class="primary">Apply divider</button> <button id="room-remove">Remove divider</button> <button id="room-undo">Undo room edit</button></div>
+      </div>
       <div id="terrace-tools" hidden><label>Furniture <select id="terrace-slot"></select></label>
         <p id="terrace-status" role="status"></p>
         <div><button id="terrace-rotate">Rotate</button> <button id="terrace-apply" class="primary">Place table</button> <button id="terrace-remove">Remove</button> <button id="terrace-undo">Undo table edit</button></div>

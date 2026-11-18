@@ -14,7 +14,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 | Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
 | Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, saved lamp switches and a shared cook/serve/eat loop | Catalog-wide behaviors, linked switches, richer props and interaction transitions |
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
-| Room editing | Jenn's Cafe, Sky Lounge | Venue-specific wall edits, terrace tables, revision checks and undo | General connected-room editor and catalog placement/support rules |
+| Room editing | Jenn's Cafe, Sky Lounge | Guests stay seated while an owner previews, places or undoes a divider in a generated home. Venue walls and terrace tables are also editable. | Multi-room plans, furniture placement and support rules |
 | Multiplayer arrival | Sky Lounge public lobby | Automatic public joining, delayed-signal convergence, separate private streets | Explicit private-home access, larger groups and full host handover |
 | Personal homes | Owner-specific room saves | Existing browser-local venue layout saves preserved | Stable personal home IDs, recoverable backup, session parcel leases and migrations |
 | Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |

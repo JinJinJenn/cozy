@@ -4,6 +4,7 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {testNostrRelay} from './test-nostr-relay.mjs';
+import {playtestRoom} from './playtest-room.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DOMESTIC_REPORT||path.join(root,'test-results/domestic');
 await mkdir(out,{recursive:true});
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -26,6 +27,9 @@ try{
  assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
+ if(process.argv.includes('--room')){
+   report.room=await playtestRoom({host,guest,guestId,open,out});
+ }else{
  report.home=await host.evaluate(async()=>{
    const c=window.__cozy,s=c.street.session,b=c.island.homes.find(b=>b.name==='Home 58'),a=s.actors.get(s.id);
    Object.assign(a,b.inside);s.activities.finish(a);c.render();
@@ -199,6 +203,7 @@ try{
    return scene.session.actors.get(scene.session.id).using?.object==='rug'&&scene.meshes.get(scene.session.id)?.getObjectByName('watch-on-rug')?.visible;
  });
  report.television.compactHomeFloorSeat=true;
+ }
  assert.deepEqual(report.errors,[]);report.passed=true;
 }catch(e){report.error=e.stack;report.passed=false;process.exitCode=1;}
 finally{await writeFile(out+'/review.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}

@@ -10,6 +10,7 @@ import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
 import {vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
+import {HomeEditor} from './home-editor.js';
 
 const $=id=>document.getElementById(id);
 const names={home:'Sit on the sofa',wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
@@ -38,6 +39,7 @@ export class Street {
     $('public-street').href=townURL.href;
     townURL.searchParams.set('space','personal');$('personal-street').href=townURL.href;
     this.terraceEditor=new TerraceEditor(this,listen);
+    this.homeEditor=new HomeEditor(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -154,15 +156,20 @@ export class Street {
     });
     listen($('build-open'),'click',()=>{
       if(this.session?.space==='public'){
-        const url=new URL($('personal-street').href);url.searchParams.set('build','1');location.assign(url);return;
+        const url=new URL($('personal-street').href),local=this.session.actors.get(this.session.id);
+        const home=local&&homeAt(this.island,local);if(home)url.searchParams.set('home',home.id);
+        url.searchParams.set('build','1');location.assign(url);return;
       }
       const open=$('build-pane').hidden;this.closePanels();
       if(!open||!this.session?.owner||!this.session.ready)return;
       const local=this.session.actors.get(this.session.id),near=this.session.near(local);
       this.returnOffset=this.camera.position.clone().sub(this.controls.target);
-      $('build-pane').hidden=false;this.selectLot(this.editable.includes(near)?near:this.cafe);
+      const home=homeAt(this.island,local);
+      const lots=home?this.editable.concat(home):this.editable;
+      $('build-lot').replaceChildren(...lots.map(b=>new Option(b.name||places[b.kind][0],b.id)));
+      $('build-pane').hidden=false;this.selectLot(home||(this.editable.includes(near)?near:this.cafe));
     });
-    listen($('build-lot'),'change',()=>this.selectLot(this.editable.find(b=>b.id===$('build-lot').value)));
+    listen($('build-lot'),'change',()=>this.selectLot(this.editable.find(b=>b.id===$('build-lot').value)||this.island.homesById.get($('build-lot').value)));
     listen($('wall-offset'),'input',()=>{this.notice('');this.preview();});
     listen($('side-offset'),'input',()=>{this.notice('');this.preview();});
     listen($('apply-wall'),'click',()=>this.commitWall());
@@ -319,7 +326,7 @@ export class Street {
     for(const [i,r] of rooms.entries()){const link=document.createElement('a');link.href=r.url;link.textContent='Visit Harbor Street '+(i+1);el.append(link);}
   }
   selectLot(b){
-    this.terraceEditor.close();$('terrace-open').hidden=!b.cafe;
+    this.homeEditor.close();this.terraceEditor.close();$('terrace-open').hidden=!b.cafe;
     this.clearInput();this.drag=null;this.buildLot=b;$('build-lot').value=b.id;
     $('street-panel').classList.add('building');
     $('build-open').textContent='Done building';this.nextUI=0;
@@ -332,7 +339,9 @@ export class Street {
     this.controls.target.set(b.x,b.y+.35,b.z);this.camera.position.set(eye.x,b.y+11,eye.z);
     const fit=Math.max(1,.89/this.camera.aspect);
     this.camera.position.sub(this.controls.target).multiplyScalar(fit).add(this.controls.target);
-    this.controls.update();this.resetPreview();this.render();
+    this.controls.update();
+    if(b.kind==='home'){this.art.preview(null,0,false);this.homeEditor.open(b);}else this.resetPreview();
+    this.render();
   }
   resetPreview(){
     if(!this.buildLot)return;
@@ -390,7 +399,7 @@ export class Street {
   closePanels(){
     for(const id of ['build-pane','social-pane','directions-pane','wall-grip','world-choice'])$(id).hidden=true;
     if(this.buildLot){
-      this.terraceEditor.close();
+      this.homeEditor.close();this.terraceEditor.close();
       this.drag=null;this.buildLot=null;this.art.preview(null,0,false);
       $('street-panel').classList.remove('building');
       $('build-open').textContent='Build';this.clearInput();this.nextUI=0;
@@ -405,7 +414,12 @@ export class Street {
     if(!this.session){
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
       this.session.start.then(()=>{
-        if(!this.session.closed&&this.active&&this.session.canBuild&&new URLSearchParams(location.search).get('build')==='1')$('build-open').click();
+        const params=new URLSearchParams(location.search);
+        if(!this.session.closed&&this.active&&this.session.canBuild&&params.get('build')==='1'){
+          const home=this.island.homesById.get(params.get('home'));
+          if(home)Object.assign(this.session.actors.get(this.session.id),home.inside);
+          $('build-open').click();
+        }
       });
       this.lastAdvance=performance.now();this.joinStarted=this.lastAdvance;
       this.timer=setInterval(()=>{const now=performance.now();
@@ -486,7 +500,7 @@ export class Street {
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
-    if(this.buildLot){if(!this.terraceEditor.active)this.positionGrip();}
+    if(this.buildLot){if(!this.terraceEditor.active&&!this.homeEditor.home)this.positionGrip();}
     else{
       const focus=this.cameraFocus;
       const tracked=focus?.actor?this.meshes.get(focus.actor):focus?.resident!==undefined?this.town.people[focus.resident]:null;
@@ -506,10 +520,11 @@ export class Street {
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
-    if(this.terraceEditor.active)this.terraceEditor.refresh();
+    if(this.homeEditor.home)this.homeEditor.refresh();
+    else if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();
-    $('place').textContent=this.buildLot?places[this.buildLot.kind][0]:near?(near.name||places[near.kind][0]):'Harbor Town';
-    $('walk-hint').textContent=this.terraceEditor.active?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
+    $('place').textContent=this.buildLot?(this.buildLot.name||places[this.buildLot.kind][0]):near?(near.name||places[near.kind][0]):'Harbor Town';
+    $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
       local.vehicle?'W/S accelerate or reverse · A/D steer · E to get out':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       'Left-click to walk or interact · Right-click for options · Drag to orbit · M for map';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');

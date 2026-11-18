@@ -10,11 +10,37 @@ import {walkingRoute} from '../src/street-route.js';
 import {readFileSync} from 'node:fs';
 import {StreetSession} from '../src/street-session.js';
 import {StreetActivities} from '../src/street-activities.js';
+import {applyRoomPlans,dividerLimit,dividerParts} from '../src/room-divider.js';
 
 const generated=generate({preset:'harborTown',seed:'petalwood'}),world=generated.island;
 world.plan=generateSettlement(generated);
 generated.heightfield.set(createFlattenHook(world.plan)(generated));
 const plots=plotsForStreet(world),homes=prepareHomes(world,plots),layout=defaultLayout();
+
+test('owner room revisions preserve furnishing stations, protected occupants, undo and saved geometry',()=>{
+  const b=homes.find(b=>b.name==='Home 58'),uses=b.uses,plan=[1,2,0],id=b.id;
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,ready:true,owner:true,space:'personal',
+    id:'owner',actors:new Map([['owner',{...b.inside}]]),town:{current:[]},activities:{routes:new Map()},
+    layout:defaultLayout(),notice(){},persist(){}});
+  const door=homeWorld(b,1,0),wall=dividerParts(b,plan)[0],solid=homeWorld(b,wall.x,wall.z);
+  assert.equal(dividerLimit(b,plan),'');
+  try{
+    s.town.current.push({...solid,asleep:true});assert.equal(s.editRoom(id,plan,0),false);s.town.current=[];
+    s.activities.routes.set('guest',{goal:solid});assert.equal(s.editRoom(id,plan,0),false);s.activities.routes.clear();
+    s.owner=false;assert.equal(s.editRoom(id,plan,0),false);s.owner=true;
+    s.space='public';assert.equal(s.editRoom(id,plan,0),false);s.space='personal';
+    assert.equal(s.editRoom(id,plan,1),false);assert.equal(s.editRoom(id,plan,0),true);
+    assert.equal(b.uses,uses);assert.equal(homeWalkable(b,door),true);assert.equal(homeWalkable(b,solid),false);
+    const saved=readLayout(JSON.parse(JSON.stringify(s.layout)));
+    assert.deepEqual(saved.rooms.lots[id],plan);
+    assert.equal(s.editRoom(id,null,0),false);assert.equal(s.editRoom(id,null,1),true);
+    assert.equal(homeWalkable(b,solid),true);
+    assert.equal(s.editRoom(id,null,2,true),true);assert.equal(homeWalkable(b,solid),false);
+    assert.ok(!readLayout({...saved,rooms:{...saved.rooms,v:2}}));
+    assert.ok(!readLayout({...saved,rooms:{...saved.rooms,lots:{[id]:[0,1,99]}}}));
+    assert.equal(readLayout(defaultLayout()).rooms,undefined);
+  }finally{applyRoomPlans(world,{[id]:plan},{});}
+});
 
 test('venue cells cover edited walls and the terrace on both sides of cell boundaries',()=>{
   // A copied list takes the unindexed path, using every venue as a candidate.
