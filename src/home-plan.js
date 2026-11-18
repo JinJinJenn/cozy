@@ -3,6 +3,7 @@ import {rng} from '../packages/island-gen/src/rng.js';
 import {routeOnGrid} from './walk-grid.js';
 import {fixtureOutlet,lamps,televisionIn} from './home-fixtures.js';
 import {footprint} from './furniture-pose.js';
+import {boardX} from './table-game.js';
 
 export const homeWorld=(b,x,z)=>({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export const homeLocal=(b,p)=>({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
@@ -101,7 +102,14 @@ function usesFor(b){
   const floor=uses.find(u=>u.action==='stretch')||homeLocal(b,b.inside);
   const second=endSeat?{...endSeat,object:'sofa-end'}:{x:floor.x,z:floor.z,object:'rug'};
   second.yaw=b.yaw+Math.atan2(tv.x-second.x,tv.z-second.z);
-  return uses.concat(switches,mealSpots,watch,{...second,action:'watch',label:'Watch television together',target:screen,alternate:true});
+  const stations=uses.concat(switches,mealSpots,watch,{...second,action:'watch',label:'Watch television together',target:screen,alternate:true});
+  const table=b.furniture.find(f=>f.type==='dining');
+  if(table){
+    const chairs=stations.filter(u=>u.action==='sit'&&u.object.startsWith('chair-'));
+    stations.push(...chairs.map((seat,i)=>({...seat,action:'tablegame',label:'Play Harbor Three',mealSeat:false,
+      target:{x:table.x+boardX,z:table.z,y:.92},radius:.34,alternate:i>0})));
+  }
+  return stations;
 }
 export function prepareHomes(island,exclude=[]){
   const skip=new Set(exclude.map(b=>b.id)),homes=[],cells=new Map();

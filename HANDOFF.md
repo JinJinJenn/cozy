@@ -4,6 +4,16 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.12.0 adds Harbor Three to dining tables in generated homes. Choose
+**Travel → Find a game table** to take an available chair. The host checks
+tables with seated players first. You can also click the physical board.
+Play solo against Harbor House or sit opposite a friend. Click an empty square
+on the tabletop or use the matching buttons to place a buoy or life ring.
+Three in a row wins. A guest can watch a round already in progress, and the
+players can swap the opening move on a rematch. Leaving a two-player game
+clears that round. Matches last for the visit. Run
+`npm run test:domestic -- --table` for the three-browser playtest.
+
 Version 0.11.1 reconnects an invited guest when the private WebRTC link fails
 before admission or stops delivering signed frames. The guest stays on the same
 page with the same actor ID. The owner and other guests keep playing.

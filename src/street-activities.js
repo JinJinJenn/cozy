@@ -3,6 +3,7 @@ import {walkingRoute} from './street-route.js';
 import {homeAt} from './home-plan.js';
 import {lamps,tuneTelevision} from './home-fixtures.js';
 import {finishHomeMeal,mealStation} from './home-meals.js';
+import {leaveBoard,sitAtBoard} from './table-game.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
 
@@ -36,6 +37,7 @@ export class StreetActivities {
   cancelRoute(actor){this.routes.delete(actor.id);actor.walking=false;delete actor.goal;}
   leaveFurniture(actor){
     if(!actor.using)return;
+    if(actor.activity==='tablegame')leaveBoard(this.s,actor);
     Object.assign(actor,{x:actor.using.exit.x,z:actor.using.exit.z,activity:'',part:''});
     delete actor.using;delete actor.useUntil;
   }
@@ -193,8 +195,9 @@ export class StreetActivities {
       const {b}=target;
       let spot=mealStation(this.s,b.id,target.spot,actor);
       if(!spot){actor.feedback='That serving is no longer available.';return;}
-      if(spot.action==='watch'&&!spot.alternate&&!this.s.available(actor,b,spot)){
-        const other=b.uses.findIndex(u=>u.action==='watch'&&u.alternate);
+      if(spot.action==='tablegame'&&actor.bowlFrom){actor.feedback='Finish or return your soup before playing.';return;}
+      if(['watch','tablegame'].includes(spot.action)&&!spot.alternate&&!this.s.available(actor,b,spot)){
+        const other=b.uses.findIndex(u=>u.action===spot.action&&u.alternate);
         spot=this.s.furnitureAt(b.id,other)?.spot||spot;
       }
       if(!this.s.available(actor,b,spot)){actor.feedback='Someone else is using that spot.';return;}
@@ -258,6 +261,7 @@ export class StreetActivities {
         if(spot.object){
           a.using={lot:target.b.id,object:spot.object,index:spot.index,exit:{x:spot.x,z:spot.z},height:spot.pose?.height||0,scale:spot.pose?.scale||1};
           if(spot.pose)Object.assign(a,{x:spot.pose.x,z:spot.pose.z,yaw:spot.pose.yaw});
+          if(spot.action==='tablegame')sitAtBoard(s,a);
           const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55}[spot.action];
           if(duration)a.useUntil=s.time+duration;
         }

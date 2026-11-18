@@ -7,6 +7,7 @@ import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playtestRoom} from './playtest-room.mjs';
 import {playtestFurnishing} from './playtest-furnishing.mjs';
 import {playtestRecovery} from './playtest-recovery.mjs';
+import {playtestTable} from './playtest-table.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DOMESTIC_REPORT||path.join(root,'test-results/domestic');
 await mkdir(out,{recursive:true});
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -38,7 +39,9 @@ try{
  assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
- if(process.argv.includes('--furnishing')){
+ if(process.argv.includes('--table')){
+   report.table=await playtestTable({host,guest,open,out});
+ }else if(process.argv.includes('--furnishing')){
    report.furnishing=await playtestFurnishing({host,guest,guestId,open,out});
  }else if(process.argv.includes('--recovery')){
    report.recovery=await playtestRecovery({host,guest,open,origin,out});

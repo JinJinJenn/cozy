@@ -45,7 +45,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Instruments | Sky Lounge: multiple live instruments and note feedback | Partial two-part Moon Room performance; instrument catalog and free performance UI missing |
 | Music tools | Sky Lounge: import/library, part selection, ready/start, late joining | Partial existing score playback; full import/library and ensemble workflow missing |
 | Shared audio queue | Sky Lounge: editable stereo queue and repeat | Missing |
-| Object games | Sky Lounge: multiplayer table game and playable electronic props | Missing original equivalents with object occupancy and replicated game state |
+| Object games | Sky Lounge: multiplayer table game and playable electronic props | Harbor Three uses two reservable dining chairs, physical buoys and rings, solo practice, live turns, spectator updates and rematches. Playable electronic props remain open. |
 | Pets | Sky Lounge: named/configurable pets, pet/call/fetch | Missing |
 | Friends and presence | Sky Lounge: contacts, requests, blocks and joinable locations | Missing persistent social records and delivery rules |
 | Guestbooks | Sky Lounge: room messages and author/owner deletion | Missing |

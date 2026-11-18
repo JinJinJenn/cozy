@@ -4,6 +4,7 @@ import {homeAt,homeLocal} from './home-plan.js';
 import {HomeAppliances} from './home-appliances.js';
 import {sideWindows,televisionIn} from './home-fixtures.js';
 import {dividerParts} from './room-divider.js';
+import {boardX,squareSize} from './table-game.js';
 
 const cream='#f0e5cf',wood='#92704e',metal='#465d58';
 const palette=[['#e4cbb0','#596f75','#668574'],['#c99680','#71534d','#4d7773'],['#a2b8a3','#4c6471','#a97955'],['#d6bd83','#665b6c','#48777b'],['#a7bac5','#506578','#758265'],['#d1b2af','#675a6e','#547165']];
@@ -115,14 +116,17 @@ function drawItem(a,f,accent){
       p.box(.26,1.61,0,.04,.64,.48,'#abc6c2');
     }else if(f.type==='dining'){
       p.box(0,.81,0,f.w,.12,1.0,wood);
+      p.box(boardX,.891,0,.69,.042,.69,'#5c4435');
+      for(let i=0;i<9;i++)p.box(boardX+(i%3-1)*squareSize,.923,(Math.floor(i/3)-1)*squareSize,
+        squareSize-.012,.022,squareSize-.012,i%2?'#8cb2a7':'#f3d8a3');
       for(const x of [-.57,.57])for(const z of [-.34,.34])p.box(x,.39,z,.07,.78,.07,wood);
       for(const s of [-1,1]){
         const x=f.breakfast?s*.43:0,side=f.breakfast?1:s;
         p.box(x,.47,side*.72,.55,.10,.48,accent);p.box(x,.83,side*.91,.55,.66,.07,accent);
         for(const dx of [-.20,.20])p.box(x+dx,.24,side*.72,.06,.48,.06,wood);
-        p.round(x,.89,side*.28,.28,.025,.28,cream);
+        p.round(.52,.89,s*.29,.27,.025,.27,cream);
       }
-      p.round(.36,1.02,0,.16,.27,.16,'#bb8a6c');p.ball(.36,1.23,0,.34,.30,.33,'#6a8853');
+      p.round(.54,1.02,0,.16,.27,.16,'#bb8a6c');p.ball(.54,1.23,0,.34,.30,.33,'#6a8853');
     }else if(f.type==='nightstand'){
       p.box(0,.30,0,f.w,.60,f.d,wood);p.box(0,.44,f.d/2+.01,.38,.22,.02,accent);
       p.round(0,.625,0,.23,.035,.23,'#a48254');p.ball(0,.77,0,.16,.26,.16,'#81988d');

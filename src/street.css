@@ -54,6 +54,14 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #player-profile{display:grid;gap:6px;margin-top:.5em}
 #player-profile input{width:12em;max-width:52%;min-width:0}
 #player-profile button{justify-self:start}
+#harbor-game{margin:2px 3px 8px}#harbor-game p{font-size:13px;margin:.3em 0 .5em;max-width:24em}
+#harbor-squares{display:grid;grid-template-columns:repeat(3,2.6em);width:max-content;gap:2px;background:#6b503a;border:3px solid #6b503a;border-radius:6px;margin-bottom:5px}
+#street-panel #harbor-squares button{border:0;border-radius:2px;height:2.4em;padding:0;background:#f1d9b1;color:#575246;font:700 17px/1 system-ui}
+#street-panel #harbor-squares button:nth-child(even){background:#a9c7ba}
+#street-panel #harbor-squares button:disabled{opacity:1}
+#street-panel #harbor-squares button[data-token=buoy]{color:#a53d2a}
+#street-panel #harbor-squares button[data-token="life ring"]{color:#175c66;font-size:21px;height:1.94em}
+#street-panel #harbor-squares button.winning{box-shadow:inset 0 0 0 3px #946719}
 #address-panel{border-block:1px solid #b9ac91;padding:8px 0}
 #address-status{margin:.3em 0 .55em}
 #address-private{display:inline-block;padding:.4em;color:#285d4d}

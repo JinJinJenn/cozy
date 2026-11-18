@@ -27,6 +27,7 @@ Plumbing, shelves and wall televisions still have fixed positions.
 
 | Object or component | v0.3 behavior | Required next work |
 | --- | --- | --- |
+| Harbor Three board (v0.12) | Solo and two-player rounds share the real dining chairs with meals. Players place a buoy or ring on a modelled square. Pieces drop into place, guests can watch, and leaving the seat ends a shared round. Moving the dining set carries the board with it. | Additional tabletop games |
 | Living-room television and remote (v0.6) | Two viewers share sofa cushions. A compact studio offers a second seat on the rug. Both viewers can tune or switch off the same animated picture. Each private home's channel survives owner reload. | More programs and room-editor placement |
 | Bed | Reserved lying pose, clear approach and exit | Smooth getting in/out, bedding response and better resting animation |
 | Sofa | A player can sit, read or eat a carried bowl of soup. The seat is exclusive across actions | Sit/stand transitions, cushion response and seating variants |

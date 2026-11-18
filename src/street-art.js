@@ -658,6 +658,13 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       pose.finish();
     }
     if(floorPose)floorPose.visible=onRug;
+    if(action==='tablegame'){
+      const age=time-(use?.playedAt??-Infinity);
+      const reach=age>=0&&age<.65?Math.sin(Math.PI*age/.65):0;
+      restingArms.visible=false;
+      hands.forEach((arm,i)=>{arm.visible=true;arm.rotation.x=i===1?-.20-reach*.72:.12;});
+      torso.rotation.x=reach*.10;
+    }
     if(onRug){sitting.visible=false;body.position.y=-.45;}
     if(action==='watch'){
       if(lastChannel!==channel)pressedAt=time;

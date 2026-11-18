@@ -167,8 +167,10 @@ test('every generated home has reachable doors, seating and room approaches',()=
     for(const u of b.uses)assert.ok(walkingRoute(world,plots,layout,b.inside,homeWorld(b,u.x,u.z)),prefix+u.action+' approach');
     for(const action of ['rest','cook','wash','read','sit','watch'])assert.ok(b.uses.some(u=>u.action===action),prefix+action+' available');
     if(b.furniture.some(f=>f.type==='dining')){
-      const chairs=b.uses.filter(u=>u.object.startsWith('chair-'));
+      const chairs=b.uses.filter(u=>u.action==='sit'&&u.object.startsWith('chair-'));
       assert.equal(chairs.length,2,prefix+'both dining chairs');
+      const players=b.uses.filter(u=>u.action==='tablegame');
+      assert.deepEqual(players.map(u=>[u.object,u.x,u.z]),chairs.map(u=>[u.object,u.x,u.z]),prefix+'board shares real seats and reservations');
       assert.ok(Math.hypot(chairs[0].x-chairs[1].x,chairs[0].z-chairs[1].z)>.65,prefix+'separate chair approaches');
     }
     for(const f of b.furniture.filter(f=>f.type==='desk'||f.type==='nightstand')){

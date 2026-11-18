@@ -35,12 +35,17 @@ body.shot #ui,body.shot #mini{display:none}
   <div id="walk-pad" aria-label="Walk"><div id="pad-stick"></div></div>
   <div id="world-choice" hidden><button id="world-action" class="primary"></button> <button id="world-jump" hidden>Teleport here</button> <button id="world-look" hidden>Look here</button> <button id="world-dismiss" aria-label="Dismiss action">×</button></div>
   <section class="street-actions" aria-label="Street controls">
+    <section id="harbor-game" aria-labelledby="harbor-title" hidden>
+      <strong id="harbor-title">Harbor Three</strong><p id="harbor-turn" role="status"></p>
+      <div id="harbor-squares" role="group" aria-label="Game board"></div>
+      <button id="harbor-practice">Practice solo</button> <button id="harbor-together">Play together</button>
+    </section>
     <label id="tv-remote" hidden>TV channel <select id="tv-channel"></select></label>
     <div id="live-action" hidden><span></span> <button id="order-chowder" hidden>Order chowder</button> <button id="order-fish" hidden>Order grilled fish</button> <button id="cancel-action">Cancel</button></div>
     <button id="reconnect-street" hidden>Reconnect to owner</button>
     <button id="address-open" hidden>Home address</button>
     <div class="street-buttons"><select id="patio-destination" aria-label="Terrace table for coffee" hidden></select><button class="primary" id="patio-coffee" hidden>Coffee on the terrace</button><button class="primary" id="beach-action" hidden>Walk to the beach</button><button class="primary" id="coffee-action" hidden>Coffee with a neighbor</button><button id="use-place" hidden>Interact</button><button id="directions-open">Travel</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
-    <div id="directions-pane" class="street-drawer" hidden><label>Destination <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button> <button id="jump-place" disabled>Teleport there</button> <button id="home-invite" class="primary" hidden>Visit Bea for tea</button> <button id="dinner-visit" class="primary" hidden>Take a table</button><div><button id="take-car">Drive a car</button> <button id="take-bike">Ride a bike</button></div></div>
+    <div id="directions-pane" class="street-drawer" hidden><label>Destination <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button> <button id="jump-place" disabled>Teleport there</button> <button id="home-invite" class="primary" hidden>Visit Bea for tea</button> <button id="dinner-visit" class="primary" hidden>Take a table</button><div><button id="take-car">Drive a car</button> <button id="take-bike">Ride a bike</button> <button id="visit-table">Find a game table</button></div></div>
     <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><div id="wall-tools"><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
       <label id="side-tools" hidden>Right wall <input type="range" id="side-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="side-readout">0.0 m</output></label>
       <p id="wall-limit" role="status" hidden></p>

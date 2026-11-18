@@ -9,6 +9,7 @@ import {editedItems,installFurniture,occupantLimit,planInterior,syncInteriors} f
 import {furnishings,originalPose,samePose,supportFor,validPose} from './furniture-pose.js';
 import {tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
+import {boardCommand,practiceTurn,validRound} from './table-game.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {rerouteResidents} from './resident-world.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
@@ -46,7 +47,8 @@ const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
-const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw);
+const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw)
+  && (p.tableRound===undefined||validRound(p.tableRound,p)) && (p.activity!=='tablegame'||typeof p.using?.lot==='string');
 function linkFor(pub,home){const u=new URL(location.href);u.search='';u.hash='';
   u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(home)u.searchParams.set('home',home);
   if(new URLSearchParams(location.search).get('net')==='local')u.searchParams.set('net','local');return u.href;}
@@ -433,6 +435,27 @@ export class StreetSession {
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
   }
   applyCommand(actor,cmd){
+    if(cmd.type==='table-game')return boardCommand(this,actor,cmd);
+    if(cmd.type==='visit-table'){
+      if(actor.activity==='tablegame')return;
+      // Consider occupied boards first. Route checks are lazy and stop at the
+      // first available chair rather than building use paths for the whole town.
+      const waiting=new Set();
+      for(const player of this.actors.values())if(player.activity==='tablegame')waiting.add(player.using.lot);
+      const distance=b=>Math.hypot(b.x-actor.x,b.z-actor.z);
+      const homes=this.island.homes.filter(b=>b.furniture.some(f=>f.type==='dining'))
+        .sort((a,b)=>Number(waiting.has(b.id))-Number(waiting.has(a.id))||distance(a)-distance(b));
+      for(const home of homes){
+        const spot=stationsFor(home).find(p=>p.action==='tablegame'&&this.available(actor,home,p));
+        if(!spot)continue;
+        const previous=actor.travelSeq;
+        teleport(this,actor,{place:home.id});
+        if(actor.travelSeq===previous)continue;
+        this.activities.command(actor,{type:'furniture',lot:home.id,index:spot.index});
+        return;
+      }
+      actor.feedback='Every game table is busy.';return;
+    }
     if(cmd.type==='gesture'){
       if(['wave','cheer'].includes(cmd.gesture)&&canGesture(actor)&&gesturePhase(actor,this.time)===null){
         if(cmd.to!==undefined){
@@ -501,7 +524,7 @@ export class StreetSession {
       }
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['gesture','ride','dismount','teleport','tv-channel','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['gesture','ride','dismount','teleport','tv-channel','table-game','visit-table','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
@@ -594,6 +617,7 @@ export class StreetSession {
           if(a.walking||a.outing&&a.outing!=='carry')this.activities?.manual(a);
           a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);
         }else this.activities?.advance(a,dt);
+        if(a.tableRound)practiceTurn(this,a.tableRound);
         a.motion=id===this.id?this.motion:remote?.motion??0;
         if(a.gesture&&gesturePhase(a,this.time)===null){delete a.gesture;delete a.gestureAt;}
         a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);

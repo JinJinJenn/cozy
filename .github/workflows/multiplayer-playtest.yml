@@ -20,6 +20,8 @@ on:
       - 'tools/test-domestic.mjs'
       - 'tools/playtest-recovery.mjs'
       - 'tools/playtest-furnishing.mjs'
+      - 'tools/playtest-table.mjs'
+      - 'src/table-*.js'
       - 'src/home-*.js'
       - 'src/resident-worker.js'
       - 'src/resident-world.js'
@@ -62,6 +64,8 @@ jobs:
             name: Public address claims and host handover
           - signalling: players
             name: Player profiles and gestures
+          - signalling: tabletop
+            name: Shared tabletop game
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -114,6 +118,9 @@ jobs:
       - name: Meet a named player and wave across rooms
         if: matrix.signalling == 'players'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players
+      - name: Play a tabletop round and admit a spectator
+        if: matrix.signalling == 'tabletop'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --table --software
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4
