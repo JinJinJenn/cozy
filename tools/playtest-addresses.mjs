@@ -52,6 +52,15 @@ export async function playAddresses({host,guest,paired,ready,wait,navigate,profi
   try{
     await friend.goto(invite);await ready(friend);
     await wait(friend,lot=>{const s=window.__cozy.street.session;return s.space==='visit'&&s.connected&&!s.canBuild&&s.near(s.actors.get(s.id))?.id===lot;},mine.home);
+  }catch(error){
+    for(const [role,p] of [['host',host],['visitor',friend]])console.error('Private admission',role,await p.evaluate(async()=>{
+      const s=window.__cozy?.street?.session;if(!s)return {started:false};
+      const {homeAt}=await import('./src/home-plan.js'),a=s.actors.get(s.id);
+      return {space:s.space,ready:s.ready,connected:s.connected,actors:s.actors.size,peers:s.peers.size,transports:s.connections.length,
+        seq:s.seq,signed:s.verifiedSeq,invited:s.invitedHome,home:a&&homeAt(s.island,a)?.id,near:a&&s.near(a)?.id,
+        entry:a?.entryHome,feedback:a?.feedback,transportError:s.transportError,sessionError:s.error};
+    }));
+    throw error;
   }finally{await friend.context().close();}
   await wait(guest,()=>window.__cozy.street.session.owner);
   await wait(guest,id=>window.__cozy.street.session.addresses.book.byLot(id)?.until>Date.now(),mine.lot);

@@ -23,9 +23,22 @@ export async function playTerrace(host,guest,shot){
     for(const type of ['pointerdown','pointerup','click'])document.addEventListener(type,e=>{
       window.terracePointer.push([type,e.target.id,e.target.disabled,document.visibilityState]);
     },{capture:true,once:true});});
-  await apply.click();
   try{
-    await host.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5),null,{timeout:5000,polling:100});
+    // Residents keep walking. One can step onto this exact chair between
+    // Playwright checking that Place is enabled and Chromium delivering the click.
+    const deadline=Date.now()+45000;
+    for(;;){
+      await apply.click({timeout:Math.max(1,deadline-Date.now())});
+      const result=await host.evaluate(()=>{
+        const st=window.__cozy.street,editor=st.terraceEditor,s=st.session;
+        return {placed:s.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5),
+          reason:s.tableIssue(1,editor.draft),note:document.getElementById('street-note').textContent,
+          disabledPointer:window.terracePointer.some(([type,id,disabled])=>type==='pointerdown'&&id==='terrace-apply'&&disabled)};
+      });
+      if(result.placed)break;
+      assert.ok(Date.now()<deadline&&(result.disabledPointer||[result.reason,result.note].includes('Someone is at this table or in the new spot.')),
+        'Expected a placement or a passing occupant: '+JSON.stringify(result));
+    }
     await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5));
   }catch(error){
     for(const [name,page] of [['host',host],['guest',guest]])console.error('Terrace placement diagnostic',name,await page.evaluate(()=>{
