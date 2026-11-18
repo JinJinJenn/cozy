@@ -49,3 +49,10 @@ jobs:
           else
             npm run test:street -- --relay
           fi
+      - name: Preserve failed client states
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: street-failure-${{ matrix.signalling }}
+          path: test-results/street-failure
+          if-no-files-found: ignore

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playTerrace} from './playtest-terrace.mjs';
@@ -328,4 +328,23 @@ try{
     await phone.locator('#terrace-undo').tap();await phone.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.length===1);
     await mobile.close();assert.deepEqual(errors,[]);console.log('PASS touch wall drag, terrace placement and one-tap undo');
   }
+}catch(error){
+  const dir=path.join(root,'test-results/street-failure');await mkdir(dir,{recursive:true});
+  const pages=browser.contexts().flatMap(context=>context.pages()),states=[];
+  for(const [index,page] of pages.entries()){
+    const state={index,url:page.url()};
+    // A hung renderer must not prevent the other clients' diagnostics or cleanup.
+    try{Object.assign(state,await Promise.race([page.evaluate(()=>{
+      const c=window.__cozy,s=c?.street?.session,map=document.getElementById('island-map');
+      return {ready:c?.ready,active:c?.street?.active,owner:s?.owner,sessionReady:s?.ready,connected:s?.connected,
+        frameAge:s?performance.now()-s.lastFrame:null,bodyClass:document.body.className,
+        panelHidden:document.getElementById('street-panel')?.hidden,mapPresent:!!map,
+        mapRect:map?.getBoundingClientRect().toJSON(),notice:document.getElementById('street-note')?.textContent};
+    }),new Promise((_,reject)=>setTimeout(()=>reject(Error('Diagnostic page unresponsive')),5000))]));}
+    catch(e){state.error=e.message;}
+    try{await page.screenshot({path:path.join(dir,'client-'+index+'.png'),timeout:5000});}catch(e){state.screenshotError=e.message;}
+    states.push(state);
+  }
+  await writeFile(path.join(dir,'failure.json'),JSON.stringify({error:error.stack,errors,states},null,2));
+  console.error('Street failure state',JSON.stringify(states));throw error;
 }finally{await browser.close();}
