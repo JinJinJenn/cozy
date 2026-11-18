@@ -15,6 +15,7 @@ import {playBand} from './playtest-band.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const live=process.argv.includes('--live'),relay=process.argv.includes('--relay');
+const software=process.argv.includes('--software');
 // Hosted-code verification uses isolated signalling. CI public-relay runs use
 // a unique deployment origin so playtest avatars never enter a player's lobby.
 assert.ok(!(live&&relay));
@@ -23,7 +24,8 @@ const installRelay=testNostrRelay(),errors=[];
 let release;
 const signalling=new Promise(resolve=>release=resolve);
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
-  args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
+  args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio',
+    ...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
 const wait=(p,condition,arg)=>p.waitForFunction(condition,arg,{polling:125,timeout:90000});
 const ready=p=>wait(p,()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready);
 const inspect=p=>p.evaluate(()=>{

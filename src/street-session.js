@@ -500,7 +500,7 @@ export class StreetSession {
       if(!club||actor.activity==='piano')return;
       const seat=stationsFor(club).find(p=>p.part&&this.available(actor,club,p));
       const previous=actor.travelSeq;
-      teleport(this,actor,{place:club.id});
+      teleport(this,actor,seat?{place:club.id}:toWorld(club,0,2));
       if(previous!==actor.travelSeq){
         if(seat)this.activities.command(actor,{type:'furniture',lot:club.id,index:seat.index});
         else actor.feedback='Both keyboards are in use. You can listen here.';
@@ -678,6 +678,7 @@ export class StreetSession {
         this.visitStatus=null;
         this.privateRoutes?.confirmed(route,this.lastFrame);
         this.actors=new Map(f.actors.map(a=>{if(a.profile)a.profile=readProfile(a.profile);return [a.id,a];}));this.layout=layout;this.time=f.t;
+        this.onStageFrame?.();
         this.keepPickedFlower(this.actors.get(this.id));
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(this.invitedHome&&this.inviteBoot!==f.boot){
@@ -771,6 +772,7 @@ export class StreetSession {
         if(a.gesture&&gesturePhase(a,this.time)===null){delete a.gesture;delete a.gestureAt;}
         a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);
       }
+      this.onStageFrame?.();
     }else{
       if(now-this.lastFrame>4000)this.connected=false;
       if(this.visitStatus&&now-this.visitStatusAt>6500)this.visitStatus=null;

@@ -1,6 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {acceptNotes,baseNote,keyLabel,keyShape,pressedKeys,setFreePlay,validPiano} from '../src/piano.js';
+import {StreetMusic,withinStage} from '../src/street-music.js';
+import {toWorld} from '../src/street-world.js';
+
+test('the club audience hears fresh signed attacks exactly once across gaps and returns quietly',()=>{
+  const music=new StreetMusic(),notes=[];
+  music.sound=n=>notes.push(n);
+  const player={id:'performer',activity:'piano',part:'bass'};
+  setFreePlay(player,true);
+  const play=(t,listening=true,listener='guest')=>music.play(t,[player],listener,listening);
+  const strike=(seq,key,t)=>acceptNotes(player,{id:player.piano.id,notes:[[seq,key,0]]},t);
+  strike(1,2,10);play(10.1); // New audience members skip earlier notes.
+  strike(2,4,10.2);play(10.7);play(10.8);
+  assert.equal(music.takeKeyFlash('bass',player.piano),1<<4);
+  assert.equal(music.takeKeyFlash('bass',player.piano),0);
+  play(11,false);strike(3,5,11.1);play(11.2);
+  strike(4,6,12);play(13);strike(5,7,13.1);play(13.2,true,'performer');
+  assert.deepEqual(notes,[52]);
+  const club={x:-22,z:35,w:8,d:7,c:Math.cos(1),s:Math.sin(1),kind:'club',id:'moon-room'};
+  assert.ok(withinStage(club,{},toWorld(club,0,2)));
+  assert.ok(withinStage(club,{},toWorld(club,0,5.8)));
+  assert.equal(withinStage(club,{},toWorld(club,2,12)),false);
+});
 
 test('two octave keyboards have independently pickable white and black keys with distinct pitches',()=>{
   assert.equal(keyShape.length,25);assert.equal(keyShape.filter(k=>!k.black).length,15);

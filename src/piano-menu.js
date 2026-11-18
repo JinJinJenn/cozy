@@ -1,5 +1,6 @@
 import {baseNote,bindings,keyLabel,keyShape,pressedKeys} from './piano.js';
 import {toRoom} from './street-world.js';
+import {withinStage} from './street-music.js';
 
 const el=id=>document.getElementById(id);
 
@@ -61,9 +62,9 @@ export class PianoMenu{
     if(i<0)return false;
     e.preventDefault();if(!e.repeat)this.strike(this.octave+i);return true;
   }
-  refresh(near){
+  refresh(){
     const s=this.street.session,a=s.actors.get(s.id),seated=a?.activity==='piano',music=this.street.music;
-    const listening=near?.kind==='club'||seated;
+    const listening=withinStage(this.street.club,s.layout,a);
     el('piano-sound').hidden=!listening||!!this.street.buildLot;
     if(listening){
       const label=music.ctx?.state==='running'&&music.sample&&!music.muted?'Mute stage':'Listen to stage';

@@ -159,7 +159,7 @@ jobs:
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --door
       - name: Play a live duet and listen from the Moon Room
         if: matrix.signalling == 'band'
-        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --band
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --band --software
       - name: Play a tabletop round and admit a spectator
         if: matrix.signalling == 'tabletop'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --table --software

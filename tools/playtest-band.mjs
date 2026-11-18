@@ -3,9 +3,7 @@ import assert from 'node:assert/strict';
 async function monitor(page){
   await page.evaluate(()=>{
     const st=window.__cozy.street,{ctx,master}=st.music;
-    const analyser=ctx.createAnalyser();analyser.fftSize=1024;master.connect(analyser);
-    const data=new Float32Array(analyser.fftSize);
-    window.bandAudio={notes:[],peak:0,pressed:[]};
+    window.bandAudio={notes:[],outputPeak:0,pressed:[]};
     const bass=st.art.g.getObjectByName('bass keys'),melody=st.art.g.getObjectByName('melody keys');
     const create=ctx.createBufferSource.bind(ctx);
     ctx.createBufferSource=()=>{
@@ -14,8 +12,6 @@ async function monitor(page){
       return source;
     };
     const sample=()=>{
-      analyser.getFloatTimeDomainData(data);
-      for(const x of data)window.bandAudio.peak=Math.max(window.bandAudio.peak,Math.abs(x));
       for(const [mesh,key] of [[bass,0],[bass,4],[bass,7],[melody,13]]){
         if(mesh.instanceMatrix.array[key*16+13]<(key===13?.88:.83)&&!window.bandAudio.pressed.includes(mesh.name+key))
           window.bandAudio.pressed.push(mesh.name+key);
@@ -23,6 +19,19 @@ async function monitor(page){
       requestAnimationFrame(sample);
     };
     sample();
+  });
+  await page.evaluate(async()=>{
+    const {ctx,master}=window.__cozy.street.music;
+    const source=`class Peak extends AudioWorkletProcessor {
+      process(inputs){const channel=inputs[0]?.[0];if(channel&&!this.detected){
+        for(const sample of channel)if(Math.abs(sample)>.0005){this.detected=true;this.port.postMessage(Math.abs(sample));break;}
+      }return true;}
+    }registerProcessor('stage-output',Peak);`;
+    const url=URL.createObjectURL(new Blob([source],{type:'application/javascript'}));
+    try{await ctx.audioWorklet.addModule(url);}finally{URL.revokeObjectURL(url);}
+    const probe=new AudioWorkletNode(ctx,'stage-output',{numberOfOutputs:0});
+    probe.port.onmessage=e=>window.bandAudio.outputPeak=e.data;
+    master.connect(probe);window.stageProbe=probe;
   });
 }
 
@@ -51,9 +60,12 @@ export async function playBand({host,guest,profile,ready,wait}){
     await travel(visitor);await wait(visitor,()=>window.__cozy.street.session.actors.get(window.__cozy.street.session.id).feedback?.includes('listen here'));
     await wait(visitor,()=>window.__cozy.street.music.ctx?.state==='running'&&!!window.__cozy.street.music.sample);
     await monitor(visitor);
+    // A listener can receive music while street presentation is suspended.
+    await visitor.evaluate(()=>{const st=window.__cozy.street;st.render=()=>{};});
     await host.locator('#piano-octave').selectOption('12');
     await host.getByRole('button',{name:'Play C♯5',exact:true}).click();
-    await wait(visitor,()=>window.bandAudio.notes.includes(73)&&window.bandAudio.peak>.0005);
+    await wait(visitor,()=>window.bandAudio.notes.includes(73)&&window.bandAudio.outputPeak>.0005);
+    await visitor.evaluate(()=>{delete window.__cozy.street.render;});
     await wait(guest,()=>window.bandAudio.notes.includes(73));
     await wait(guest,()=>window.bandAudio.pressed.includes('melody keys13'));
     assert.ok(!(await visitor.evaluate(()=>window.bandAudio.notes)).includes(48));
@@ -73,9 +85,10 @@ export async function playBand({host,guest,profile,ready,wait}){
     await visitor.locator('#piano-sound').click();
     if(process.env.COZY_BAND_SHOT)await host.setViewportSize({width:1280,height:720});
     const point=await host.evaluate(async()=>{
-      const c=window.__cozy,st=c.street,b=st.club,{toWorld}=await import('./src/street-world.js');
+      const c=window.__cozy,st=c.street,b=st.club,{toWorld,floorAt}=await import('./src/street-world.js');
       const p=toWorld(b,-1.7,-1.68),eye=toWorld(b,-.4,2.65);
-      st.cameraFocus={...p};await c.setCamera([eye.x,b.y+3.95,eye.z],[p.x,b.y+.85,p.z]);
+      const focusY=floorAt(st.island,st.plots,p.x,p.z,st.session.layout)+1.48;
+      st.cameraFocus={...p};await c.setCamera([eye.x,b.y+3.95,eye.z],[p.x,focusY,p.z]);
       const {keyShape}=await import('./src/piano.js'),{Vector3}=await import('three');
       const camera=st.camera.clone();camera.position.lerp(st.controls.target,1-st.cameraFraction());camera.updateMatrixWorld();
       const rect=st.controls.domElement.getBoundingClientRect();
@@ -87,17 +100,27 @@ export async function playBand({host,guest,profile,ready,wait}){
       }
       throw Error('No visible world key under pointer');
     });
+    const pitch=60+point.key;
+    const before=await visitor.evaluate(n=>window.bandAudio.notes.filter(x=>x===n).length,pitch);
     await host.mouse.click(point.x,point.y,{button:'right'});
     await host.getByRole('button',{name:point.label,exact:true}).and(host.locator('#world-action')).click();
-    await wait(visitor,n=>window.bandAudio.notes.includes(n),60+point.key);
-    const seen=await visitor.evaluate(()=>window.bandAudio.notes.length);
+    await wait(visitor,([n,total])=>window.bandAudio.notes.filter(x=>x===n).length===total,[pitch,before+1]);
+    assert.ok(await host.evaluate(()=>!!window.__cozy.street.cameraFocus));
     await host.mouse.click(point.x,point.y);
-    await wait(visitor,n=>window.bandAudio.notes.length>n,seen);
+    await wait(visitor,([n,total])=>window.bandAudio.notes.filter(x=>x===n).length===total,[pitch,before+2]);
     if(process.env.COZY_BAND_SHOT)await host.screenshot({path:process.env.COZY_BAND_SHOT,type:'jpeg',quality:90});
     await host.locator('#piano-mode').click();await host.locator('#piano-keys').waitFor({state:'hidden'});
     await wait(guest,()=>[...window.__cozy.street.session.actors.values()].some(a=>a.part==='melody'&&!a.piano));
     await guest.locator('#use-place').click();await guest.locator('#piano-controls').waitFor({state:'hidden'});
     await travel(visitor);await visitor.locator('#piano-controls').waitFor();assert.equal(await part(visitor),'bass');
     console.log('PASS live melody and bass over WebRTC, a three-note chord, both octaves, spectator audio output, stage key clicks with both buttons, return to the tune and reuse of a vacated bench.');
+  }catch(error){
+    for(const p of [host,guest,visitor])console.error(JSON.stringify(await p.evaluate(()=>{
+      const st=window.__cozy.street,s=st.session,a=s.actors.get(s.id),music=st.music;
+      return {owner:s.owner,route:s.privateRoutes?.active,connected:s.connected,time:s.time,frame:s.verifiedSeq,
+        location:s.near(a)?.kind,ctx:music.ctx?.state,audioTime:music.ctx?.currentTime,muted:music.muted,
+        heard:[...music.heard],stage:[...s.actors.values()].filter(a=>a.part).map(a=>({part:a.part,seq:a.piano?.seq})),audio:window.bandAudio};
+    }).catch(()=>null)));
+    throw error;
   }finally{await visitor.context().close();}
 }

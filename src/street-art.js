@@ -475,7 +475,7 @@ export function streetArt(island,plots,scene) {
   let patioRevision=-1;
   return {g,wall,lanterns,tablePreview(t,valid){
     trial.visible=!!t;if(!t)return;placeTable(trial,t);trial.userData.preview.color.setHex(valid?0x62b99a:0xe47a6b);
-  },updateMeters(time,actors){
+  },updateMeters(time,actors,flashes){
     const step=scoreStep(time);
     let melody=false,bass=false;
     for(const seat of meals){seat.chowder.visible=false;seat.fish.visible=false;}
@@ -486,7 +486,7 @@ export function streetArt(island,plots,scene) {
     for(const {part,mesh,keys} of meters){
       const active=part==='melody'?melody:bass;
       const note=active&&!active.piano?noteAtStep(part,step):null;
-      const mask=active?.piano?pressedKeys(active.piano.notes,time):note===null?0:1<<(note-baseNote(part));
+      const mask=active?.piano?pressedKeys(active.piano.notes,time)|flashes[part]:note===null?0:1<<(note-baseNote(part));
       keys.update(mask);mesh.count=mask?2+(31-Math.clz32(mask))%5:0;
     }
   },preview(b,value,show,side=0){
@@ -612,7 +612,7 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       limb.arm.visible=!cup&&(!dish||limb.side<0);
     }
   };
-  g.setSeated=(value,part,time=0,piano)=>{
+  g.setSeated=(value,part,time=0,piano,flash=0)=>{
     torso.rotation.x=0;torso.position.z=0;
     standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
     restingArms.visible=!part&&!carrying;
@@ -622,7 +622,8 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
         const beat=time/.30,step=Math.floor(beat),last=piano?.notes.at(-1);
         if(piano){
           const age=last?time-last[2]:1;
-          arm.rotation.x=age>=0&&age<.3&&i===Number(last[1]>=9)?.22*Math.sin(age/.30*Math.PI):0;
+          const attack=flash&(i?~511:511);
+          arm.rotation.x=attack?.18:age>=0&&age<.3&&i===Number(last[1]>=9)?.22*Math.sin(age/.30*Math.PI):0;
         }else arm.rotation.x=noteAtStep(part,step)!==null&&i===step%2?.13*Math.sin((beat-step)*Math.PI):0;
       }
     }

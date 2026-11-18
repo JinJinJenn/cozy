@@ -6,7 +6,7 @@ import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.j
 import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,shellBounds,toRoom,toWorld,visitSightlineCells,walkable,wallState} from './street-world.js';
 import {homeAt} from './home-plan.js';
 import {stationsFor,StreetSession} from './street-session.js';
-import {StreetMusic} from './street-music.js';
+import {StreetMusic,withinStage} from './street-music.js';
 import {PianoMenu,pickPiano} from './piano-menu.js';
 import {vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
@@ -34,6 +34,7 @@ export class Street {
     this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
     this.music=new StreetMusic();this.abort=new AbortController();this.joy={x:0,z:0};this.cafe=this.plots.find(b=>b.cafe);
     this.club=this.plots.find(b=>b.kind==='club');
+    this.keyFlashes={melody:0,bass:0};
     this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
     $('build-lot').replaceChildren(...this.editable.map(b=>new Option(places[b.kind][0],b.id)));
     this.ray=new THREE.Raycaster();this.plane=new THREE.Plane(new THREE.Vector3(0,1,0));
@@ -157,8 +158,9 @@ export class Street {
     listen($('world-action'),'click',()=>{
       $('world-choice').hidden=true;
       if(this.choice){
-        void this.music.unlock();this.cameraFocus=null;
-        if(this.choice.type==='strike-key')this.pianoMenu.strike(this.choice.key);else this.session.command(this.choice);
+        void this.music.unlock();
+        if(this.choice.type==='strike-key')this.pianoMenu.strike(this.choice.key);
+        else{this.cameraFocus=null;this.session.command(this.choice);}
         this.choice=null;
       }
     });
@@ -511,6 +513,10 @@ export class Street {
     $('map-travel').hidden=true;
     if(!this.session){
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
+      this.session.onStageFrame=()=>{
+        const s=this.session;
+        this.music.play(s.time,s.actors.values(),s.id,this.active&&withinStage(this.club,s.layout,s.actors.get(s.id)));
+      };
       this.session.start.then(()=>{
         const params=new URLSearchParams(location.search);
         if(!this.session.closed&&this.active&&this.session.canBuild){
@@ -580,6 +586,7 @@ export class Street {
     const s=this.session;if(!s||!this.active)return;
     const local=s.actors.get(s.id);if(!local)return;
     const dt=Math.max(0,Math.min(.18,(now-(this.lastRender??now))/1000));this.lastRender=now;
+    this.keyFlashes.melody=this.keyFlashes.bass=0;
     for(const [id,a] of s.actors){
       let mesh=this.meshes.get(id);
       const shirt=shirts[a.profile?.shirt]||(id===s.id?'#c55b61':id.startsWith('resident')?(id==='resident1'?'#94799b':'#659681'):'#6687bd');
@@ -592,7 +599,9 @@ export class Street {
       mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
       const watching=a.activity==='watch';
       const seated=['sit','dine','relax','piano','bathroom','eat','read','tablegame'].includes(a.activity)||watching;
-      mesh.setSeated(seated||a.vehicle==='car',a.part,s.time,a.piano);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
+      const flash=a.piano?this.music.takeKeyFlash(a.part,a.piano):0;
+      if(a.piano)this.keyFlashes[a.part]=flash;
+      mesh.setSeated(seated||a.vehicle==='car',a.part,s.time,a.piano,flash);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
       mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom,watching?(s.layout.homeTV?.[a.using?.lot]||0):null);
       mesh.setGesture(a.gesture,a.gesture?gesturePhase(a,s.time):null,seated);
@@ -626,9 +635,9 @@ export class Street {
       const [x,z]=local.goal;this.walkMarker.position.set(x,floorAt(this.island,this.plots,x,z,s.layout)+.20,z);
       this.walkMarker.scale.setScalar(1+.075*Math.sin(now*.007));
     }
-    this.art.updateMeters(s.time,s.actors.values());
-    const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values(),s.id);
+    this.art.updateMeters(s.time,s.actors.values(),this.keyFlashes);
     if(this.nextUI>now)return;this.nextUI=now+150;
+    const near=s.near(local);
     if(this.homeEditor.home)this.homeEditor.refresh();
     else if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();
@@ -681,7 +690,7 @@ export class Street {
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     $('tv-remote').hidden=local.activity!=='watch'||!!this.buildLot;
     this.tableMenu.refresh(s,local,!!this.buildLot);
-    this.pianoMenu.refresh(near);
+    this.pianoMenu.refresh();
     const printId=local.activity==='admire'&&!this.buildLot?local.using?.object:null;
     $('easel-print').hidden=catalog[printId]?.type!=='easel';
     $('easel-new').hidden=!printId||s.space!=='public'||local.using?.lot!==s.studioLot;
