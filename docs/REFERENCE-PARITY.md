@@ -12,7 +12,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 | Area | Useful reference | Cozy 0.3 | Remaining work |
 | --- | --- | --- | --- |
 | Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
-| Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, domestic poses and timed actions | Catalog-wide behaviors, linked switches, richer props and interaction transitions |
+| Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, saved lamp switches and a shared cook/serve/eat loop | Catalog-wide behaviors, linked switches, richer props and interaction transitions |
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
 | Room editing | Jenn's Cafe, Sky Lounge | Venue-specific wall edits, terrace tables, revision checks and undo | General connected-room editor and catalog placement/support rules |
 | Multiplayer arrival | Sky Lounge public lobby | Owner invitations and optional listing | Automatic public joining, convergence, explicit home access and host migration |
@@ -29,7 +29,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | --- | --- | --- |
 | Resident control | Town: select residents, queue/cancel commands, simulation speeds | Missing selected-NPC command queue and speed controls; player movement and autonomous residents exist |
 | Social groups | Town: directed chat, joining/leaving multi-person conversations | Partial: two-person hosted visits; flexible conversation groups missing |
-| Household activities | Town: seating, drinks, TV and transition animation | Partial: seating, coffee and domestic uses; TV and blended approach/use/exit animations missing |
+| Household activities | Town seating, drinks, TV and transition animation | Players can serve two bowls from one pot, eat together and leave leftovers. TV and blended approach/use/exit animations remain open. |
 | Public/outdoor seating | Town: usable benches, loungers, picnic and game seats | Partial: roadside and venue benches; all furnished outdoor lots need an object-by-object audit |
 | Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
 | Room discovery | Sky Lounge port: automatic common lobby and roster | Missing automatic join and duplicate-host convergence |

@@ -9,7 +9,10 @@ const hit=(p,r,margin=.31)=>Math.abs(p.x-r.x)<r.w/2+margin&&Math.abs(p.z-r.z)<r.
 export function homesNear(island,p){return island.homeCells?.get(Math.floor(p.x/32)+','+Math.floor(p.z/32))||[];}
 export function homeAt(island,p,margin=0){return homesNear(island,p).find(b=>{const q=homeLocal(b,p);return Math.abs(q.x)<b.w/2+margin&&Math.abs(q.z)<b.d/2+margin;});}
 export function homeWalkable(b,p){
-  const q=homeLocal(b,p),hw=b.w/2,hd=b.d/2;
+  return homeWalkableLocal(b,homeLocal(b,p));
+}
+export function homeWalkableLocal(b,q){
+  const hw=b.w/2,hd=b.d/2;
   if(Math.abs(q.x)>hw+.6||Math.abs(q.z)>hd+.6)return null;
   for(const r of b.walls)if(hit(q,r))return false;
   for(const r of b.furniture){
@@ -103,6 +106,8 @@ export function prepareHomes(island,exclude=[]){
     Object.assign(b,{w,d,height:3.05+random()*.45,palette:Math.floor(random()*6)});
     b.roofHeight=b.height+Math.min(2.5,(variant===0?w:d)*.30)+.3;
     const hw=w/2,hd=d/2,door=1.9;
+    b.collisionHalfX=Math.abs(b.c)*(hw+.6)+Math.abs(b.s)*(hd+.6);
+    b.collisionHalfZ=Math.abs(b.s)*(hw+.6)+Math.abs(b.c)*(hd+.6);
     b.y=Math.max(...[-1,1].flatMap(s=>[-1,1].map(t=>{const p=homeWorld(b,s*hw,t*hd);return island.sample(p.x,p.z);})))+.10;
     b.entry=homeWorld(b,0,hd+1.6);b.inside=homeWorld(b,0,Math.max(.2,hd-1.4));
     b.door={x:0,z:hd,width:door};

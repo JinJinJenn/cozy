@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {generate} from '../packages/island-gen/index.js';
 import {generateSettlement,createFlattenHook} from '../packages/settlement/index.js';
 import {prepareHomes,homeWorld,homeWalkable} from '../src/home-plan.js';
-import {plotsForStreet,defaultLayout,readLayout} from '../src/street-world.js';
+import {plotsForStreet,defaultLayout,readLayout,toWorld,walkable} from '../src/street-world.js';
 import {lampIsLit} from '../src/home-fixtures.js';
 import {mealStation,potServings} from '../src/home-meals.js';
 import {walkingRoute} from '../src/street-route.js';
@@ -15,6 +15,19 @@ const generated=generate({preset:'harborTown',seed:'petalwood'}),world=generated
 world.plan=generateSettlement(generated);
 generated.heightfield.set(createFlattenHook(world.plan)(generated));
 const plots=plotsForStreet(world),homes=prepareHomes(world,plots),layout=defaultLayout();
+
+test('venue cells cover edited walls and the terrace on both sides of cell boundaries',()=>{
+  // A copied list takes the unindexed path, using every venue as a candidate.
+  const allVenues=[...plots];
+  for(const wall of [-1.5,1.5]){
+    const state={...defaultLayout(),wall,club:{wall,undo:[]},restaurant:{wall,undo:[]},
+      homes:{l106:{wall,undo:[]},l108:{wall,side:wall,undo:[]}},terrace:{tables:[{id:0,x:3,z:7.5,turn:0}],undo:[]}};
+    for(const venue of plots)for(let x=-7;x<=7;x+=.43)for(let z=-7;z<=11;z+=.43){
+      const pt=toWorld(venue,x,z);
+      assert.equal(walkable(world,plots,state,pt),walkable(world,allVenues,state,pt),venue.id+' '+x+','+z);
+    }
+  }
+});
 
 test('frontage infill preserves every published parcel and fills the waterfront',()=>{
   const published=JSON.parse(readFileSync(new URL('../packages/settlement/src/petalwood-plan.json',import.meta.url)));

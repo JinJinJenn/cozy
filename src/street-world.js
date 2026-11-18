@@ -2,7 +2,7 @@
 // house are metres, with its street entrance on the positive Z side.
 import {pointInPoly,polyCentroid} from '../packages/settlement/src/geom.js';
 import {readTerrace,terraceDefault} from './terrace.js';
-import {homeAt,homeWalkable,homesNear} from './home-plan.js';
+import {homeAt,homeLocal,homeWalkableLocal} from './home-plan.js';
 
 export const radius = .31;
 const homeLots=['l106','l108'];
@@ -55,15 +55,26 @@ export function shellBounds(b,layout){
   const side=sideAt(b,layout)-b.w/2,front=frontAt(b,layout)-b.d/2;
   return {...b,...toWorld(b,side/2,front/2),w:b.w+side,d:b.d+front,height:b.cafe?5.42:4.82};
 }
+const venueCells=new WeakMap(),emptyCell=[];
 export function plotsForStreet(island) {
   if (island.seed !== 'petalwood' || island.presetId !== 'harborTown') return [];
-  return [['l106','cottage'],['l107','cafe'],['l108','house'],['l105','spa'],['l109','gym'],['l102','club'],['l104','restaurant']].map(([id,kind]) => {
+  const plots=[['l106','cottage'],['l107','cafe'],['l108','house'],['l105','spa'],['l109','gym'],['l102','club'],['l104','restaurant']].map(([id,kind]) => {
     const lot = island.plan.lots.find(l => l.id === id);
     const [x,z] = polyCentroid(lot.poly), yaw = Math.PI / 2 - lot.facing;
     const b = {id,kind,road:lot.frontageRoadId,x,z,yaw,c:Math.cos(yaw),s:Math.sin(yaw),w:kind==='cafe'?9.2:6.6,d:kind==='cafe'?8.6:6.9,cafe:kind==='cafe'};
     b.y = Math.max(...[-1,1].flatMap(a => [-1,1].map(k => {const p=toWorld(b,a*b.w/2,k*b.d/2);return island.sample(p.x,p.z)})))+.14;
     b.parcel=lot.poly;return b;
   });
+  const cells=new Map();
+  for(const b of plots){
+    // Enclose the full 1.5 m edit range and the cafe's permitted terrace.
+    const reach=Math.hypot(b.w/2+2.1,b.cafe?10:b.d/2+2.1);
+    for(let x=Math.floor((b.x-reach)/32);x<=Math.floor((b.x+reach)/32);x++)
+      for(let z=Math.floor((b.z-reach)/32);z<=Math.floor((b.z+reach)/32);z++){
+        const key=x+','+z;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(b);
+      }
+  }
+  venueCells.set(plots,cells);return plots;
 }
 export const toWorld = (b,x,z) => ({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export function gardenForStreet(cafe){
@@ -149,9 +160,15 @@ export function floorAt(island,plots,x,z,layout={}) {
   }
   return island.deckHeight?.(x,z)??island.sample(x,z);
 }
-export function walkable(island,plots,layout,pos) {
+export function walkCell(island,plots,x,z){
+  const key=x+','+z,venues=venueCells.get(plots);
+  return {venues:venues?(venues.get(key)||emptyCell):plots,homes:island.homeCells?.get(key)||emptyCell,
+    footprints:island.footprintCells?.get(key)||emptyCell};
+}
+export function walkable(island,plots,layout,pos,cell) {
   if (Math.abs(pos.x)>island.half-1 || Math.abs(pos.z)>island.half-1) return false;
-  for (const b of plots) {
+  cell??=walkCell(island,plots,Math.floor(pos.x/32),Math.floor(pos.z/32));
+  for (const b of cell.venues) {
     const p=toRoom(b,pos), hw=b.w/2,hd=b.d/2;
     if(b.cafe&&p.z>hd&&layout.terrace?.tables.some(t=>Math.hypot(t.x-p.x,t.z-p.z)<.48+radius))return false;
     const front=frontAt(b,layout),right=sideAt(b,layout),center=(front-hd)/2;
@@ -170,10 +187,15 @@ export function walkable(island,plots,layout,pos) {
     if(b.kind==='restaurant' && (boxHit(p,0,-2.8,4.9,.72)||[-1.65,1.65].some(x=>boxHit(p,x,-.3,1.15,.85))))return false;
     return true;
   }
-  const nearby=island.footprintCells?.get(Math.floor(pos.x/32)+','+Math.floor(pos.z/32))||[];
-  if(nearby.some(b=>boxHit(toRoom(b,pos),0,0,b.w,b.d)))return false;
-  for(const home of homesNear(island,pos))if(homeWalkable(home,pos)===false)return false;
-  if(homeAt(island,pos))return true;
+  for(const b of cell.footprints)if(boxHit(toRoom(b,pos),0,0,b.w,b.d))return false;
+  let indoors=false;
+  for(const b of cell.homes){
+    if(Math.abs(pos.x-b.x)>b.collisionHalfX||Math.abs(pos.z-b.z)>b.collisionHalfZ)continue;
+    const q=homeLocal(b,pos);
+    if(homeWalkableLocal(b,q)===false)return false;
+    if(Math.abs(q.x)<b.w/2&&Math.abs(q.z)<b.d/2)indoors=true;
+  }
+  if(indoors)return true;
   const h=island.sample(pos.x,pos.z);
   if(island.deckHeight && island.deckHeight(pos.x,pos.z)>h+.04)return true;
   return h>Math.max(.12,island.waterAt(pos.x,pos.z)-.05) && island.slope(pos.x,pos.z)<.95;

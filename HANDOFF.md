@@ -4,6 +4,16 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.3.5 reduces resident pathfinding cost in the browser worker and uses
+the same collision queries for a walking player. A 160-tick Petalwood replay
+matched v0.3.4 for all 457 residents on every tick. Worker time fell from
+2.92–3.27 seconds to 0.71–0.84 seconds. Reproduce the comparison with
+`node tools/benchmark-residents.mjs 59ca3aa` using the browser setup from
+the viewer harness. The benchmark uses an empty street-party input and the
+default layout. Existing saves, room edits and visitors run in the playtests.
+All 114 unit checks passed, including edited-venue collision coverage. The
+four-locale viewer and native two-browser domestic playtest also passed.
+
 Version 0.3.4 makes a pot of soup feed two players. The host saves uneaten
 portions per generated home. Each carried bowl reserves a portion from its
 source pot until its owner finishes eating. Disconnection or a host reload

@@ -7,6 +7,11 @@ article{background:var(--card);border-radius:16px;padding:20px 22px;margin:22px 
 figure{margin:14px 0}img,video{width:100%;border-radius:12px;display:block}figcaption{font-size:13px;opacity:.75;margin-top:4px}
 ul{padding-left:20px}.bad li{color:inherit}code{background:rgba(233,143,176,.18);padding:1px 5px;border-radius:5px}
 nav a{margin-right:12px}a{color:var(--accent)}</style></head><body><main><h1>Cozy devlog</h1><p>A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.</p>
+<article id="m22"><div class="date">2026-11-17 &middot; v0.3.5</div>
+<h2>Less time finding the same walk home</h2>
+<p>Harbor Town's 457 residents use the same doorways and walk around the same furniture as visitors. A path crosses many points in a single 32-metre cell. The route finder now reuses that cell's list of buildings and checks each nearby home in its own coordinates once per point.</p>
+<p>Two runs of 160 simulation ticks took 0.71 and 0.84 seconds of worker time. The previous release took 2.92 and 3.27 seconds. Every resident's snapshot matched on every tick. <a href="RENDERING-REVIEW.md">Benchmark and GPU measurements</a></p>
+</article>
 <article id="m21"><div class="date">2026-11-17 &middot; v0.3.4</div>
 <h2>Soup for two</h2>
 <p>Click a stove pot in a home and cook a batch of vegetable soup. The pot changes color when the soup is ready. Click it again to take a bowl. A friend can take the second serving. Click a chair or the sofa to sit down and eat. You can pause mid-meal, carry your bowl elsewhere, or return it to its pot.</p>

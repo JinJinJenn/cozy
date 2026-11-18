@@ -5,6 +5,45 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Resident worker, v0.3.5
+
+A Chrome CPU profile of the Petalwood resident worker attributed 74.6% of
+sampled active time to walkability checks including their callees. A route
+now reuses the current 32-metre cell for successive probes. Editable venues
+use a conservative cell index covering the terrace and full renovation range.
+Generated houses reject distant probes against their rotated world bounds
+and use one local-coordinate transform to check the floor and furniture.
+
+The replay passed the same production startup data and 160 fixed ticks to a
+fresh browser worker in each run. It used the default layout and no player inputs.
+All 73,120 per-resident snapshots matched across versions. Timings below
+measure the worker's simulation step and exclude rendering and messaging.
+
+| Run order | Total worker time | Median tick | p95 tick | Longest tick |
+| --- | ---: | ---: | ---: | ---: |
+| v0.3.4 | 3,272 ms | 3.7 ms | 139.3 ms | 275.3 ms |
+| v0.3.5 | 839 ms | 1.1 ms | 34.9 ms | 83.7 ms |
+| v0.3.5 | 709 ms | 1.3 ms | 24.7 ms | 71.6 ms |
+| v0.3.4 | 2,921 ms | 2.7 ms | 111.4 ms | 200.6 ms |
+
+Reproduce with `node tools/benchmark-residents.mjs 59ca3aa`. The two
+previous-build runs bracket the two working-tree runs. A separate v0.3.4
+720p Low test on the physical Intel 0x7D67 measured 59.84 completed FPS in
+the street orbit and 58.52 in the town orbit. The town orbit's longest frame
+was 67.4 ms. The worker timings alone cannot predict that frame interval.
+
+Repeating the 360-frame orbits on v0.3.5 with the same Intel GPU and all 457
+residents gave these GPU-fence results. Each row is a single run.
+
+| 720p orbit | Completed FPS | p95 interval | Longest interval |
+| --- | ---: | ---: | ---: |
+| Low street | 59.50 | 19.6 ms | 37.3 ms |
+| Low town | 59.66 | 18.0 ms | 48.6 ms |
+| Balanced street | 59.84 | 17.4 ms | 26.3 ms |
+| Balanced town | 59.82 | 18.0 ms | 41.3 ms |
+
+### Engine direction
+
 Keep the current game running while improving its scene and asset representation.
 Do not start a whole-game Rust rewrite on the evidence available here. A small
 renderer comparison can follow, using the same town, camera, visual requirements
