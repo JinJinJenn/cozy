@@ -8,7 +8,7 @@ import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
 import {editedItems,installFurniture,occupantLimit,planInterior,syncInteriors} from './home-furnishing.js';
 import {furnishings,originalPose,samePose,supportFor,validPose} from './furniture-pose.js';
-import {tuneTelevision} from './home-fixtures.js';
+import {installedLampMask,setFixtureValue,tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
 import {boardCommand,practiceTurn,validRound} from './table-game.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
@@ -36,6 +36,7 @@ export function stationsFor(b){
     if(!spots){
       spots=uses.map((p,index)=>({...p,...toWorld(b,p.x,p.z),
         target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
+        ...(p.secondaryTarget?{secondaryTarget:{...toWorld(b,p.secondaryTarget.x,p.secondaryTarget.z),y:b.y+p.secondaryTarget.y}}:{}),
         pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
       homeStations.set(uses,spots);
     }
@@ -239,6 +240,16 @@ export class StreetSession {
     for(const a of this.actors.values())if(a.using?.lot===home.id&&using(a.using.index))return true;
     for(const r of this.activities.routes.values())if(r.arrival?.lot===home.id&&using(r.arrival.index))return true;
     return false;
+  }
+  linkEntryLamp(home,bit,linked){
+    if(!this.ready||!this.canBuild||!home||homeAt(this.island,this.actors.get(this.id))!==home||
+      ![1,2].includes(bit)||!(installedLampMask(home)&bit)||typeof linked!=='boolean')return false;
+    const current=this.layout.unlinkedLamps?.[home.id]||0,next=linked?current&~bit:current|bit;
+    if(current!==next){
+      setFixtureValue(this.layout,'unlinkedLamps',home.id,next);
+      this.persist();
+    }
+    return true;
   }
   editFurniture(lot,id,draft,revision,undo=false){
     const home=this.island.homesById?.get(lot),state=this.layout.furnishings||{v:1,lots:{}};

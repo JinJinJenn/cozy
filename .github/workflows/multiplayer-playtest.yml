@@ -21,6 +21,7 @@ on:
       - 'tools/test-domestic.mjs'
       - 'tools/playtest-recovery.mjs'
       - 'tools/playtest-furnishing.mjs'
+      - 'tools/playtest-lighting.mjs'
       - 'tools/playtest-table.mjs'
       - 'src/table-*.js'
       - 'src/home-*.js'
@@ -64,6 +65,8 @@ jobs:
             name: Private street backup and owner recovery
           - signalling: furnishing
             name: Furnish an occupied home with a guest
+          - signalling: lighting
+            name: Link and operate home lighting with a guest
           - signalling: addresses
             name: Public address claims and host handover
           - signalling: players
@@ -119,6 +122,9 @@ jobs:
       - name: Place a desk and use its lamp with another player
         if: matrix.signalling == 'furnishing'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --furnishing --software
+      - name: Flip a room switch and rewire its lamps
+        if: matrix.signalling == 'lighting'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --lighting --software
       - name: Meet a named player and wave across rooms
         if: matrix.signalling == 'players'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players

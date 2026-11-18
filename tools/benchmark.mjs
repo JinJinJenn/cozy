@@ -13,7 +13,9 @@ if(baseline&&!/^[a-f0-9]{7,40}$/.test(baseline))throw Error('Expected a commit h
 const software=process.argv.includes('--software'),cache=new Map(),results=[];
 const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')?4:1;
 const television=process.argv.includes('--television');
+const entryLight=process.argv.includes('--entry-light');
 const wideStreet=process.argv.includes('--wide-street');
+if(entryLight&&(television||wideStreet||orbit||baseline))throw Error('The entry light comparison uses a fixed camera in the current build.');
 if(wideStreet&&(television||baseline))throw Error('The island-scale street camera requires the current street view.');
 if(television&&(orbit||baseline))throw Error('The television comparison uses a fixed camera on the current build.');
 const trackCompletion=process.argv.includes('--gpu-completion');
@@ -57,10 +59,26 @@ try{
       });
       await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='watch';});
     }
-    const scenes=television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
+    if(entryLight)await page.evaluate(async()=>{
+      const c=window.__cozy,s=c.street.session,b=c.island.homes.find(h=>h.name==='Home 5');
+      const {homeWorld}=await import('./src/home-plan.js');
+      Object.assign(s.actors.get(s.id),b.inside);
+      const eye=homeWorld(b,2.55,b.d/2-5),aim=c.street.cameraFocus=homeWorld(b,-.45,b.d/2-.75);
+      await c.setCamera([eye.x,b.y+2.8,eye.z],[aim.x,b.y+1.48,aim.z]);await c.flushChunks();
+    });
+    const scenes=entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
     for(const scene of scenes){
       const {distance,channel}=scene;
-      if(television){
+      if(entryLight){
+        await page.evaluate(async on=>{
+          const s=window.__cozy.street.session,b=s.island.homes.find(h=>h.name==='Home 5');
+          if(!!s.layout.entryLights?.[b.id]!==on)(await import('./src/home-fixtures.js')).switchEntryLights(s,b);
+        },scene.lit);
+        await page.waitForFunction(on=>{
+          const app=window.__cozy.street.clearExteriors.interiors.appliances;
+          return app?.home.name==='Home 5'&&[app.entry,...app.lamps].every(l=>Math.abs(l.level-Number(on))<.01);
+        },scene.lit);
+      }else if(television){
         await page.locator('#tv-channel').selectOption(String(channel));
         await page.waitForFunction(n=>window.__cozy.street.clearExteriors.interiors.appliances?.tv.channel===n,channel);
       }else await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;

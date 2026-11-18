@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.13.0 puts a working entry lantern in each of Petalwood's 457 homes.
+Use **Travel → Home 5 → Teleport there** and click the rocker beside the door
+or the lantern glass. By default it switches the desk and bedside lamps too.
+The owner can pick which lamps follow it under **Build → Edit → Lighting**.
+Visitors can use any switch. The owner save and encrypted backup preserve the
+links and the state of each light. The two-player browser test is
+`npm run test:domestic -- --lighting`.
+
 Version 0.12.5 keeps a linked public visitor's vehicle or seat through a brief
 input stall. Stale steering and throttle expire after 600 ms. The host gives
 the connection up to 30 seconds to resume sending input. The travel playtest

@@ -4,7 +4,7 @@ import {generate} from '../packages/island-gen/index.js';
 import {generateSettlement,createFlattenHook} from '../packages/settlement/index.js';
 import {prepareHomes,homeWorld,homeWalkable} from '../src/home-plan.js';
 import {plotsForStreet,defaultLayout,readLayout,toWorld,walkable} from '../src/street-world.js';
-import {lampIsLit,sideWindows,televisionIn} from '../src/home-fixtures.js';
+import {installedLampMask,lampIsLit,sideWindows,switchEntryLights,televisionIn} from '../src/home-fixtures.js';
 import {mealStation,potServings} from '../src/home-meals.js';
 import {walkingRoute} from '../src/street-route.js';
 import {readFileSync} from 'node:fs';
@@ -226,6 +226,53 @@ test('two visitors reserve the same lamp and its saved state is independent of t
   flip(a,'nightstand');arrive();assert.ok(lampIsLit(saved(),b.id,'nightstand'));
   flip(a,'desk');arrive();assert.ok(!lampIsLit(saved(),b.id,'desk'));assert.ok(lampIsLit(saved(),b.id,'nightstand'));
   assert.equal(readLayout({...s.layout,homeLights:{[b.id]:4}}),null);
+});
+
+test('the entry circuit keeps individual switches independent and only its owner can change lamp links',()=>{
+  const b=homes.find(h=>h.furniture.some(f=>f.type==='nightstand'));
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,actors:new Map(),
+    layout:defaultLayout(),id:'owner',owner:true,space:'personal',ready:true,time:0,town:{people:[]},persist(){}});
+  const a={id:s.id,...b.inside},guest={id:'guest',...b.inside};s.actors.set(a.id,a);s.actors.set(guest.id,guest);
+  const acts=s.activities=new StreetActivities(s);
+  const use=object=>{
+    acts.command(guest,{type:'furniture',lot:b.id,index:b.uses.findIndex(u=>u.object===object)});
+    for(let i=0;i<1000&&guest.walking;i++)acts.advance(guest,.05);
+    assert.equal(guest.activity,'switch');
+    s.time+=1;acts.advance(guest,.05);
+  };
+  use('entry-switch');assert.equal(s.layout.homeLights[b.id],3);
+  s.owner=false;assert.equal(s.linkEntryLamp(b,2,false),false);
+  s.owner=true;assert.equal(s.linkEntryLamp(b,2,false),true);
+  const contact=b.uses.find(u=>u.object==='entry-switch');
+  Object.assign(a,homeWorld(b,contact.x,contact.z));
+  use('entry-switch');assert.equal(s.layout.entryLights,undefined);assert.equal(s.layout.homeLights[b.id],2);
+  assert.ok(Math.hypot(guest.x-a.x,guest.z-a.z)>.55,'guest used the free side of the switch');
+  Object.assign(a,b.inside);
+  use('nightstand-lamp');assert.equal(s.layout.homeLights,undefined);
+  use('entry-switch');
+  const restored=readLayout(JSON.parse(JSON.stringify(s.layout)));
+  assert.equal(restored.entryLights[b.id],1);assert.equal(restored.unlinkedLamps[b.id],2);assert.equal(restored.homeLights[b.id],1);
+  assert.equal(s.linkEntryLamp(b,2,true),true);assert.equal(s.layout.unlinkedLamps,undefined);
+  assert.equal(s.linkEntryLamp(b,3,false),false);
+  assert.equal(readLayout({...restored,entryLights:{[b.id]:2}}),null);
+  assert.equal(readLayout({...restored,unlinkedLamps:{[b.id]:4}}),null);
+});
+
+test('all generated floor plans have a walkable entry switch independent of desk or bedside furniture',()=>{
+  const studio=homes.find(b=>installedLampMask(b)===0);
+  assert.ok(studio,'Petalwood has a studio without a table lamp');
+  const session={layout:defaultLayout(),persist(){}};
+  assert.equal(switchEntryLights(session,studio),true);
+  assert.equal(readLayout(session.layout).entryLights[studio.id],1);
+  assert.equal(session.layout.homeLights,undefined);
+  assert.equal(switchEntryLights(session,studio),false);
+  assert.equal(session.layout.entryLights,undefined);
+  for(const b of homes){
+    const spot=b.uses.find(u=>u.object==='entry-switch');
+    assert.ok(spot,b.name);const end=homeWorld(b,spot.x,spot.z);
+    assert.ok(homeWalkable(b,end),b.name);
+    assert.ok(walkingRoute(world,plots,defaultLayout(),b.inside,end),b.name);
+  }
 });
 
 test('watching together reserves two places and shares one persistent channel per home',()=>{

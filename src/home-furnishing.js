@@ -1,4 +1,4 @@
-import {homeLocal,homeWorld,homeWalkableLocal} from './home-plan.js';
+import {entrySwitchStation,homeLocal,homeWorld,homeWalkableLocal} from './home-plan.js';
 import {dividerLimit,dividerParts,sameDivider} from './room-divider.js';
 import {televisionIn} from './home-fixtures.js';
 import {footprint,originalPose,placeItem,relativePoint,samePose,supportFor} from './furniture-pose.js';
@@ -14,7 +14,9 @@ export function editedItems(items,id,pose){
 function candidate(home,items,divider){
   const originals=home.generatedFurniture||home.furniture,baseUses=home.generatedUses||home.uses;
   const furniture=originals.map(f=>items[f.id]?placeItem(f,items[f.id]):f);
+  const walls=home.walls.filter(w=>!w.divider).concat(dividerParts(home,divider));
   const uses=baseUses.map(u=>{
+    if(u.object==='entry-switch')return entrySwitchStation({w:home.w,d:home.d,yaw:home.yaw,walls,furniture},u.target);
     const support=supportFor(u);
     if(!items[support])return u;
     const from=originals.find(f=>f.id===support),to=furniture.find(f=>f.id===support);
@@ -27,7 +29,6 @@ function candidate(home,items,divider){
     }
     return result;
   });
-  const walls=home.walls.filter(w=>!w.divider).concat(dividerParts(home,divider));
   return {id:home.id,x:home.x,z:home.z,yaw:home.yaw,c:home.c,s:home.s,w:home.w,d:home.d,inside:home.inside,
     furniture,uses,walls,generatedFurniture:originals,generatedUses:baseUses,divider};
 }

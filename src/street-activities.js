@@ -1,7 +1,7 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
-import {homeAt} from './home-plan.js';
-import {lamps,tuneTelevision} from './home-fixtures.js';
+import {homeAt,homeWalkableLocal} from './home-plan.js';
+import {entrySwitchPosition,lamps,setFixtureValue,switchEntryLights,tuneTelevision} from './home-fixtures.js';
 import {finishHomeMeal,mealStation} from './home-meals.js';
 import {leaveBoard,sitAtBoard} from './table-game.js';
 
@@ -35,6 +35,20 @@ export class StreetActivities {
     return true;
   }
   cancelRoute(actor){this.routes.delete(actor.id);actor.walking=false;delete actor.goal;}
+  walkToEntrySwitch(actor,home,spot){
+    const target=entrySwitchPosition(home),points=[{x:spot.x,z:spot.z}];
+    for(const [dx,dz] of [[.1,-.75],[-.52,-.48],[.62,-.64]]){
+      const local={x:target.x+dx,z:target.z+dz};
+      if(homeWalkableLocal(home,local)===true)points.push(toWorld(home,local.x,local.z));
+    }
+    for(const p of points){
+      const pose={...p,yaw:Math.atan2(spot.target.x-p.x,spot.target.z-p.z)};
+      if(!this.s.available(actor,home,{...spot,...pose}))continue;
+      if(actor.outing)this.finish(actor);
+      if(this.go(actor,pose,{lot:home.id,index:spot.index,switchPose:pose}))return;
+    }
+    actor.feedback='The entry switch is busy. Try again when there is room.';
+  }
   leaveFurniture(actor){
     if(!actor.using)return;
     if(actor.activity==='tablegame')leaveBoard(this.s,actor);
@@ -195,6 +209,7 @@ export class StreetActivities {
       const {b}=target;
       let spot=mealStation(this.s,b.id,target.spot,actor);
       if(!spot){actor.feedback='That serving is no longer available.';return;}
+      if(spot.object==='entry-switch')return this.walkToEntrySwitch(actor,b,spot);
       if(spot.action==='tablegame'&&actor.bowlFrom){actor.feedback='Finish or return your soup before playing.';return;}
       if(['watch','tablegame'].includes(spot.action)&&!spot.alternate&&!this.s.available(actor,b,spot)){
         const other=b.uses.findIndex(u=>u.action===spot.action&&u.alternate);
@@ -235,7 +250,8 @@ export class StreetActivities {
     }
     if(typeof arrival==='object'){
       const target=s.furnitureAt(arrival.lot,arrival.index);
-      const spot=target&&mealStation(s,target.b.id,target.spot,a);
+      let spot=target&&mealStation(s,target.b.id,target.spot,a);
+      if(spot?.object==='entry-switch'&&arrival.switchPose)spot={...spot,...arrival.switchPose};
       if(target&&!spot){a.feedback='That serving is no longer available.';return;}
       if(spot&&s.available(a,target.b,spot)){
         Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
@@ -250,11 +266,11 @@ export class StreetActivities {
           }else{delete a.bowlFrom;a.feedback='Your serving is back in the pot.';}
           a.activity='';return;
         }
-        if(spot.lamp){
-          const lights=s.layout.homeLights??={},lot=target.b.id,lamp=lamps[spot.lamp];
-          const next=(lights[lot]||0)^lamp.bit;
-          if(next)lights[lot]=next;else delete lights[lot];
-          if(!Object.keys(lights).length)delete s.layout.homeLights;
+        if(spot.object==='entry-switch'){
+          a.feedback=switchEntryLights(s,target.b)?'Entry lights on.':'Entry lights off.';
+        }else if(spot.lamp){
+          const lot=target.b.id,lamp=lamps[spot.lamp],next=(s.layout.homeLights?.[lot]||0)^lamp.bit;
+          setFixtureValue(s.layout,'homeLights',lot,next);
           s.persist();
           a.feedback='The '+lamp.name+' is '+(next&lamp.bit?'on.':'off.');
         }

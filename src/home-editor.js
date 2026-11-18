@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {dividerLimit,dividerParts,sameDivider} from './room-divider.js';
 import {FurnishingEditor} from './furnishing-editor.js';
+import {installedLampMask,lamps} from './home-fixtures.js';
 
 const el=id=>document.getElementById(id);
 export class HomeEditor{
@@ -8,11 +9,23 @@ export class HomeEditor{
     this.street=street;
     this.furniture=new FurnishingEditor(street,listen);
     listen(el('room-mode'),'change',()=>{
-      const furnishing=el('room-mode').value==='furniture';
-      el('divider-tools').hidden=furnishing;el('furniture-tools').hidden=!furnishing;
-      if(furnishing){this.ghost.visible=false;this.furniture.open(this.home);}
-      else{this.furniture.close();this.change();}
+      const mode=el('room-mode').value;
+      for(const name of ['divider','furniture','lighting'])el(name+'-tools').hidden=name!==mode;
+      this.ghost.visible=false;
+      if(mode==='furniture')this.furniture.open(this.home);
+      else{
+        this.furniture.close();
+        if(mode==='divider')this.change();
+        else this.showLighting();
+      }
     });
+    for(const [kind,lamp] of Object.entries(lamps)){
+      const control=el('link-'+kind);
+      listen(control,'change',()=>{
+        this.street.session.linkEntryLamp(this.home,lamp.bit,control.checked);
+        this.showLighting();
+      });
+    }
     for(const id of ['room-line','room-door'])listen(el(id),'input',()=>this.change());
     listen(el('room-rotate'),'click',()=>{this.turn=1-this.turn;this.ranges();this.change();});
     listen(el('room-apply'),'click',()=>this.commit(this.draft));
@@ -20,7 +33,7 @@ export class HomeEditor{
     listen(el('room-undo'),'click',()=>this.commit(null,true));
   }
   open(home){
-    el('room-mode').value='divider';el('divider-tools').hidden=false;el('furniture-tools').hidden=true;
+    el('room-mode').value='divider';el('divider-tools').hidden=false;el('furniture-tools').hidden=true;el('lighting-tools').hidden=true;
     this.home=home;el('wall-tools').hidden=el('wall-grip').hidden=true;el('room-tools').hidden=false;
     this.material=new THREE.MeshBasicMaterial({color:0x538a75,transparent:true,opacity:.52,depthWrite:false});
     this.geometry=new THREE.BoxGeometry();this.ghost=new THREE.Group();
@@ -53,7 +66,17 @@ export class HomeEditor{
     }
     this.street.notice('');this.refresh();
   }
+  showLighting(){
+    const installed=installedLampMask(this.home),unlinked=this.street.session.layout.unlinkedLamps?.[this.home.id]||0;
+    for(const [kind,lamp] of Object.entries(lamps)){
+      const control=el('link-'+kind);
+      control.parentElement.hidden=!(installed&lamp.bit);
+      control.checked=!!(installed&lamp.bit)&&!(unlinked&lamp.bit);
+    }
+    el('lighting-info').textContent=installed?'The entry switch controls the hall light and the lamps you select.':'The entry switch controls the hall light.';
+  }
   refresh(){
+    if(el('room-mode').value==='lighting')return;
     if(this.furniture.home){this.furniture.refresh();return;}
     const s=this.street.session,existing=this.home.divider??null;
     const changed=!sameDivider(existing,this.draft);

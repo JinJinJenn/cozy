@@ -340,7 +340,11 @@ export class Street {
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
       }
       const label=q.label||(q.part?'Play '+q.part:q.action==='dance'?'Dance':names[place.kind]);
-      offer(q.target?this.point.set(q.target.x,q.target.y,q.target.z):this.point.set(q.x,y+.55,q.z),q.radius??.55,{type:'furniture',lot:place.id,index:q.index},label);
+      const command={type:'furniture',lot:place.id,index:q.index};
+      offer(q.target?this.point.set(q.target.x,q.target.y,q.target.z):this.point.set(q.x,y+.55,q.z),q.radius??.55,command,label);
+      if(q.secondaryTarget){
+        const t=q.secondaryTarget;offer(this.point.set(t.x,t.y,t.z),q.radius,command,label);
+      }
     }
     // A closed house can be picked across its facade, even at neighborhood zoom.
     // Only the closest hit may replace an actor or furnishing in front of it.
@@ -645,6 +649,7 @@ export class Street {
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(local.vehicle){use.hidden=false;use.textContent=local.vehicle==='car'?'Get out of car':'Get off bike';}
     if(local.activity==='watch')use.textContent='Stop watching';
+    if(local.activity==='switch')use.textContent='Release switch';
     if(local.activity==='tablegame')use.textContent='Leave game';
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }

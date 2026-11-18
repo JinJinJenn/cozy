@@ -5,6 +5,16 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Home lighting in v0.13.0
+
+With 457 residents simulated, a fixed view of Home 5 on Intel Graphics 0x7D67
+held 59.8 GPU-completed FPS at 1280 × 720 on both Low and Balanced. Each
+preset ran for 360 frames with the lights off, 360 with the entry lantern,
+desk lamp and bedside lamp on, and 360 after switching them off. Peak draws
+went from 536 to 537 and back to 536. The p95 frame interval across those six
+samples was 17.2 to 17.4 ms. Reproduce with
+`node tools/benchmark.mjs --entry-light --720p --gpu-completion`.
+
 ### Whole-island performance in v0.12.4
 
 We repeated the same 360-frame Petalwood camera paths at 1280 × 720 on Intel

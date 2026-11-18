@@ -9,15 +9,15 @@ The reviewed Town checkout is `fb7148b`, Cafe is `014bbc4`, and the local Sky Lo
 port is `2c6dca2`. Sky Lounge's captured client and reconstructed/port-added server
 behavior are distinct references; its unavailable original backend is not verified.
 
-| Area | Useful reference | Cozy 0.4 | Remaining work |
+| Area | Useful reference | Shipped in Cozy | Remaining work |
 | --- | --- | --- | --- |
 | Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
-| Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, saved lamp switches and a shared cook/serve/eat loop | Catalog-wide behaviors, linked switches, richer props and interaction transitions |
+| Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, configurable linked home lighting and a shared cook/serve/eat loop | Catalog-wide behaviors, richer props and interaction transitions |
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
 | Room editing | Jenn's Cafe, Sky Lounge | Owners can move or rotate six kinds of home furniture and edit a divider while guests use the room. Desk lamps, chairs and activities follow their furniture. | Catalog purchases, wall placement, stacking and multi-room plans |
 | Multiplayer arrival | Sky Lounge public lobby | Automatic public joining, delayed-signal convergence, separate private streets | Explicit private-home access, larger groups and full host handover |
 | Personal homes | Owner-specific room saves | Session address claims, compatible alternatives, reconnect grace and an encrypted personal street backup with its own private invitation | Per-guest private-home permissions and a durable land registry if permanent public ownership becomes a requirement |
-| Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |
+| Performance | Cozy's island and simulator | Resident simulation worker, shared avatar batches and compact population frames. The [rendering review](RENDERING-REVIEW.md) records Intel 0x7D67 measurements at street, room and island scales. | Older integrated graphics and phone measurements, continued wide-view profiling |
 
 ## Full-system coverage
 
@@ -41,7 +41,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Preview, place, rotate and undo existing furniture inside a generated home. Duplicate, remove and multi-item transactions remain open. |
 | Surface placement | Sky Lounge: floor/wall/shelf support and attached children | Desk and bedside lamps follow their support, including the switch target and light pool. Free shelf placement, stacking and height checks remain open. |
 | Parametric construction | Sky Lounge: cabinet runs and configurable strings | Missing cabinet-span and anchored-strand tools |
-| Linked controls | Sky Lounge: switches, remotes, screens and speakers | Desk and bedside lamps have independent host-saved switches. Cross-object wiring, remotes and room-wide control remain open |
+| Linked controls | Sky Lounge: switches, remotes, screens and speakers | Owners can link the desk and bedside lamps to the entry switch. Visitors can use the switch and each individual lamp. Both the wiring and lamp states survive a reload or encrypted transfer. General control links for other devices remain open. |
 | Instruments | Sky Lounge: multiple live instruments and note feedback | Partial two-part Moon Room performance; instrument catalog and free performance UI missing |
 | Music tools | Sky Lounge: import/library, part selection, ready/start, late joining | Partial existing score playback; full import/library and ensemble workflow missing |
 | Shared audio queue | Sky Lounge: editable stereo queue and repeat | Missing |

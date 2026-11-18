@@ -25,7 +25,7 @@ target and light pool move with its support. A visitor can switch the relocated
 desk lamp, and its state and position survive independent browser sessions.
 Plumbing, shelves and wall televisions still have fixed positions.
 
-| Object or component | v0.3 behavior | Required next work |
+| Object or component | Shipped behavior | Required next work |
 | --- | --- | --- |
 | Harbor Three board (v0.12) | Solo and two-player rounds share the real dining chairs with meals. Players place a buoy or ring on a modelled square. Pieces drop into place, guests can watch, and leaving the seat ends a shared round. Moving the dining set carries the board with it. | Additional tabletop games |
 | Living-room television and remote (v0.6) | Two viewers share sofa cushions. A compact studio offers a second seat on the rug. Both viewers can tune or switch off the same animated picture. Each private home's channel survives owner reload. | More programs and room-editor placement |
@@ -36,14 +36,15 @@ Plumbing, shelves and wall televisions still have fixed positions.
 | Kitchen sink/tap | Sink-specific approach and picking, water flows from the tap, hands move together | Animate the handle and hands at the actual controls |
 | Rug | Reserved stretching spot and arm motion | Coherent whole-body routine and transitions |
 | Desk/paper | Timed writing pose with book/paper feedback | Desk-specific writing pose, pen motion and a retained visible page/result |
-| Desk lamp | Click shade to switch, reach motion, glowing shade and tabletop light. State replicates and survives host reload | Add linked room switches and placement in the room editor |
+| Entry switch and lantern (v0.13) | Rocker and glass both operate the light. The paddle tilts and the lantern fades up over the threshold. The owner selects which lamps follow. Guests can operate it and use a second approach if someone is standing in the doorway. | Repositionable wall fixtures |
+| Desk lamp | Click the shade to switch it independently, or link it to the entry switch. The lamp and light pool move with the desk. Guests see the change and the owner save retains it. | Placement on a different support |
 | Dining table/chairs/plates | Two independently reservable chairs, carried bowls, spoon animation and one consumed portion per completed meal | Set the table, clear dishes and wash up |
 | Table planter | Decorative | Water/tend response and inspectable plant state |
 | Shower | Enter tray, wash under spray from shower head, return to clear floor | Animate the valve and entry transition |
 | Toilet | Reserved seated use | Sit/stand, flush control and visible flush/reset state |
 | Basin/mirror | Handwashing at a separate basin spout with animated stream | Valve animation and mirror function with bounded rendering cost |
 | Nightstand/drawer | Decorative | Open/close drawer, supported contents and saved configuration |
-| Bedside lamp | Independently saved switch, glowing shade and light pool | Add linked switches and placement in the room editor |
+| Bedside lamp | Switch the shade individually or use the entry switch. The room editor can unlink it so it stays on when someone turns out the hall light. Moving the bedside table carries the lamp and pool with it. | Placement on a different support |
 | Shelf planter | Decorative | Reachable tending interaction and visible response |
 | Front door | Open doorway and Enter action | Door leaf interaction/animation without blocking routes or guests |
 | Windows | Decorative glazing and cutaway visibility | Functional opening/blinds/curtains where modeled; correct room-edit behavior |

@@ -1,7 +1,7 @@
 import {polyCentroid,pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {routeOnGrid} from './walk-grid.js';
-import {fixtureOutlet,lamps,televisionIn} from './home-fixtures.js';
+import {entrySwitchPosition,fixtureOutlet,lamps,televisionIn} from './home-fixtures.js';
 import {footprint} from './furniture-pose.js';
 import {boardX} from './table-game.js';
 
@@ -27,6 +27,19 @@ export function homeWalkableLocal(b,q){
     }else if(hit(q,footprint(r)))return false;
   }
   return true;
+}
+export function entrySwitchStation(home,target=entrySwitchPosition(home)){
+  const doorZ=home.d/2-.25;
+  // The center of the doorway is already required by every saved floor plan.
+  // Approach the jamb only as far as the current furniture leaves room.
+  let x=0,z=doorZ;
+  for(let step=1;step<=4;step++){
+    const next={x:-.13*step,z:doorZ-.047*step};
+    if(!homeWalkableLocal(home,next))break;
+    x=next.x;z=next.z;
+  }
+  return {x,z,object:'entry-switch',action:'switch',label:'Flip entry light switch',target,radius:.21,
+    secondaryTarget:{x:target.x,y:2.03,z:target.z-.16},yaw:home.yaw+Math.atan2(target.x-x,target.z-z)};
 }
 // A use point is walkable; a pose may be on solid furniture. Never route a
 // walker to the centre of a bed or counter, and keep the exit point with the use.
@@ -109,6 +122,7 @@ function usesFor(b){
     stations.push(...chairs.map((seat,i)=>({...seat,action:'tablegame',label:'Play Harbor Three',mealSeat:false,
       target:{x:table.x+boardX,z:table.z,y:.92},radius:.34,alternate:i>0})));
   }
+  stations.push(entrySwitchStation(b));
   return stations;
 }
 export function prepareHomes(island,exclude=[]){

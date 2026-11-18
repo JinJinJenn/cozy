@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {fixtureOutlet,lamps,lampIsLit} from './home-fixtures.js';
+import {entrySwitchPosition,fixtureOutlet,lamps,lampIsLit} from './home-fixtures.js';
 import {potServings} from './home-meals.js';
 import {TelevisionScreen} from './television.js';
 import {roundAt} from './table-game.js';
@@ -48,10 +48,32 @@ function addFlow(parent,f,action){
   return flow;
 }
 
+function addEntryLight(frame,home){
+  const at=entrySwitchPosition(home);
+  const rocker=new THREE.Mesh(new THREE.BoxGeometry(.125,.183,.051),
+    new THREE.MeshLambertMaterial({color:'#f2e1b7'}));
+  rocker.position.set(at.x,at.y,at.z-.035);
+  const profile=[[.10,0],[.14,.026],[.156,.10],[.14,.215],[.10,.26]];
+  const glass=new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r,y])=>new THREE.Vector2(r,y)),12),
+    new THREE.MeshLambertMaterial({color:'#e6d4b5',emissive:'#ffd386',flatShading:true}));
+  glass.position.set(at.x,1.895,at.z-.16);
+  const w=home.w-.2,d=Math.min(3.9,home.d)-.2;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,
+    uniforms:{strength:{value:0},size:{value:new THREE.Vector2(w,d)},source:{value:new THREE.Vector2(.5+at.x/w,.15)}},
+    vertexShader:'varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'varying vec2 v;uniform vec2 size,source;uniform float strength;void main(){vec2 p=(v-source)*size;float light=1.-smoothstep(0.,2.65,length(p));gl_FragColor=vec4(1.,.76,.40,light*light*.48*strength);\n#include <colorspace_fragment>\n}'
+  }));
+  floor.position.set(0,.062,home.d/2-.1-d/2);floor.rotation.x=-Math.PI/2;floor.renderOrder=1;
+  frame.add(rocker,glass,floor);
+  return {rocker,glass,floor,level:null};
+}
+
 export class HomeAppliances {
   constructor(parent,home){
     this.home=home;this.lamps=[];this.flows=new Map();this.drop=new THREE.Object3D();
     const frame=this.frame=new THREE.Group();frame.position.set(home.x,home.y,home.z);frame.rotation.y=home.yaw;parent.add(frame);
+    this.entry=addEntryLight(frame,home);
     this.tv=new TelevisionScreen(frame,home);
     for(const f of home.furniture){
       if(f.type==='kitchen')this.soup=addSoup(frame,f);
@@ -73,6 +95,11 @@ export class HomeAppliances {
   update(session){
     const time=session?.time||0,dt=Math.min(.1,Math.max(0,time-(this.lastTime??time)));
     this.lastTime=time;
+    const entry=this.entry,target=session?.layout.entryLights?.[this.home.id]||0;
+    entry.level=entry.level===null?target:THREE.MathUtils.damp(entry.level,target,20,dt);
+    entry.rocker.rotation.x=(entry.level-.5)*.64;
+    entry.glass.material.emissiveIntensity=.05+.88*entry.level;
+    entry.floor.visible=entry.level>.005;entry.floor.material.uniforms.strength.value=entry.level;
     this.tv.update(session?.layout.homeTV?.[this.home.id]||0,time);
     if(session && this.dining){
       const round=roundAt(session,this.home.id);

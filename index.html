@@ -52,7 +52,12 @@ body.shot #ui,body.shot #mini{display:none}
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
       <button id="terrace-open" hidden>Furnish café terrace</button>
       <div id="room-tools" hidden>
-        <label>Edit <select id="room-mode"><option value="divider">Room divider</option><option value="furniture">Furniture</option></select></label>
+        <label>Edit <select id="room-mode"><option value="divider">Room divider</option><option value="furniture">Furniture</option><option value="lighting">Lighting</option></select></label>
+        <div id="lighting-tools" hidden>
+          <p id="lighting-info">The entry switch controls the hall light and the lamps you select.</p>
+          <label><input id="link-desk" type="checkbox"> Desk lamp</label>
+          <label><input id="link-nightstand" type="checkbox"> Bedside lamp</label>
+        </div>
         <div id="divider-tools">
         <label>Divider position <input type="range" id="room-line" step="1"><output id="room-line-value"></output></label>
         <label>Doorway position <input type="range" id="room-door" step="1"><output id="room-door-value"></output></label>

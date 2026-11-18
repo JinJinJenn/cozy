@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {Pieces,roof,setPieceVisibility} from './street-pieces.js';
 import {homeAt,homeLocal} from './home-plan.js';
 import {HomeAppliances} from './home-appliances.js';
-import {sideWindows,televisionIn} from './home-fixtures.js';
+import {entrySwitchPosition,sideWindows,televisionIn} from './home-fixtures.js';
 import {dividerParts} from './room-divider.js';
 import {boardX,squareSize} from './table-game.js';
 
@@ -81,6 +81,18 @@ export function homeShell(a,b){
 
 function furnish(a,b){
   const accent=palette[b.palette][2];
+  const entry=entrySwitchPosition(b),jamb=a.frame(entry.x,0,entry.z,0);
+  jamb.box(0,1.15,.083,.29,2.30,.12,wood);
+  jamb.box(0,entry.y,.020,.24,.36,.047,'#aa8350');
+  jamb.box(0,entry.y,-.006,.165,.236,.025,'#534b3e');
+  for(const dy of [-.146,.146])jamb.ball(0,entry.y+dy,-.012,.032,.032,.018,'#e4cd99');
+  jamb.box(0,1.95,-.047,.12,.16,.19,'#89704e');
+  jamb.round(0,1.88,-.16,.27,.056,.27,'#997b4f');
+  jamb.round(0,2.17,-.16,.24,.046,.24,'#997b4f');
+  for(const x of [-.105,.105])for(const z of [-.105,.105])
+    jamb.box(x,2.027,-.16+z,.018,.26,.018,'#96794d');
+  jamb.round(0,2.04,-.16,.317,.012,.317,'#ac9163');
+  jamb.ball(0,2.208,-.16,.087,.071,.087,'#d3b67a');
   const tv=televisionIn(b),set=a.frame(tv.x,tv.y,tv.z,tv.yaw);
   set.box(0,0,-.24,.42,.29,.24,metal);
   set.box(0,0,-.10,1.67,.94,.25,'#845c42');
@@ -244,7 +256,10 @@ export class HomeInteriors {
     if(!home)return;
     this.updateDivider(home);
     const p=homeLocal(home,eye);setPieceVisibility(home.renderHandles.roof,false);
-    for(const [side,hide] of [['left',p.x<0],['right',p.x>0],['back',p.z<0],['front',p.z>0]])setPieceVisibility(home.renderHandles[side],!hide);
+    // Only cut a wall when the eye is outside its inner face. Looking from
+    // inside the foyer toward the switch should still show the wall behind it.
+    const hw=home.w/2-.10,hd=home.d/2-.10;
+    for(const [side,hide] of [['left',p.x< -hw],['right',p.x>hw],['back',p.z< -hd],['front',p.z>hd]])setPieceVisibility(home.renderHandles[side],!hide);
     this.appliances.update(session);
     return home.id;
   }

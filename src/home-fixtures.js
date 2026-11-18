@@ -15,6 +15,30 @@ export function lampIsLit(layout,lot,kind){
   return Boolean((layout?.homeLights?.[lot]||0)&lamps[kind].bit);
 }
 
+export function entrySwitchPosition(home){
+  return {x:-home.door.width/2-.08,y:1.18,z:home.d/2-.23};
+}
+export function installedLampMask(home){
+  let mask=0;
+  for(const f of home.furniture)mask|=lamps[f.type]?.bit||0;
+  return mask;
+}
+export function setFixtureValue(layout,field,lot,value){
+  if(value){(layout[field]??={})[lot]=value;return;}
+  if(!layout[field])return;
+  delete layout[field][lot];
+  if(!Object.keys(layout[field]).length)delete layout[field];
+}
+export function switchEntryLights(session,home){
+  const {layout}=session,id=home.id,on=!layout.entryLights?.[id];
+  const linked=installedLampMask(home)&~(layout.unlinkedLamps?.[id]||0);
+  const current=layout.homeLights?.[id]||0;
+  setFixtureValue(layout,'entryLights',id,on?1:0);
+  setFixtureValue(layout,'homeLights',id,on?current|linked:current&~linked);
+  session.persist();
+  return on;
+}
+
 export const tvChannels=['Off','Harbor Ferry','The Kitchen Window','Night Sky'];
 
 export function televisionIn(home){
