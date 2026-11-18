@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 export async function playTerrace(host,guest,shot){
-  const size=host.viewportSize();await host.setViewportSize({width:1100,height:660});
+  const size=host.viewportSize();await host.bringToFront();await host.setViewportSize({width:1100,height:660});
   const open=async()=>{await host.locator('#build-open').click();await host.locator('#build-lot').selectOption('l107');await host.locator('#terrace-open').click();};
   const point=async(x,z)=>{
     const p=await host.evaluate(async([x,z])=>{
@@ -15,15 +15,23 @@ export async function playTerrace(host,guest,shot){
   };
   await open();await point(0,6.5);
   assert.ok(await host.locator('#terrace-apply').isDisabled());
-  await point(3.5,7.5);await host.locator('#terrace-apply').click();
+  await point(3.5,7.5);
+  // Record where Chromium actually delivered the pointer after the third
+  // profile closed. These events are printed only on a failed placement.
+  const apply=host.getByRole('button',{name:'Place table',exact:true});
+  await host.evaluate(()=>{window.terracePointer=[];
+    for(const type of ['pointerdown','pointerup','click'])document.addEventListener(type,e=>{
+      window.terracePointer.push([type,e.target.id,e.target.disabled,document.visibilityState]);
+    },{capture:true,once:true});});
+  await apply.click();
   try{
-    await host.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5),null,{timeout:5000});
+    await host.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5),null,{timeout:5000,polling:100});
     await guest.waitForFunction(()=>window.__cozy.street.session.layout.terrace.tables.some(t=>t.id===1&&t.x===3.5&&t.z===7.5));
   }catch(error){
     for(const [name,page] of [['host',host],['guest',guest]])console.error('Terrace placement diagnostic',name,await page.evaluate(()=>{
       const st=window.__cozy.street,s=st.session;
       return {ready:s.ready,owner:s.owner,connected:s.connected,peers:s.peers.size,frameAge:performance.now()-s.lastFrame,sequence:s.verifiedSeq,
-        revision:s.layout.revision,terrace:s.layout.terrace,draft:st.terraceEditor.draft,
+        revision:s.layout.revision,terrace:s.layout.terrace,draft:st.terraceEditor.draft,pointer:window.terracePointer,
         status:document.getElementById('terrace-status').textContent,note:document.getElementById('street-note').textContent};
     }));
     throw error;

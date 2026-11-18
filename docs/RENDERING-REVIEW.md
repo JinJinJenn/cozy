@@ -42,6 +42,14 @@ residents gave these GPU-fence results. Each row is a single run.
 | Balanced street | 59.84 | 17.4 ms | 26.3 ms |
 | Balanced town | 59.82 | 18.0 ms | 41.3 ms |
 
+A fresh browser on the live site then walked from spawn through Homes 67, 66
+and 65 at normal speed on 720p Low. All three interiors opened. Across 1,758
+frame intervals, p95 was 16.8 ms and the longest interval was 433.2 ms.
+Repeating the route with browser timing probes gave a 233.3 ms worst interval.
+The first route request itself took 50–57 ms. The trace did not establish a
+single cause for the longer gaps. This walk is a better hitch check than a
+stationary orbit and identifies ongoing work on frame pacing.
+
 ### Engine direction
 
 Keep the current game running while improving its scene and asset representation.

@@ -23,6 +23,7 @@ try{
     const scale=relay && !photo ? 0.6 : 1;
     const context=await browser.newContext({viewport:{width:720,height:432},deviceScaleFactor:scale,...options});
     if(installRelay)await installRelay(context);
+    if(relay&&!photo)await context.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
     // Software WebGL shares the test machine across three live tabs.
     await context.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);
       window.requestAnimationFrame=callback=>setTimeout(()=>raf(callback),90);});
@@ -223,7 +224,7 @@ try{
   await host.reload({waitUntil:'domcontentloaded',timeout:120000});await ready(host);assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.homes.l106.wall),1);
   await guest.waitForFunction(old=>window.__cozy.street.session.connected&&window.__cozy.street.session.hostBoot!==old,oldBoot);
-  await host.locator('#island-map').click();await host.locator('#walk-street').click();
+  await host.bringToFront();await host.locator('#island-map').click();await host.locator('#walk-street').click();
   assert.equal(await host.evaluate(()=>window.__cozy.street.session.layout.wall),-.5);
   assert.deepEqual(errors,[]);
   console.log('PASS guest walking and sitting, on-world renovation drag, independent home undo, late join, owner reload and map return');
