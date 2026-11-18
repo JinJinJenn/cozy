@@ -9,7 +9,7 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   async function edit(p,name,shirt){
     await panel(p);await p.locator('#profile-options summary').click();
     await p.locator('#profile-name').fill(name);await p.locator('#profile-shirt').selectOption(shirt);
-    await p.locator('#player-profile button').click();
+    await p.getByRole('button',{name:'Save profile',exact:true}).click();
   }
   const visibleName=(p,name)=>p.getByRole('button',{name:'Follow '+name,exact:true}).waitFor({state:'visible'});
   await edit(host,'Marigold','saffron');await edit(guest,'River','lagoon');

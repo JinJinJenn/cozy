@@ -79,6 +79,14 @@ export async function playFlowers({host,guest,wait,ready,navigate}){
     const st=window.__cozy.street;
     return !st.session.layout.cutFlowerBeds?.includes(lot)&&st.clearExteriors.flowerBeds.get(lot).amount===1;
   },lot);
+  await guest.locator('#social-open').click();
+  await guest.locator('#profile-options summary').click();
+  await guest.locator('#profile-shirt').selectOption('denim');
+  await guest.getByRole('button',{name:'Save profile',exact:true}).click();
+  await wait(host,({id,species})=>{
+    const profile=window.__cozy.street.session.actors.get(id)?.profile;
+    return profile?.shirt==='denim'&&profile.flower===species;
+  },{id,species});
   await navigate(guest,'#build-open');await guest.reload();await ready(guest);
   await wait(guest,species=>{
     const st=window.__cozy.street,s=st.session;
