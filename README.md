@@ -2,7 +2,7 @@
 
 Walk Harbor Town on a continuous island. The waterfront has two homes, Jenn's Café, Bay Kitchen, Tidepool Spa, Harbor Gym and The Moon Room. Find a place points toward its front door. [Play Jenn's Cozy Town](https://jinjinjenn.github.io/cozy/) · [Devlog](docs/DEVLOG.html)
 
-Version 0.3 runs 457 generated-home residents in a dedicated worker, with two additional waterfront social residents. All continue their routines offscreen. [Public town and personal home plan](docs/MULTIPLAYER-PLAN.md) records the selected multiplayer direction; automatic public joining and personal-home claims are still pending.
+Open the ordinary game link to meet in public Harbor Town. One browser runs the 457 generated-home residents and the two waterfront social residents for the group. Choose **Build at home** to edit your own saved street. Under **Multiplayer**, you can invite a guest from home or return to public town. Your personal street stays in the browser where you created it. [Multiplayer and save rules](docs/MULTIPLAYER-PLAN.md)
 
 ## Live mode and building
 

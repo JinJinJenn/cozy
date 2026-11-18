@@ -9,13 +9,13 @@ The reviewed Town checkout is `fb7148b`, Cafe is `014bbc4`, and the local Sky Lo
 port is `2c6dca2`. Sky Lounge's captured client and reconstructed/port-added server
 behavior are distinct references; its unavailable original backend is not verified.
 
-| Area | Useful reference | Cozy 0.3 | Remaining work |
+| Area | Useful reference | Cozy 0.4 | Remaining work |
 | --- | --- | --- | --- |
 | Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
 | Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, saved lamp switches and a shared cook/serve/eat loop | Catalog-wide behaviors, linked switches, richer props and interaction transitions |
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
 | Room editing | Jenn's Cafe, Sky Lounge | Venue-specific wall edits, terrace tables, revision checks and undo | General connected-room editor and catalog placement/support rules |
-| Multiplayer arrival | Sky Lounge public lobby | Owner invitations and optional listing | Automatic public joining, convergence, explicit home access and host migration |
+| Multiplayer arrival | Sky Lounge public lobby | Automatic public joining, delayed-signal convergence, separate private streets | Explicit private-home access, larger groups and full host handover |
 | Personal homes | Owner-specific room saves | Existing browser-local venue layout saves preserved | Stable personal home IDs, recoverable backup, session parcel leases and migrations |
 | Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |
 
@@ -32,10 +32,10 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Household activities | Town seating, drinks, TV and transition animation | Players can serve two bowls from one pot, eat together and leave leftovers. TV and blended approach/use/exit animations remain open. |
 | Public/outdoor seating | Town: usable benches, loungers, picnic and game seats | Partial: roadside and venue benches; all furnished outdoor lots need an object-by-object audit |
 | Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
-| Room discovery | Sky Lounge port: automatic common lobby and roster | Missing automatic join and duplicate-host convergence |
+| Room discovery | Sky Lounge port: automatic common lobby and roster | Two fresh profiles meet through the game URL. The HUD shows the player count. Named rosters remain open. |
 | Private access | Sky Lounge: invitation, closed/listed rooms, admission and owner controls | Partial street invites/listing; private home capabilities and moderation missing |
 | Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Partial browser-local saves; recoverable identity/home export and migration missing |
-| Host departure | Sky Lounge port: successor host and retained layout | Missing authority handover; preserve full city epoch and personal home revisions |
+| Host departure | Sky Lounge port: successor host and retained layout | Remaining peers elect a new host. Full NPC scheduler and in-flight action handover remain open. |
 | Room creation | Sky Lounge: templates, entrances, named rooms and navigation | Missing general personal-home creation and connected-room editing |
 | Build catalog | Sky Lounge: broad catalog, coordinated sets and configuration | Partial venue-specific terrace placement; reusable catalog and set placement missing |
 | Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Partial wall and terrace controls; whole-home transactional editor missing |

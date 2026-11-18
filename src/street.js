@@ -29,6 +29,11 @@ export class Street {
     this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[]),...island.homes];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(b.name||places[b.kind][0],b.kind==='home'?b.id:b.kind)));
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
+    const townURL=new URL('.',location.href);
+    const params=new URLSearchParams(location.search);
+    for(const key of ['net','v'])if(params.has(key))townURL.searchParams.set(key,params.get(key));
+    $('public-street').href=townURL.href;
+    townURL.searchParams.set('space','personal');$('personal-street').href=townURL.href;
     this.terraceEditor=new TerraceEditor(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
@@ -97,6 +102,9 @@ export class Street {
       }
     });
     listen($('build-open'),'click',()=>{
+      if(this.session?.space==='public'){
+        const url=new URL($('personal-street').href);url.searchParams.set('build','1');location.assign(url);return;
+      }
       const open=$('build-pane').hidden;this.closePanels();
       if(!open||!this.session?.owner||!this.session.ready)return;
       const local=this.session.actors.get(this.session.id),near=this.session.near(local);
@@ -298,6 +306,9 @@ export class Street {
     if(!this.art)return false;
     if(!this.session){
       this.session=new StreetSession(this.island,this.plots,t=>this.notice(t),this.town);
+      this.session.start.then(()=>{
+        if(!this.session.closed&&this.active&&this.session.canBuild&&new URLSearchParams(location.search).get('build')==='1')$('build-open').click();
+      });
       this.lastAdvance=performance.now();this.joinStarted=this.lastAdvance;
       this.timer=setInterval(()=>{const now=performance.now();
         if(document.hidden||now-this.lastAdvance>120)this.advance(now);
@@ -305,7 +316,9 @@ export class Street {
     }
     this.active=true;this.closePanels();this.clearInput();this.nextUI=0;
     document.body.classList.add('in-street');$('street-panel').hidden=false;$('street-note').textContent='';
-    $('build-open').hidden=!this.session.owner;$('owner-room').hidden=!this.session.owner;$('invite-url').hidden=true;
+    $('build-open').hidden=this.session.space!=='public'&&!this.session.canBuild;$('owner-room').hidden=!this.session.canBuild;$('invite-url').hidden=true;
+    $('personal-street').hidden=this.session.space==='personal'&&this.session.owner;
+    $('public-street').hidden=this.session.space==='public';
     const p=this.session.actors.get(this.session.id)||this.session.spawn;
     const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,7.7,7.7);
     this.controls.minDistance=2.6;this.controls.maxDistance=420;this.controls.enablePan=false;
@@ -414,9 +427,12 @@ export class Street {
       const heading=Math.atan2(dx,dz)-Math.atan2(this.controls.target.x-this.camera.position.x,this.controls.target.z-this.camera.position.z);
       $('bearing').style.transform='rotate('+-heading+'rad)';$('range').textContent=(b.name||places[b.kind][0])+' · '+(dist<2.5?'at the entrance':Math.round(dist)+' m');}
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
-    $('party').textContent=s.error?'Room unavailable':s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
+    $('party').textContent=s.error?'Room unavailable':s.space==='public'?
+      (s.owner||s.connected?'Public town · '+people+(people===1?' player':' players'):'Joining public town'):
+      s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
-    $('build-open').hidden=!s.owner;$('owner-room').hidden=!s.owner;
+    $('build-open').hidden=s.space!=='public'&&!s.canBuild;$('owner-room').hidden=!s.canBuild;
+    if(s.space==='public')$('build-open').textContent='Build at home';
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     if(near)use.textContent=local.activity==='eat'?'Pause meal':local.activity==='cook'?'Stop cooking':local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',wash:'washing',shower:'showering',bathroom:'bathroom visit',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;

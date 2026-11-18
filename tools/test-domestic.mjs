@@ -18,7 +18,7 @@ try{
  const open=async(url)=>{const p=await(await context()).newPage();p.on('pageerror',e=>report.errors.push(e.message));
    p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))report.errors.push(m.text());});
    await p.goto(url);await p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street.session?.ready,null,{timeout:120000});return p;};
- const host=await open(origin),guest=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
+ const host=await open(origin+'?space=personal'),guest=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
  report.version=await host.locator('#graphics-settings summary span').innerText();
  assert.equal(report.version,'v'+JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version);
  await guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:45000});

@@ -2,8 +2,30 @@
 
 17 November 2026. Public town plus private invited homes is the selected product
 direction. The ownership and save rules below are a proposed implementation
-contract. Version 0.3 still uses owner-hosted invite sessions; it does not silently
-switch existing saves into a public lobby.
+contract. Version 0.4 opens a shared public town by default. Existing personal
+street keys and layout saves stay in their owner's browser.
+
+## Public town in 0.4
+
+The Petalwood waterfront uses one public room per deployment and world protocol.
+Each tab creates a temporary signing key and introduces itself on its live
+transport. Reachable clients select the earliest announced arrival, using the
+public key to break ties. Local play starts immediately while WebRTC connects.
+A connected guest uses the selected host's signed snapshots for the players
+and all 457 generated residents. Other seeds stay outside this room.
+
+**Build at home** opens the player's existing personal street. Its owner can
+renovate, share an invite, and choose whether to list that street. Public play
+keeps the personal key, layout and visit history private. Public layout changes
+last for the session. The public host has the same construction restrictions
+as the other players.
+
+If a host departs, the remaining peers select a successor. A successor that
+received a town snapshot keeps its last layout, resets activities and resumes
+its own resident scheduler. A disconnected group can temporarily elect its
+own host. Durable shared ownership and uninterrupted simulation handover
+still require the snapshot and revision work below. The current session limit
+is one host and twelve remote players.
 
 ## Keep the continuous city
 
@@ -78,11 +100,11 @@ account recovery or cross-device save service.
 7. Repeat across independent networks, including a restrictive NAT. Local native
    WebRTC tests verify game behavior, not internet connectivity or relay coverage.
 
-## This release's groundwork
+## Version 0.3 groundwork
 
 Version 0.3 adds exclusive domestic activities with separate approach, pose and
 exit points. Native WebRTC tests cover occupied-bed refusal, release and guest
 pose replication. The whole resident population remains in each host snapshot,
 encoded in seven bytes per resident before base64; local simulation runs in a
-dedicated worker. It does not yet add automatic lobby admission, personal home
-claims, home-save export or host migration.
+dedicated worker. Version 0.4 adds public admission. Personal home claims,
+home-save export and full simulation handover remain open.

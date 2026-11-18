@@ -6,6 +6,7 @@ import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEd
 import {homeAt} from './home-plan.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
+import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
 
 const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
@@ -60,7 +61,8 @@ export class StreetSession {
     this.roomList=new Map();this.connections=[];this.directory=[];this.connecting=null;this.discovery=null;
     this.layout=defaultLayout();this.time=0;this.seq=0;this.lastFrame=0;this.lastSent=0;this.connected=false;this.ready=false;this.listed=false;
     this.keys={...zero};this.inputSeq=0;this.actionSeq=0;this.verifiedSeq=-1;this.oldBoots=new Set();
-    this.visit=new URLSearchParams(location.search).get('visit');this.owner=!this.visit;
+    const params=new URLSearchParams(location.search);
+    this.space=streetSpace(island,params);this.visit=params.get('visit');this.owner=this.space==='personal';
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
     this.actors.set(this.id,{id:this.id,...this.spawn,yaw:this.cafe.yaw+Math.PI,activity:'',part:''});
     this.activities=new StreetActivities(this);this.commandSeq=0;this.motion=0;
@@ -76,6 +78,20 @@ export class StreetSession {
   }
   async init(){
     try{
+      if(this.space==='public'){
+        const id=await lobbyIdentity();if(this.closed)return;
+        const room=publicWorld+'@'+new URL('.',location.href).href;
+        const avatar=this.actors.get(this.id);this.id=id.actor;avatar.id=this.id;this.actors=new Map([[this.id,avatar]]);
+        this.lobby=new PublicTown(room,id,leader=>this.publicLeader(leader));
+        this.lobby.elect();
+        await this.open(room,this.connections,kind=>({
+          onMessage:(peer,m)=>this.receive(kind+'/'+peer,m),
+          onPeerJoin:()=>this.lobby.announce(kind),
+          onPeerLeave:peer=>{const sender=kind+'/'+peer;this.peers.delete(sender);this.lobby.leave(sender);}
+        }),undefined,(kind,c)=>this.lobby.attach(kind,c));
+        this.ready=!this.closed;
+        return;
+      }
       if(this.owner){
         const id=navigator.locks?await navigator.locks.request(project+'.create-owner',identity):await identity();this.pub=id.pub;
         if(navigator.locks){
@@ -89,8 +105,7 @@ export class StreetSession {
       }
       if(this.owner){
         this.coffeeVisits=stored(project+'.coffee.'+this.pub)||{};
-        this.updatePatrol();
-        for(let i=0;i<2;i++)this.actors.set('resident'+i,{id:'resident'+i,...this.patrol[i*6],yaw:0,activity:'',part:'',way:i*6,dwell:1+i*3});
+        this.startPatrol();
       }else{
         if(!validKey(this.visit))throw Error('Invalid street invitation');
         this.pub=this.visit;this.publicKey=await crypto.subtle.importKey('raw',decode(this.pub),algorithm,false,['verify']);
@@ -100,9 +115,26 @@ export class StreetSession {
       await this.connect(!this.owner||!!stored(project+'.host.'+this.pub));
     }catch(e){this.notice(e.message);this.error=e.message;}
   }
-  async open(name,connections,handlers,allow=()=>true){
+  startPatrol(){
+    this.updatePatrol();
+    for(let i=0;i<2;i++)this.actors.set('resident'+i,{id:'resident'+i,...this.patrol[i*6],yaw:0,activity:'',part:'',way:i*6,dwell:1+i*3});
+  }
+  publicLeader(leader){
+    const previous=this.pub;
+    this.pub=leader.pub;this.owner=leader===this.lobby.self;
+    this.publicKey=leader.publicKey;this.privateKey=this.owner?leader.privateKey:null;
+    this.connected=false;this.lastFrame=0;this.hostBoot=null;this.verifiedSeq=-1;this.oldBoots.clear();
+    this.boot=crypto.randomUUID();this.poseEpoch=(this.poseEpoch||0)+1;this.seq=0;
+    this.pendingCommand=null;this.actionSeq=0;this.residentTargets=null;
+    this.peers.clear();this.controls.clear();this.activities=new StreetActivities(this);
+    const local=this.actors.get(this.id)||this.spawn;
+    this.actors=new Map([[this.id,{id:this.id,x:local.x,z:local.z,yaw:local.yaw,activity:'',part:''}]]);
+    if(this.owner){this.coffeeVisits={};this.startPatrol();}
+    if(previous)this.notice(this.owner?'You are hosting the public town.':'Joining the public town host.');
+  }
+  async open(name,connections,handlers,allow=()=>true,joined){
     const joins=transports().filter(allow).map(async transport=>{
-      try{const conn=await transport.join(name,handlers(transport.kind));if(this.closed)conn.leave();else connections.push(conn);}
+      try{const conn=await transport.join(name,handlers(transport.kind));if(this.closed)conn.leave();else{connections.push(conn);await joined?.(transport.kind,conn);}}
       catch(e){if(!this.closed)this.transportError=String(e.message||e);}
     });
     await joins[0]; // Local discovery works even while public signalling is connecting.
@@ -122,7 +154,8 @@ export class StreetSession {
     }
     return !this.closed;
   }
-  async invite(){await this.start;if(!this.owner||!this.ready||!await this.connect())return null;return linkFor(this.pub);}
+  get canBuild(){return this.owner&&this.space!=='public';}
+  async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;return linkFor(this.pub);}
   async discover(){
     if(!this.discovery)this.discovery=this.open('public-directory',this.directory,()=>({onMessage:(_,m)=>{
       if(m?.kind==='listed'&&validKey(m.pub)&&m.pub!==this.pub)this.roomList.set(m.pub,{url:linkFor(m.pub),seen:performance.now()});
@@ -134,11 +167,11 @@ export class StreetSession {
   advertise(){this.directory.forEach(c=>c.send({kind:this.listed?'listed':'unlisted',pub:this.pub}));}
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
-  persist(){this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
+  persist(){if(this.space==='public')return;this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
   rememberCoffee(id){
     const last=this.coffeeVisits[id];
     const count=Number.isSafeInteger(last)?Math.min(9999,last+1):1;
-    this.coffeeVisits[id]=count;save(project+'.coffee.'+this.pub,this.coffeeVisits);
+    this.coffeeVisits[id]=count;if(this.space!=='public')save(project+'.coffee.'+this.pub,this.coffeeVisits);
     return count;
   }
   limitFor(b,goal,side=sideAt(b,this.layout)-b.w/2){
@@ -173,7 +206,7 @@ export class StreetSession {
     return '';
   }
   editTable(id,next,undo=false){
-    if(!this.owner||!this.ready)return false;
+    if(!this.canBuild||!this.ready)return false;
     const state=this.layout.terrace,last=state.undo.at(-1);
     if(undo){if(!last)return false;id=last.id;next=last.before;}
     if(!Number.isInteger(id)||id<0||id>=maxTables||next&&next.id!==id)return false;
@@ -189,7 +222,7 @@ export class StreetSession {
     this.notice(undo?'Terrace edit undone.':next?'Table and chairs placed.':'Table removed.');return true;
   }
   edit(target,undo=false,lot=this.cafe.id,side){
-    if(!this.owner||!this.ready)return false;
+    if(!this.canBuild||!this.ready)return false;
     const b=this.plots.find(p=>p.id===lot&&(p.cafe||hasEditableFront(p)));
     if(!b)return false;
     const state=wallState(this.layout,b),old=state.wall,oldSide=state.side??0;
@@ -277,9 +310,16 @@ export class StreetSession {
     if(!this.owner&&this.connected)this.sendInput();
   }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
+    if(this.lobby)m.authority=this.pub;
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
+    if(this.lobby){
+      if(m.kind==='presence')return this.lobby.receive(sender,m);
+      const member=this.lobby.members.get(sender);
+      if(!member||(m.kind==='input'&&(member.actor!==m.id||m.authority!==this.pub))||
+        (m.kind==='frame'&&member.pub!==this.pub))return;
+    }
     if(this.owner){
       if(m.kind!=='input'||typeof m.id!=='string'||!/^[\da-f-]{36}$/i.test(m.id)||m.id===this.id||
         !Number.isSafeInteger(m.seq)||!Number.isSafeInteger(m.action)||!Number.isFinite(m.x)||!Number.isFinite(m.z))return;
@@ -299,10 +339,11 @@ export class StreetSession {
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
     }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<32768&&typeof m.sig==='string'&&m.sig.length<140){
       try{
+        const epoch=this.boot;
         if(!await crypto.subtle.verify(signature,this.publicKey,decode(m.sig),utf8.encode(m.body)))return;
         const f=JSON.parse(m.body);
         const layout=readLayout(f.layout);
-        if(this.closed||f.room!==this.pub||!Number.isFinite(f.t)||!Number.isFinite(f.seq)||!Array.isArray(f.actors)||f.actors.length>16||
+        if(this.closed||this.boot!==epoch||f.room!==this.pub||!Number.isFinite(f.t)||!Number.isFinite(f.seq)||!Array.isArray(f.actors)||f.actors.length>16||
           !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
@@ -331,12 +372,13 @@ export class StreetSession {
     this.sending=true;
     try{const residents=encodeResidents(this.town.people);
       const body=JSON.stringify({room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents});
-      const sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));if(!this.closed)this.connections.forEach(c=>c.send({kind:'frame',body,sig}));
+      const epoch=this.boot,sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));if(!this.closed&&this.boot===epoch)this.connections.forEach(c=>c.send({kind:'frame',body,sig}));
     }finally{this.sending=false;}
   }
   tick(dt){
     if(!this.ready)return;
     const now=performance.now();this.time+=dt;
+    this.lobby?.tick(now);
     if(this.owner){
       this.town.advance(dt);
       for(const [id,a] of this.actors){
@@ -371,5 +413,5 @@ export class StreetSession {
     if(now-this.lastSent>=85){this.lastSent=now;if(this.owner)void this.broadcast();else this.sendInput();}
     if(this.listed&&now-(this.adAt||0)>3000){this.adAt=now;this.advertise();}
   }
-  dispose(){this.closed=true;if(this.listed){this.listed=false;this.advertise();}this.connections.concat(this.directory).forEach(c=>c.leave());this.releaseLock?.();}
+  dispose(){this.closed=true;this.lobby?.dispose();if(this.listed){this.listed=false;this.advertise();}this.connections.concat(this.directory).forEach(c=>c.leave());this.releaseLock?.();}
 }

@@ -4,6 +4,16 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.4.0 opens the public Petalwood waterfront by default. Two isolated
+browser profiles started as separate hosts with signalling held back, then
+converged on a single host. One player walked on the other's screen and received
+all 457 generated resident poses. **Build at home** opened the owner's saved
+street. A third profile followed its private invite while the other player
+continued in public. Returning home restored the same owner key and wall edit.
+Run `npm run test:lobby` for this playtest. Public construction and lasting
+parcel claims remain future work. A host change interrupts activities and
+resumes the successor's local NPC scheduler.
+
 Version 0.3.5 reduces resident pathfinding cost in the browser worker and uses
 the same collision queries for a walking player. A 160-tick Petalwood replay
 matched v0.3.4 for all 457 residents on every tick. Worker time fell from
@@ -63,8 +73,8 @@ the next connected-room editor milestone.
 
 The selected multiplayer target is an automatic public town plus private invited
 homes. [The save and ownership plan](docs/MULTIPLAYER-PLAN.md) separates persistent
-personal homes from session parcel leases. That joining and ownership layer is
-not yet implemented. Current play remains owner-hosted with invitation links.
+personal homes from session parcel leases. Automatic public joining shipped in
+0.4.0. Private streets still use their owner's invitation link.
 
 Generated beds, kitchens, bookshelves and rugs now advertise actions; larger homes
 also expose desks, dining and washroom activities. Use points, poses and exit
@@ -127,7 +137,7 @@ asset representation before a whole-game port; backend comparisons remain experi
   roughly 8 FPS street / 4 FPS wide on Low. Real integrated-GPU testing is pending.
 - These checks do not establish cross-network connectivity, persistent server
   simulation or complete Sky Lounge parity. Browser suspension can pause the host.
-  General home editing, automatic lobby admission, ownership and backup migration
+  General home editing, parcel ownership and backup migration
   remain the next milestones. The devlog contains reviewed playtest stills.
 
 ## Building and multiplayer

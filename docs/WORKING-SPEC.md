@@ -43,8 +43,8 @@ Choose migration work from measured bottlenecks and preserved gameplay behavior.
 
 The public-town and private-home direction is selected. Read the
 [multiplayer and save contract](MULTIPLAYER-PLAN.md) before changing ownership,
-joining or persistence. Automatic public joining and permanent parcel ownership
-are not features of this release.
+joining or persistence. Version 0.4 implements automatic public joining.
+Permanent parcel ownership remains open.
 
 Generated homes support resting, reading, cooking, washing and stretching, plus
 desk, dining and washroom activities where those furnishings fit. The host reserves

@@ -46,7 +46,7 @@ try{
     return p;
   }
   function ready(p){return p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000,polling:100});}
-  const host=await visit(relay?origin:origin+'?net=local');
+  const host=await visit(origin+'?space=personal'+(relay?'':'&net=local'));
   async function readPace(diagonal,jog){
     if(jog)await host.keyboard.down('Shift');
     await host.keyboard.down('w');if(diagonal)await host.keyboard.down('d');
@@ -302,7 +302,7 @@ try{
   await context.close();
   if(!relay){
     const mobile=await testContext({isMobile:true,hasTouch:true,viewport:{width:393,height:852}});
-    const phone=await visit(origin+'?net=local',mobile);
+    const phone=await visit(origin+'?space=personal&net=local',mobile);
     await phone.locator('#build-open').tap();await phone.locator('#build-lot').selectOption('l106');
     await phone.locator('#wall-offset').fill('0.5');await phone.locator('#apply-wall').tap();
     await phone.waitForFunction(()=>window.__cozy.street.session.layout.homes.l106?.wall===.5);

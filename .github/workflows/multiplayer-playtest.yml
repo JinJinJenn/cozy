@@ -9,9 +9,11 @@ on:
       - 'packages/net/**'
       - 'index.html'
       - 'src/main.js'
+      - 'src/public-town.js'
       - 'src/street*.js'
       - 'src/terrace*.js'
       - 'tools/test-street.mjs'
+      - 'tools/test-public-town.mjs'
       - 'tools/playtest-terrace.mjs'
       - 'tools/playtest-bluebell.mjs'
       - 'tools/test-nostr-relay.mjs'
@@ -48,6 +50,16 @@ jobs:
             npm run test:street -- --rtc-loopback
           else
             npm run test:street -- --relay
+          fi
+      - name: Meet in the public town and recover a private street
+        env:
+          SIGNALLING: ${{ matrix.signalling }}
+        run: |
+          export PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json"
+          if [ "$SIGNALLING" = local ]; then
+            npm run test:lobby
+          else
+            npm run test:lobby -- --relay
           fi
       - name: Preserve failed client states
         if: failure()
