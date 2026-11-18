@@ -58,18 +58,18 @@ test('leaving the page during an outstanding private join releases the arriving 
   assert.deepEqual(session.connections,[local]);assert.deepEqual(events,['join nostr','leave nostr']);
 });
 
-test('a host sends one signed city snapshot per occupied route and skips idle discovery links',async()=>{
+test('a host signs one city snapshot and targets each admitted peer on its own link',async()=>{
   const keys=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
   const sent=[],hostCards=new Map();
   for(const kind of ['broadcast','trystero-nostr','trystero-torrent']){
-    hostCards.set(kind,{connection:{send:packet=>sent.push([kind,packet])}});
+    hostCards.set(kind,{connection:{send:(packet,peer)=>sent.push([kind,packet,peer])}});
   }
   const session={privateKey:keys.privateKey,hostCards,connections:[...hostCards.values()].map(v=>v.connection),
     peers:new Map([['trystero-nostr/a','a'],['trystero-nostr/b','b']]),town:{people:[]},actors:new Map(),seq:0};
   await StreetSession.prototype.broadcast.call(session);
-  assert.deepEqual(sent.map(([kind])=>kind),['trystero-nostr']);
+  assert.deepEqual(sent.map(([kind,,peers])=>[kind,peers]),[['trystero-nostr',['a','b']]]);
   session.peers.set('trystero-torrent/c','c');sent.length=0;
   await StreetSession.prototype.broadcast.call(session);
-  assert.deepEqual(sent.map(([kind])=>kind),['trystero-nostr','trystero-torrent']);
+  assert.deepEqual(sent.map(([kind,,peers])=>[kind,peers]),[['trystero-nostr',['a','b']],['trystero-torrent',['c']]]);
   assert.equal(sent[0][1],sent[1][1]);assert.equal(sent[0][1].kind,'frame');
 });

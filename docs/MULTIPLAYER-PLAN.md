@@ -27,6 +27,21 @@ own host. Durable shared ownership and uninterrupted simulation handover
 still require the snapshot and revision work below. The current session limit
 is one host and twelve remote players.
 
+## Private visits in 0.16
+
+By default an invite admits its holder. An owner can enable **Ask me before
+admitting visitors** on their private street, including when the street is
+listed. Someone opening a home link then appears at the door with the requested
+address. Admission covers the visit to that street. A guest already inside can
+continue exploring when the owner turns on approval.
+
+The visitor sends a fresh ticket to the owner's verified transport endpoint.
+The same ticket works through a signalling-route change. The owner adds a guest
+to the simulation and to the private snapshot recipients after admission. A
+declined visitor can return to the public town. A fresh visit can knock again.
+The encrypted backup includes the door setting. Restarting the owner ends the
+guest grants. Persistent guest permissions remain open.
+
 ## Keep the continuous city
 
 The public town contains the streets, landmarks, NPC population and shared social

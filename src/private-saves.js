@@ -71,8 +71,8 @@ export async function loadOwner(){
   const {key,publicKey}=await unlockIdentity(identity);
   return {slot,identity,privateKey:key,publicKey,persistent,recovered};
 }
-export function writeRecovered(owner,layout,coffee){
-  const record={...owner.recovered,layout,coffee};
+export function writeRecovered(owner,layout,coffee,settings){
+  const record={...owner.recovered,...settings,layout,coffee};
   if(!save(slotPrefix+owner.slot,record))return false;
   owner.recovered=record;return true;
 }
@@ -103,15 +103,16 @@ function validateState(snapshot){
   if(homeLot!==null&&(typeof homeLot!=='string'||!/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(homeLot)))throw Error('Invalid home address.');
   const parcel=snapshot.parcel;
   if(parcel&&(!lotId(parcel.home)||parcel.pub===snapshot.identity?.pub))throw Error('Invalid public address credential.');
-  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot,...(parcel?{parcel}:{})};
+  if(snapshot.askToEnter!==undefined&&typeof snapshot.askToEnter!=='boolean')throw Error('Invalid visitor setting.');
+  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot,askToEnter:snapshot.askToEnter===true,...(parcel?{parcel}:{})};
 }
 async function passwordKey(password,salt){
   if(typeof password!=='string'||!password.length||password.length>1024)throw Error('Enter your backup passphrase.');
   const secret=await crypto.subtle.importKey('raw',utf8.encode(password),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt},secret,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
-export async function exportBackup(identity,layout,coffee,password,homeLot=null,parcel=null){
-  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot,parcel})));
+export async function exportBackup(identity,layout,coffee,password,homeLot=null,parcel=null,askToEnter=false){
+  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot,parcel,askToEnter})));
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await passwordKey(password,salt);
   const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:header},key,data);

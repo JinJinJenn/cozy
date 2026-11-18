@@ -17,6 +17,8 @@ on:
       - 'tools/playtest-players.mjs'
       - 'src/private-saves.js'
       - 'src/private-routes.js'
+      - 'src/visit-admission.js'
+      - 'tools/playtest-admission.mjs'
       - 'src/save-menu.js'
       - 'tools/test-domestic.mjs'
       - 'tools/playtest-recovery.mjs'
@@ -68,6 +70,8 @@ jobs:
             name: Travel and pointer controls over WebRTC
           - signalling: recovery
             name: Private street backup and owner recovery
+          - signalling: door
+            name: Answer a private home visit
           - signalling: furnishing
             name: Furnish an occupied home with a guest
           - signalling: lighting
@@ -146,6 +150,9 @@ jobs:
       - name: Meet a named player and wave across rooms
         if: matrix.signalling == 'players'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players
+      - name: Admit one visitor while another waits outside
+        if: matrix.signalling == 'door'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --door
       - name: Play a tabletop round and admit a spectator
         if: matrix.signalling == 'tabletop'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --table --software

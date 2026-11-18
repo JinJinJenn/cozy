@@ -21,8 +21,9 @@ test('encrypted recovery retains the verified owner, multiple revisions and the 
     const restored=await readBackup(file,'test passphrase');assert.equal(restored.identity.pub,original.identity.pub);
     assert.equal(restored.parcel,undefined);
     const property=await parcelCredential('l93');assert.notEqual(property.pub,original.identity.pub);
-    const withAddress=await exportBackup(original.identity,layout,coffee,'backup',null,savedParcel());
+    const withAddress=await exportBackup(original.identity,layout,coffee,'backup',null,savedParcel(),true);
     const imported=await readBackup(withAddress,'backup');
+    assert.equal(restored.askToEnter,false);assert.equal(imported.askToEnter,true);
     assert.equal(restored.layout.homeTV.l93,2);assert.equal(restored.coffee.resident1,3);
     const other=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
     const mixed={...original.identity,jwk:await crypto.subtle.exportKey('jwk',other.privateKey)};

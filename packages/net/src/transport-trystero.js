@@ -21,7 +21,7 @@ export function createTrysteroTransport({ strategy = 'nostr', appId = APP_ID, rt
       room.onError?.(e => h.onError?.(e));
       return {
         selfId: self.peerId,
-        send: d => { action.send(d).catch(() => {}); },
+        send: (d, target) => { action.send(d, {target}).catch(() => {}); },
         leave: () => room.leave(),
       };
     },

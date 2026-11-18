@@ -23,7 +23,7 @@ export function createBroadcastTransport({ pingMs = 1000, timeoutMs = 3500, name
         if (!m || m.from === selfId) return;
         if (m.k === 'bye') { if (peers.delete(m.from)) h.onPeerLeave?.(m.from); return; }
         seen(m.from);
-        if (m.k === 'data') h.onMessage?.(m.from, m.d);
+        if (m.k === 'data' && (!m.to || m.to === selfId || (Array.isArray(m.to) && m.to.includes(selfId)))) h.onMessage?.(m.from, m.d);
       };
       raw({ k: 'hello' });
       const timer = setInterval(() => {
@@ -35,7 +35,7 @@ export function createBroadcastTransport({ pingMs = 1000, timeoutMs = 3500, name
       globalThis.addEventListener?.('pagehide', onUnload);
       return {
         selfId,
-        send: d => raw({ k: 'data', d }),
+        send: (d, to) => raw({ k: 'data', d, to }),
         leave() {
           clearInterval(timer); raw({ k: 'bye' });
           globalThis.removeEventListener?.('pagehide', onUnload); ch.close();

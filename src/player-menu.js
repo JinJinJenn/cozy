@@ -4,6 +4,16 @@ const el=id=>document.getElementById(id);
 export class PlayerMenu {
   constructor(street,listen){
     this.street=street;
+    listen(el('ask-to-enter'),'change',()=>street.session.setAdmission(el('ask-to-enter').checked));
+    listen(el('answer-door'),'click',()=>{
+      if(el('social-pane').hidden)el('social-open').click();
+      el('door-requests').querySelector('button')?.focus();
+    });
+    listen(el('door-requests'),'click',event=>{
+      const button=event.target.closest('button');
+      if(button&&street.session.canBuild)street.session.admission.decide(button.parentElement.dataset.key,button.value==='admit');
+      this.refresh();
+    });
     el('profile-shirt').replaceChildren(...Object.keys(shirts).map(color=>new Option(color[0].toUpperCase()+color.slice(1),color)));
     listen(el('player-profile'),'submit',event=>{
       event.preventDefault();
@@ -38,7 +48,30 @@ export class PlayerMenu {
     el('profile-shirt').value=profile.shirt;this.refresh();
   }
   refresh(){
+    const session=this.street.session,waiting=session.admission?.waiting||[];
+    el('answer-door').hidden=!waiting.length||!el('social-pane').hidden;
+    if(waiting.length)el('answer-door').textContent='Answer the door ('+waiting.length+')';
+    const wait=el('visit-wait');wait.hidden=!session.visitStatus;
+    if(!wait.hidden)wait.firstElementChild.textContent={
+      waiting:'Knocked. Waiting for the owner.',declined:'The owner declined this visit.',full:'The street is full. Waiting for a place.'
+    }[session.visitStatus];
     if(el('social-pane').hidden)return;
+    el('ask-to-enter').checked=!!session.admission?.required;
+    const requests=JSON.stringify(waiting.map(v=>[v.key,v.name,v.home]));
+    if(this.requests!==requests){
+      this.requests=requests;
+      el('door-requests').replaceChildren(...waiting.map(v=>{
+        const row=document.createElement('div'),home=session.island.homesById.get(v.home);
+        row.dataset.key=v.key;
+        const name=waiting.some(other=>other!==v&&other.name===v.name)?v.name+' ('+v.actor.slice(0,4)+')':v.name;
+        row.append(document.createTextNode(name+(home?' is visiting '+home.name:' is at the door')+'. '));
+        for(const [value,label] of [['admit','Let in'],['decline','Decline']]){
+          const button=document.createElement('button');button.value=value;button.textContent=label;
+          button.setAttribute('aria-label',label+' '+name);row.append(button);
+        }
+        return row;
+      }));
+    }
     const s=this.street.session,local=s.actors.get(s.id),online=s.owner||s.connected;
     const remove=el('remove-flower');remove.hidden=!s.profile.flower;
     if(!remove.hidden)remove.textContent='Unpin '+s.profile.flower;

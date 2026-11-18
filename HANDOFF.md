@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.16.0 gives private street owners a doorbell. From **Multiplayer**, open
+**My private street**, then select **Ask me before admitting visitors** and invite
+a guest. Copying the link from inside a house includes its address. **Answer the
+door** shows each visitor's name and destination. Choose **Let in** or **Decline**.
+Players already inside keep playing. The setting follows the owner through saved
+streets and encrypted backups. The guest list lasts for the current hosting session.
+Run `npm run test:lobby -- --door` for the three-player WebRTC playtest.
+
 Version 0.15.1 loads the complete terrain and water surface before the island opens.
 Travel, orbit and zoom reuse those meshes. In a 1,800 m orbit on Intel integrated graphics
 at 720p Low, the release improved from 43.1 to 55.2 GPU-completed FPS with all 457

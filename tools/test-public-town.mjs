@@ -9,6 +9,7 @@ import {playAddresses} from './playtest-addresses.mjs';
 import {playPlayers} from './playtest-players.mjs';
 import {playPublicStudio} from './playtest-studio.mjs';
 import {playFlowers} from './playtest-flowers.mjs';
+import {playAdmission} from './playtest-admission.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -71,7 +72,9 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
-  if(process.argv.includes('--flowers')){
+  if(process.argv.includes('--door')){
+    await playAdmission({host,guest,wait,ready,navigate,profile});assert.deepEqual(errors,[]);
+  }else if(process.argv.includes('--flowers')){
     try{await playFlowers({host,guest,wait,ready,navigate});assert.deepEqual(errors,[]);}
     catch(error){
       for(const page of [host,guest])console.error(await page.evaluate(()=>{

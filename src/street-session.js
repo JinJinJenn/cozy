@@ -3,6 +3,7 @@ import {chairs,maxTables,tableFeet,tableFit} from './terrace.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {PrivateRoutes} from './private-routes.js';
+import {VisitAdmission} from './visit-admission.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
@@ -76,6 +77,9 @@ export class StreetSession {
     this.keys={...zero};this.inputSeq=0;this.actionSeq=0;this.verifiedSeq=-1;this.oldBoots=new Set();
     const params=new URLSearchParams(location.search);
     this.space=streetSpace(island,params);this.visit=params.get('visit');this.owner=this.space==='personal';
+    if(this.space!=='public'){
+      this.visitTicket=crypto.randomUUID();this.privateLinks=new Map();this.privateHosts=new Map();
+    }
     if(this.space==='visit'&&island.homesById?.has(params.get('home')))this.invitedHome=params.get('home');
     this.spawn=toWorld(this.cafe,0,this.cafe.d/2+3.4);
     this.profile=loadProfile(this.id);
@@ -125,6 +129,7 @@ export class StreetSession {
         if(this.owner){
           this.ownerSave=id;this.privateKey=id.privateKey;this.publicKey=id.publicKey;
           this.hostStarted=Date.now();this.hostCards=new Map();
+          this.admission=new VisitAdmission(id.recovered?!!id.recovered.askToEnter:stored(project+'.ask.'+this.pub)===true);
         }
         const savedLayout=id.recovered?id.recovered.layout:readSaveValue(project+'.layout.'+this.pub);
         const layout=savedLayout===undefined&&!id.recovered?defaultLayout():readLayout(savedLayout);
@@ -177,7 +182,7 @@ export class StreetSession {
     const handlers=kind=>({
         onMessage:(peer,m)=>this.receive(kind+'/'+peer,m),
         onPeerJoin:()=>{if(this.owner)this.announceOwner(kind);else this.sendInput();},
-        onPeerLeave:peer=>this.peers.delete(kind+'/'+peer),onError:()=>{}
+        onPeerLeave:peer=>{const sender=kind+'/'+peer;this.peers.delete(sender);this.privateHosts.delete(sender);this.admission?.leave(sender);},onError:()=>{}
     });
     const name='street-'+this.pub;
     this.connecting??=this.open(name,this.connections,handlers,t=>t.kind==='broadcast',(kind,c)=>this.attachPrivate(kind,c));
@@ -197,6 +202,7 @@ export class StreetSession {
     return !this.closed;
   }
   async attachPrivate(kind,connection){
+    this.privateLinks.set(kind,connection);
     if(!this.owner){this.sendInput();return;}
     if(!this.ownerSave)return;
     const body=JSON.stringify([this.pub,kind+'/'+connection.selfId,this.boot,this.hostStarted]);
@@ -207,17 +213,20 @@ export class StreetSession {
     const card=this.owner&&this.hostCards?.get(kind);if(card)card.connection.send(card.packet);
   }
   async checkOtherOwner(sender,message){
-    if(!this.ownerSave||!this.owner||typeof message.body!=='string'||message.body.length>400||
+    if(typeof message.body!=='string'||message.body.length>400||
       typeof message.sig!=='string'||message.sig.length>140)return;
     try{
       const [pub,peer,boot,started]=JSON.parse(message.body);
       if(pub!==this.pub||peer!==sender||typeof boot!=='string'||!/^[0-9a-f-]{36}$/i.test(boot)||
-        !Number.isSafeInteger(started)||started<=0||started>this.hostStarted||
-        started===this.hostStarted&&boot>=this.boot)return;
-      if(!await crypto.subtle.verify(signature,this.publicKey,decode(message.sig),utf8.encode(message.body))||this.closed||!this.owner)return;
+        !Number.isSafeInteger(started)||started<=0)return;
+      if(!this.owner&&this.privateHosts.get(sender)===boot)return;
+      if(this.owner&&(started>this.hostStarted||started===this.hostStarted&&boot>=this.boot))return;
+      if(!await crypto.subtle.verify(signature,this.publicKey,decode(message.sig),utf8.encode(message.body))||this.closed)return;
+      if(!this.owner){this.privateHosts.set(sender,boot);this.sendInput();return;}
       // Copies have the same signing key. Once connected, keep one writer.
       // Losing this election never writes the winning host's state to our slot.
       this.owner=false;this.privateKey=null;this.ownerSave=null;this.hostCards.clear();this.visit=this.pub;
+      this.admission=null;this.privateHosts.set(sender,boot);
       this.boot=crypto.randomUUID();this.hostBoot=null;this.oldBoots.clear();this.verifiedSeq=-1;
       this.connected=false;this.lastFrame=0;this.controls.clear();this.peers.clear();this.activities=new StreetActivities(this);
       if(this.listed){this.listed=false;this.advertise();}
@@ -226,6 +235,13 @@ export class StreetSession {
     }catch{ /* Ignore unrelated or invalid peer announcements. */ }
   }
   get canBuild(){return this.owner&&this.space!=='public';}
+  setAdmission(required){
+    if(!this.canBuild||!this.admission)return;
+    const owner=this.ownerSave;
+    const saved=owner.slot?writeRecovered(owner,this.layout,this.coffeeVisits,{askToEnter:required}):save(project+'.ask.'+this.pub,required);
+    if(saved)this.admission.required=required;
+    else this.notice('Could not save the visitor setting. Check browser storage.');
+  }
   async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;
     return linkFor(this.pub,homeAt(this.island,this.actors.get(this.id))?.id);}
   async discover(){
@@ -540,11 +556,23 @@ export class StreetSession {
     if(this.lobby){
       m.authority=this.pub;
       if(this.addresses.synced){m.parcelRevision=this.addresses.book.revision;m.parcelBoot=this.hostBoot;}
-    }else if(this.invitedHome)m.entryHome=this.invitedHome;
+    }else if(this.privateLinks){
+      if(this.invitedHome)m.entryHome=this.invitedHome;
+      m.visitTicket=this.visitTicket;
+      for(const sender of this.privateHosts.keys()){
+        const [kind,peer]=sender.split('/');
+        this.privateLinks.get(kind)?.send(m,peer);
+      }
+      return;
+    }
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
     if(!this.lobby&&m.kind==='private-host')return this.checkOtherOwner(sender,m);
+    if(!this.owner&&m.kind==='visit-status'&&this.privateHosts?.get(sender)===m.boot&&m.boot&&
+        m.id===this.id&&!this.connected&&['waiting','declined','full'].includes(m.status)){
+      this.visitStatus=m.status;this.visitStatusAt=performance.now();return;
+    }
     if(this.lobby){
       if(m.kind==='presence')return this.lobby.receive(sender,m);
       const member=this.lobby.members.get(sender);
@@ -556,8 +584,14 @@ export class StreetSession {
       if(m.kind!=='input'||typeof m.id!=='string'||!/^[\da-f-]{36}$/i.test(m.id)||m.id===this.id||
         !Number.isSafeInteger(m.seq)||!Number.isSafeInteger(m.action)||!Number.isFinite(m.x)||!Number.isFinite(m.z))return;
       if(this.peers.has(sender)&&this.peers.get(sender)!==m.id)return;
+      const full=!this.controls.has(m.id)&&this.controls.size>=12;
+      if(this.admission&&!this.admission.check(sender,m,performance.now(),status=>{
+        const [kind,peer]=sender.split('/');
+        this.privateLinks.get(kind)?.send({kind:'visit-status',boot:this.boot,id:m.id,status},peer);
+      },full))return;
+      if(full)return;
       this.peers.set(sender,m.id);let state=this.controls.get(m.id);
-      if(!state){if(this.controls.size>=12)return;state={seq:-1,action:0};this.controls.set(m.id,state);
+      if(!state){state={seq:-1,action:0};this.controls.set(m.id,state);
         const joining={id:m.id,...this.spawn,yaw:this.cafe.yaw,activity:'',part:''};
         this.actors.set(m.id,joining);
         if(!this.lobby&&this.island.homesById?.has(m.entryHome)){
@@ -606,6 +640,7 @@ export class StreetSession {
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
+        this.visitStatus=null;
         this.privateRoutes?.confirmed(route,this.lastFrame);
         this.actors=new Map(f.actors.map(a=>{if(a.profile)a.profile=readProfile(a.profile);return [a.id,a];}));this.layout=layout;this.time=f.t;
         this.keepPickedFlower(this.actors.get(this.id));
@@ -644,9 +679,13 @@ export class StreetSession {
       const packet={kind:'frame',body,sig};
       if(this.hostCards){
         // Idle discovery links need owner announcements, never a city snapshot.
-        const occupied=new Set();
-        for(const peer of this.peers.keys())occupied.add(peer.split('/')[0]);
-        for(const kind of occupied)this.hostCards.get(kind)?.connection.send(packet);
+        const audience=new Map();
+        for(const sender of this.peers.keys()){
+          const [kind,peer]=sender.split('/');
+          if(!audience.has(kind))audience.set(kind,[]);
+          audience.get(kind).push(peer);
+        }
+        for(const [kind,peers] of audience)this.hostCards.get(kind)?.connection.send(packet,peers);
       }else this.connections.forEach(c=>c.send(packet));
     }finally{this.sending=false;}
   }
@@ -656,6 +695,7 @@ export class StreetSession {
     this.lobby?.tick(now);
     this.addresses?.tick(now);
     if(this.owner&&this.hostCards&&now>=(this.nextOwnerPulse??0)){
+      this.admission?.sweep(now);
       this.nextOwnerPulse=now+2500;for(const kind of this.hostCards.keys())this.announceOwner(kind);
     }
     if(this.owner){
@@ -676,7 +716,11 @@ export class StreetSession {
           // A slow but still linked browser can miss input frames while loading
           // the island. Keep its car or seat while the input below goes idle.
           const linked=this.lobby&&now-remote.at<30000&&[...this.peers.values()].includes(id);
-          if(!linked){this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);continue;}
+          if(!linked){
+            this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);
+            for(const [peer,actor] of this.peers)if(actor===id)this.peers.delete(peer);
+            continue;
+          }
         }
         const input=id===this.id?this.keys:remote&&now-remote.at<600?remote:zero;
         const oldX=a.x,oldZ=a.z;
@@ -693,13 +737,14 @@ export class StreetSession {
       }
     }else{
       if(now-this.lastFrame>4000)this.connected=false;
-      if(!this.connected)this.privateRoutes?.tick(now);
+      if(this.visitStatus&&now-this.visitStatusAt>6500)this.visitStatus=null;
+      if(!this.connected&&!this.visitStatus)this.privateRoutes?.tick(now);
       const blend=Math.min(1,(now-this.lastFrame)/this.residentInterval);
       this.residentTargets?.forEach((r,i)=>{
         if(r)this.town.people[i].position.set(r.x+(r.to[0]-r.x)*blend,r.y+(r.to[1]-r.y)*blend,r.z+(r.to[2]-r.z)*blend);
       });
     }
-    if(now-this.lastSent>=85){this.lastSent=now;if(this.owner)void this.broadcast();else this.sendInput();}
+    if(now-this.lastSent>=(this.visitStatus?600:85)){this.lastSent=now;if(this.owner)void this.broadcast();else this.sendInput();}
     if(this.listed&&now-(this.adAt||0)>3000){this.adAt=now;this.advertise();}
   }
   dispose(){this.closed=true;this.lobby?.dispose();if(this.listed){this.listed=false;this.advertise();}this.connections.concat(this.directory).forEach(c=>c.leave());this.releaseLock?.();}

@@ -51,7 +51,7 @@ export class SaveMenu{
       if(action==='export'){
         const revision=s.layout.revision;
         const home=homeAt(s.island,s.actors.get(s.id));
-        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id,savedParcel(s.ownerSave.slot));
+        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id,savedParcel(s.ownerSave.slot),s.admission.required);
         if(!current())return;
         const url=URL.createObjectURL(new Blob([data],{type:'application/json'})),a=document.createElement('a');
         a.href=url;a.download='Cozy-street-r'+revision+'-'+new Date().toISOString().slice(0,10)+'.cozy';

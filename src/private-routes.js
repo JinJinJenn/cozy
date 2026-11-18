@@ -47,6 +47,11 @@ export class PrivateRoutes {
     const links = this.session.connections;
     const index = links.indexOf(slot.connection);
     if (index >= 0) links.splice(index, 1);
+    const kind='trystero-'+strategy;
+    if(this.session.privateLinks?.get(kind)===slot.connection){
+      this.session.privateLinks.delete(kind);
+      for(const sender of this.session.privateHosts.keys())if(sender.startsWith(kind+'/'))this.session.privateHosts.delete(sender);
+    }
     try {
       if (slot.connection) await slot.connection.leave();
       await slot.ready;
