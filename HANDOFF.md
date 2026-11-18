@@ -4,6 +4,10 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.10.1 also applies committed room edits to the resident simulation
+worker. A resident whose walking route crosses a newly placed object gets a
+new route to the same destination when one is available.
+
 Version 0.10.0 adds furniture placement in generated homes on your private street.
 Enter a house and choose **Build → Edit → Furniture**. Select an item, click the floor
 to move it, right-click to rotate and choose **Place item**. Touch and keyboard users

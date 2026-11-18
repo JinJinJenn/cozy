@@ -19,6 +19,8 @@ on:
       - 'tools/playtest-recovery.mjs'
       - 'tools/playtest-furnishing.mjs'
       - 'src/home-*.js'
+      - 'src/resident-worker.js'
+      - 'src/resident-world.js'
       - 'src/furni*.js'
       - 'src/room-divider.js'
       - 'src/street*.js'

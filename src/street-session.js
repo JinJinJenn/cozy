@@ -10,6 +10,7 @@ import {furnishings,originalPose,samePose,supportFor,validPose} from './furnitur
 import {tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
+import {rerouteResidents} from './resident-world.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
 import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
 import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
@@ -244,7 +245,7 @@ export class StreetSession {
     if(Object.keys(items).length)lots[lot]=items;else delete lots[lot];
     installFurniture(home,items,next);
     this.layout.furnishings={v:1,lots,...(undo?{}:{last:[lot,id,[...previous]]})};
-    this.layout.revision++;this.town.sim?._recheckAll();this.persist();return true;
+    this.layout.revision++;if(!this.town.worker)rerouteResidents(this.town.sim,[home]);this.persist();return true;
   }
   editRoom(id,draft,revision,undo=false){
     if(!this.ready||!this.canBuild)return false;
@@ -260,7 +261,7 @@ export class StreetSession {
     if(next)lots[id]=[...next];else delete lots[id];
     applyRoomPlans(this.island,rooms.lots,lots);
     this.layout.rooms={v:1,lots,...(undo?{}:{last:[id,previous]})};
-    this.layout.revision++;this.town.sim?._recheckAll();this.persist();return true;
+    this.layout.revision++;if(!this.town.worker)rerouteResidents(this.town.sim,[home]);this.persist();return true;
   }
   rememberCoffee(id){
     const last=this.coffeeVisits[id];

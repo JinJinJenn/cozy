@@ -81,7 +81,7 @@ export function installFurniture(home,items,next){
 }
 // Validate the final floor plan together. A divider and a desk can both
 // move between successive snapshots, with no legal intermediate layout.
-export function syncInteriors(island,oldLayout,layout,preview=false){
+export function syncInteriors(island,oldLayout,layout,preview=false,changedHomes){
   const lots=layout.furnishings?.lots||{},walls=layout.rooms?.lots||{};
   const ids=new Set([...Object.keys(oldLayout?.furnishings?.lots||{}),...Object.keys(oldLayout?.rooms?.lots||{}),...Object.keys(lots),...Object.keys(walls)]);
   const changes=[];
@@ -92,6 +92,8 @@ export function syncInteriors(island,oldLayout,layout,preview=false){
     const {next,reason}=planInterior(home,items,divider);if(reason)return false;
     changes.push([home,items,next]);
   }
-  if(!preview)for(const change of changes)installFurniture(...change);
+  if(!preview)for(const change of changes){
+    installFurniture(...change);changedHomes?.push(change[0]);
+  }
   return true;
 }

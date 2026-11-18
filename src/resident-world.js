@@ -1,6 +1,37 @@
 import {walkingRoute} from './street-route.js';
 import {defaultLayout,walkable,toWorld} from './street-world.js';
-import {homeAt} from './home-plan.js';
+import {homeAt,homeWalkable} from './home-plan.js';
+import {distSeg} from '../packages/settlement/src/geom.js';
+
+function crossesSolid(home,a,b){
+  const radius=Math.hypot(home.w,home.d)/2+.8,dx=b[0]-a[0],dz=b[1]-a[1];
+  const nearest=distSeg(home.x,home.z,a[0],a[1],b[0],b[1]);
+  if(nearest.d>radius)return false;
+  const length=Math.hypot(dx,dz),reach=radius/Math.max(.001,length);
+  const start=Math.max(0,nearest.t-reach),end=Math.min(1,nearest.t+reach);
+  const steps=Math.max(1,Math.ceil((end-start)*length/.14));
+  for(let i=0;i<=steps;i++){
+    const t=start+(end-start)*i/steps;
+    if(homeWalkable(home,{x:a[0]+t*dx,z:a[1]+t*dz})===false)return true;
+  }
+  return false;
+}
+export function rerouteResidents(sim,homes){
+  if(!sim||!homes.length)return;
+  for(const resident of sim.npcs){
+    const trip=resident.action;if(trip?.kind!=='move')continue;
+    let from=resident.pos;
+    for(let i=trip.i;i<trip.pts.length;i++){
+      const to=trip.pts[i];
+      if(homes.some(home=>crossesSolid(home,from,to))){
+        const route=sim.ctx.nav.findPath(resident.pos,trip.pts.at(-1),resident.home.comp);
+        if(route){trip.pts=route.pts;trip.i=0;}else sim._end(resident);
+        break;
+      }
+      from=to;
+    }
+  }
+}
 
 // Bind the headless residents to the committed, visible street. Synthetic sim
 // props are useful in fixtures, but live residents must use real benches and

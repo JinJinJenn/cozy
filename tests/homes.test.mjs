@@ -13,11 +13,45 @@ import {StreetActivities} from '../src/street-activities.js';
 import {applyRoomPlans,dividerLimit,dividerParts} from '../src/room-divider.js';
 import {planInterior,syncInteriors} from '../src/home-furnishing.js';
 import {footprint,readFurnishings} from '../src/furniture-pose.js';
+import {rerouteResidents} from '../src/resident-world.js';
 
 const generated=generate({preset:'harborTown',seed:'petalwood'}),world=generated.island;
 world.plan=generateSettlement(generated);
 generated.heightfield.set(createFlattenHook(world.plan)(generated));
 const plots=plotsForStreet(world),homes=prepareHomes(world,plots),layout=defaultLayout();
+
+test('resident worker applies the same desk collision on commit and undo before stepping the population',async()=>{
+  const island=structuredClone(Object.fromEntries(['seed','presetId','size','half','grid','cell','plan'].map(k=>[k,world[k]])));
+  Object.assign(island,{h:generated.heightfield,water:generated.water,bridgeSpans:[],streetBenches:new Map(),footprintCells:new Map()});
+  let message;globalThis.self={postMessage:m=>{message=m;}};
+  try{
+    await import('../src/resident-worker.js');
+    self.onmessage({data:{type:'init',island,config:{seed:'petalwood',preset:'harborTown',startHour:10,population:'town'}}});
+    assert.equal(message.type,'ready',message.message);
+    const home=island.homesById.get('l93'),desk=home.furniture.find(f=>f.id==='desk');
+    const target=homeWorld(home,desk.x-.52,desk.z-.95);
+    assert.equal(homeWalkable(home,target),true);
+    const step=layout=>self.onmessage({data:{type:'step',steps:1,actors:[],routes:[],layout}});
+    step({...defaultLayout(),revision:1,furnishings:{v:1,lots:{l93:{desk:[-2,-2,1]}}}});
+    assert.equal(message.type,'frame',message.message);assert.equal(message.positions.length,457);assert.equal(homeWalkable(home,target),false);
+    step({...defaultLayout(),revision:2});assert.equal(message.type,'frame',message.message);assert.equal(homeWalkable(home,target),true);
+  }finally{delete globalThis.self;}
+});
+
+test('blocked return-home trip keeps its destination and clear trips keep their current path',()=>{
+  const home=homes.find(b=>b.name==='Home 58'),{next}=planInterior(home,{desk:[-2,-2,1]});
+  const desk=home.furniture.find(f=>f.id==='desk');
+  const position=(x,z)=>{const p=homeWorld(home,x,z);return [p.x,p.z];};
+  const start=position(desk.x-.60,desk.z-1.8),end=position(desk.x-.60,desk.z+.8);
+  const moving=(pos,goal)=>({pos,home:{comp:1},action:{kind:'move',i:0,then:{kind:'arriveHome'},interruptible:false,pts:[goal]}});
+  const resident=moving(start,end),other=moving([999,999],[998,998]),old=other.action.pts;
+  const detour=[position(0,0),end];let calls=0;
+  rerouteResidents({npcs:[resident,other],ctx:{nav:{findPath:(from,to)=>{
+    calls++;assert.deepEqual(from,start);assert.deepEqual(to,end);return {pts:detour};
+  }}}},[next]);
+  assert.equal(calls,1);assert.equal(resident.action.pts,detour);assert.equal(resident.action.then.kind,'arriveHome');
+  assert.equal(other.action.pts,old);
+});
 
 test('six furnishings can move while their generated activities keep stable slots',()=>{
   for(const [name,id,pose] of [

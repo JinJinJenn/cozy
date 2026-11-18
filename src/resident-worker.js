@@ -1,9 +1,9 @@
 import {contextFromPlan} from '../packages/sim/src/context.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
 import {prepareHomes} from './home-plan.js';
-import {applyRoomPlans} from './room-divider.js';
+import {syncInteriors} from './home-furnishing.js';
 import {plotsForStreet,defaultLayout} from './street-world.js';
-import {bindResidentWorld} from './resident-world.js';
+import {bindResidentWorld,rerouteResidents} from './resident-world.js';
 let sim,street;
 self.onmessage=e=>{
   const m=e.data;
@@ -33,11 +33,14 @@ self.onmessage=e=>{
       self.postMessage({type:'ready'});
     }else if(m.type==='step'){
       const start=performance.now(),session=street.session;
-      if(session.layout.revision!==m.layout.revision){
-        applyRoomPlans(street.island,session.layout.rooms?.lots,m.layout.rooms?.lots);
-        sim._recheckAll();
-      }
+      const previous=session.layout;
       session.layout=m.layout;session.actors=new Map(m.actors.map(a=>[a.id,a]));session.activities.routes=new Map(m.routes);
+      if(previous.revision!==m.layout.revision){
+        const homes=[];
+        if(!syncInteriors(street.island,previous,m.layout,false,homes))throw Error('The resident worker could not apply the room layout.');
+        rerouteResidents(sim,homes);
+        if(!homes.length||m.layout.revision!==previous.revision+1)sim._recheckAll();
+      }
       const times=[];
       for(let i=0;i<m.steps;i++){const t=performance.now();sim.step();times.push(performance.now()-t);}
       self.postMessage({type:'frame',positions:sim.positions(),tick:sim.tick,ms:performance.now()-start,times});
