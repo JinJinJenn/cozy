@@ -20,6 +20,8 @@ export const DEFAULTS = {
   logCap: 40000,
 };
 const NAMES = ['Mossy', 'Pip', 'Juniper', 'Bramble', 'Clover', 'Tansy', 'Wren', 'Fig', 'Basil', 'Marlow', 'Sorrel', 'Hazel'];
+const GIVEN=[...NAMES,'Nico','Cora','Ada','Max','Jules','Bea','Iris','Sam','Fern','Orla','Ellis','Nell','Robin','Milo','Aster','Theo','Romy','Kit','Alma','Cleo'];
+const FAMILY=['Finch','Reed','Moreno','Lin','Brooks','Hart','Bell','Silva','Patel','Kim','Bennett','Dale','Rossi','Ito','Vega','Byrne','Wells','Park','Marin','Rose','Lane','Yu','Eaton','Chen','Meyer','Nash','Flores','Cole','Shaw','Costa','Singh','Ford'];
 const MOODS = [[0.5, 'delighted'], [0.2, 'happy'], [-0.2, 'content'], [-0.5, 'bored'], [-9, 'lonely']];
 const SLOTS_PER_DAY = 4;
 
@@ -134,6 +136,10 @@ export class Simulation {
       action: null, seat: null, lastSat: -1e9, lastChat: -1e9, greeted: {}, fails: 0, stuck: 0, lastPos: [home.x, home.z],
     };
     const h = this.hourOfDay();
+    if(this.cfg.population==='town'){
+      const nameIndex=(i*347+hashSeed(this.cfg.seed+'|names'))%(GIVEN.length*FAMILY.length);
+      n.name=GIVEN[nameIndex%GIVEN.length]+' '+FAMILY[Math.floor(nameIndex/GIVEN.length)];
+    }
     if (h >= bed || h < wake) { n.sleeping = true; n.action = { kind: 'sleep', interruptible: false }; }
     else if(this.cfg.population==='town')n.action={kind:'idle',until:i%16,interruptible:true};
     return n;
@@ -340,6 +346,14 @@ export class Simulation {
       if (lp && lp.len <= 45) return this._startLamp(n, lamp);
       return this._idle(n, this.rng.range(20, 40), { rest: true });
     }
+    if(this.ctx.hasCarVisit?.(n.home.lotId)&&this.tick>=(n.nextDrive||0)){
+      const trip=this.ctx.carTrip(n,!!n.returnVisit);
+      n.nextDrive=this.tick+this._steps(45);
+      if(trip){
+        n.action={kind:'move',purpose:'visit',...trip,i:0,then:{kind:'endVisit',returning:!!n.returnVisit},interruptible:false};
+        return;
+      }
+    }
     const t = n.traits, dt = this.cfg.stepDt, rng = this.rng;
     const since = (tk) => (this.tick - tk) * dt;
     const cands = [{ kind: 'wander', score: 0.35 + 0.35 * t.curiosity }];
@@ -444,7 +458,7 @@ export class Simulation {
     for (const o of this.npcs) {
       if (o === n || o.sleeping || o.homeMode || !o.action) continue;
       const k = o.action.kind;
-      if (!(k === 'idle' || k === 'sit' || (k === 'move' && o.action.purpose === 'wander'))) continue;
+      if (o.returnVisit||!(k === 'idle' || k === 'sit' || (k === 'move' && o.action.purpose === 'wander'))) continue;
       const d = dist(o.pos, n.pos);
       if (d <= 16 && (!best || d < best.d)) best = { id: o.id, d };
     }
@@ -531,6 +545,32 @@ export class Simulation {
     const tk = this.tick;
     switch (a.kind) {
       case 'move': {
+        if(a.driveStart!==undefined){
+          let time=this.cfg.stepDt;
+          while(time>1e-7&&a.i<a.pts.length){
+            const to=a.pts[a.i],dx=to[0]-n.pos[0],dz=to[1]-n.pos[1],len=Math.hypot(dx,dz);
+            if(len<.001){n.pos=to.slice();a.i++;continue;}
+            const driving=a.i>=a.driveStart&&a.i<a.driveEnd;
+            let speed=n.pace*this.cfg.walkSpeed;
+            if(driving){
+              const cruise=(a.i===a.driveEnd-1?Math.min(8,Math.sqrt(1+6*len)):8)*n.pace;
+              speed=Math.min(cruise,(a.speed||0)+4*time);
+              if(this.ctx.trafficClear&&!this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,Math.min(len,speed*time))){a.speed=0;break;}
+              a.speed=speed;
+            }
+            const distance=Math.min(len,speed*time);
+            if(distance===len&&a.i+1===a.driveStart&&this.ctx.trafficClear){
+              const next=a.pts[a.driveStart],nx=next[0]-to[0],nz=next[1]-to[1],span=Math.hypot(nx,nz)||1;
+              if(!this.ctx.trafficClear(this,n,...to,nx/span,nz/span,0)||
+                !this.ctx.trafficClear(this,n,...to,-nx/span,-nz/span,0))break;
+            }
+            n.pos=[n.pos[0]+dx/len*distance,n.pos[1]+dz/len*distance];n.heading=Math.atan2(dz,dx);
+            time-=distance/speed;
+            if(distance===len)a.i++;
+          }
+          if(a.i===a.pts.length){n.action=null;this._arrive(n,a.then);}
+          break;
+        }
         let budget = n.pace * this.cfg.walkSpeed * this.cfg.stepDt;
         while (budget > 0 && a.i < a.pts.length) {
           const t = a.pts[a.i], dx = t[0] - n.pos[0], dz = t[1] - n.pos[1], d = Math.hypot(dx, dz);
@@ -574,6 +614,14 @@ export class Simulation {
     if (!then) return;
     const tk = this.tick;
     switch (then.kind) {
+      case 'endVisit': {
+        n.returnVisit=!then.returning;
+        const pause=n.returnVisit?16+n.traits.sociability*25:65+n.traits.curiosity*35;
+        n.nextDrive=tk+this._steps(pause);
+        this._idle(n,n.returnVisit?pause:8);
+        this._log(n.id,then.returning?'arriveHome':'visitNeighbor',{});
+        break;
+      }
       case 'idle': this._idle(n, this.rng.range(then.lo, then.hi)); break;
       case 'arriveHome': this._log(n.id, 'arriveHome', {}); break;
       case 'sit': {
@@ -630,7 +678,8 @@ export class Simulation {
   positions() {
     return this.npcs.map((n) => ({
       id: n.id, who: npcWho(n.id), name: n.name, x: n.pos[0], z: n.pos[1], y: r2(this.ctx.nav.height(n.pos[0], n.pos[1])),
-      heading: n.heading, action: n.action ? n.action.kind : 'none', purpose: n.action && n.action.purpose ? n.action.purpose : null,
+      heading: n.heading, driving:n.action?.driveStart!==undefined&&n.action.i>=n.action.driveStart&&n.action.i<n.action.driveEnd,
+      action: n.action ? n.action.kind : 'none', purpose: n.action && n.action.purpose ? n.action.purpose : null,
       asleep: n.sleeping, seat: n.seat ? n.seat.objectId : null, mood: r2(n.mood), moodLabel: MOODS.find((m) => n.mood >= m[0])[1], homeLotId: n.home.lotId,
     }));
   }

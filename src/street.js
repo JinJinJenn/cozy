@@ -111,6 +111,7 @@ export class Street {
         e.preventDefault();
         const target=this.controls.target,offset=this.camera.position.sub(target);
         if(e.code==='Comma'||e.code==='Period'){
+          this.manualOrbitUntil=performance.now()+2400;
           offset.applyAxisAngle(THREE.Object3D.DEFAULT_UP,(e.code==='Comma'?-1:1)*Math.PI/12);
         }else{
           const factor=e.code==='Minus'||e.code==='NumpadSubtract'?1.25:.8;
@@ -200,6 +201,7 @@ export class Street {
       }
     });
     listen(canvas,'pointermove',e=>{
+      if(e.buttons)this.manualOrbitUntil=performance.now()+2400;
       if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>5)press=null;
       clearHover();
       if(e.buttons||e.pointerType!=='mouse'||!this.active||this.buildLot||!$('world-choice').hidden)return;
@@ -361,8 +363,17 @@ export class Street {
     for(const [i,person] of s.town.people.entries()){
       if(!person.visible)continue;
       const p=this.point.copy(person.position);p.y+=.93;
-      if(ray.distanceSqToPoint(p)>.68*.68)continue;
-      offer(p,.68,null,'',{resident:i},'Follow '+(s.town.current[i]?.name||'resident'));
+      const driving=person.userData.driving;
+      if(ray.distanceSqToPoint(p)>(driving?3.3:.68*.68))continue;
+      const label='Follow '+(s.town.current[i]?.name||'resident');
+      offer(p,.68,null,'',{resident:i},label);
+      if(driving){
+        const yaw=person.userData.heading;
+        for(const offset of [-.95,0,.95]){
+          p.set(person.position.x+Math.sin(yaw)*offset,person.position.y+.62,person.position.z+Math.cos(yaw)*offset);
+          offer(p,.76,null,'',{resident:i},label);
+        }
+      }
     }
     const b=this.destinations.find(b=>b.id===this.openRoof);
     if(b?.kind==='home'){
@@ -603,7 +614,11 @@ export class Street {
     for(const [id,a] of s.actors){
       let mesh=this.meshes.get(id);
       const shirt=shirts[a.profile?.shirt]||(id===s.id?'#c55b61':id.startsWith('resident')?(id==='resident1'?'#94799b':'#659681'):'#6687bd');
-      if(!mesh){mesh=avatar(shirt,id==='resident1'?'#996941':'#d9a779');this.scene.add(mesh);this.meshes.set(id,mesh);}
+      if(!mesh){
+        const neighbor=id==='resident0'?{cut:3,outfit:1,glasses:false}:id==='resident1'?{cut:2,outfit:2,glasses:true}:null;
+        mesh=avatar(shirt,id==='resident1'?'#996941':'#d9a779',id==='resident1'?'#393038':'#62423f',neighbor);
+        this.scene.add(mesh);this.meshes.set(id,mesh);
+      }
       mesh.setShirt(shirt);
       mesh.setFlower(a.profile?.flower);
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
@@ -624,7 +639,8 @@ export class Street {
         if(mesh.userData.ride)mesh.add(mesh.userData.ride);
       }
       if(a.vehicle){
-        const phase=mesh.userData.ride.updateRide(a.speed||0,dt,id===s.id?s.keys.x:(a.steer||0));
+        const predicted=id===s.id&&!s.owner&&a.vehicle==='car';
+        const phase=mesh.userData.ride.updateRide(predicted?pose.speed:a.speed||0,dt,predicted?pose.steer:(a.steer||0));
         mesh.setRide(a.vehicle,phase);
       }
     }
@@ -640,6 +656,14 @@ export class Street {
       const y=this.cameraFocus?floorAt(this.island,this.plots,p.x,p.z,s.layout):m.position.y;
       this.camera.position.x+=p.x-target.x;this.camera.position.y+=y+1.48-target.y;this.camera.position.z+=p.z-target.z;
       target.set(p.x,y+1.48,p.z);
+      if(local.vehicle==='car'&&!this.cameraFocus&&Math.abs(local.speed)>.8&&
+        this.controls.getDistance()<55&&now>(this.manualOrbitUntil||0)){
+        const eye=this.camera.position,dx=eye.x-target.x,dz=eye.z-target.z,radius=Math.hypot(dx,dz);
+        const angle=Math.atan2(dx,dz),behind=m.rotation.y+Math.PI;
+        const delta=Math.atan2(Math.sin(behind-angle),Math.cos(behind-angle));
+        const next=angle+delta*(1-Math.exp(-dt*2.8));
+        eye.x=target.x+radius*Math.sin(next);eye.z=target.z+radius*Math.cos(next);
+      }
     }
     const detailRoof=this.art.update(m.position,s.layout,this.camera.position,this.buildLot?.id);
     this.openRoof=this.clearExteriors.update(m.position,this.camera.position,s)||detailRoof;
@@ -654,9 +678,19 @@ export class Street {
     if(this.homeEditor.home)this.homeEditor.refresh();
     else if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();
-    $('place').textContent=this.buildLot?(this.buildLot.name||places[this.buildLot.kind][0]):near?(near.name||places[near.kind][0]):'Harbor Town';
+    const following=this.cameraFocus?.resident,resident=this.town.sim?.npcs[following];
+    $('place').textContent=this.buildLot?(this.buildLot.name||places[this.buildLot.kind][0]):resident?.name||(near?(near.name||places[near.kind][0]):'Harbor Town');
+    const detail=$('resident-detail');detail.hidden=!resident;
+    if(resident){
+      const t=resident.traits,best=Math.max(t.curiosity,t.sociability,t.laziness,t.nightOwl);
+      const trait=best===t.curiosity?'Explorer':best===t.sociability?'Social butterfly':best===t.nightOwl?'Night owl':'Likes a quiet afternoon';
+      const home=this.island.homesById.get(resident.home.lotId)?.name;
+      const person=this.town.people[following];
+      detail.textContent=[home,trait,person.userData.driving?'Driving':person.scale.y<.9?'Sitting':null].filter(Boolean).join(' · ');
+    }
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
-      local.vehicle?'W/S accelerate or reverse · A/D steer · E to get out':this.cameraFocus?'Enter to return to your character · Drag to orbit':
+      local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''} · W gas · S brake / reverse · A/D steer · E get out`:
+      local.vehicle?'W/S pedal or reverse · A/D steer · E to get off':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
       'Left-click to walk or interact · Right-click for options · Drag to orbit · Scroll or +/− to zoom';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');

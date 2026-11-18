@@ -1,4 +1,5 @@
 import {moveWalker,walkable} from './street-world.js';
+import {moveVehicle} from './street-travel.js';
 
 export function presentWalker(session,actor,state,now,dt){
   const guest=!session.owner,local=actor.id===session.id;
@@ -7,6 +8,17 @@ export function presentWalker(session,actor,state,now,dt){
   const oldX=state.x,oldZ=state.z;
   if(reset||!guest){
     state.x=actor.x;state.z=actor.z;state.yaw=reset?actor.yaw:state.yaw;
+    state.speed=actor.speed||0;state.steer=actor.steer||0;state.reverseHold=actor.reverseHold||0;
+  }else if(local&&actor.vehicle==='car'&&session.connected){
+    state.id=actor.id;
+    moveVehicle(session,state,session.keys,Math.min(dt,.1));
+    if(actor.motion===undefined||actor.motion>=session.motion){
+      const age=Math.min(.10,Math.max(0,(now-session.lastFrame)/1000));
+      const gain=1-Math.exp(-dt*12);
+      state.x+=(actor.x+(actor.vx||0)*age-state.x)*gain;
+      state.z+=(actor.z+(actor.vz||0)*age-state.z)*gain;
+      state.speed+=(actor.speed-state.speed)*gain;
+    }
   }else if(local&&!actor.vehicle&&(session.keys.x||session.keys.z||!actor.walking)&&!actor.activity&&session.connected){
     const {keys}=session;
     const facing=state.yaw;
@@ -32,7 +44,8 @@ export function presentWalker(session,actor,state,now,dt){
   // Camera and avatar consume this same presented position.
   const heading=local&&!actor.vehicle&&(session.keys.x||session.keys.z)?Math.atan2(session.keys.x,session.keys.z):actor.yaw;
   const angle=Math.atan2(Math.sin(heading-state.yaw),Math.cos(heading-state.yaw));
-  state.yaw+=angle*(1-Math.exp(-dt*17));
+  if(!guest||!local||actor.vehicle!=='car'||actor.motion===undefined||actor.motion>=session.motion)
+    state.yaw+=angle*(1-Math.exp(-dt*17));
   state.distance=reset?0:Math.hypot(oldX-state.x,oldZ-state.z);
   state.ready=true;state.activity=actor.activity;state.travelSeq=actor.travelSeq;state.vehicle=actor.vehicle;state.epoch=session.poseEpoch;state.revision=session.layout.revision;
   return state;

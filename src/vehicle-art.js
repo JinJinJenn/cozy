@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {Pieces} from './street-pieces.js';
+import {carSteerAngle} from './street-travel.js';
 
 const hoop=new THREE.TorusGeometry(1,.075,6,22),tire=new THREE.TorusGeometry(1,.18,7,20);
 const rubber='#313738',cream='#f4e7c2',chrome='#b4c7c0',paint='#4e9589',leather='#8a5842';
@@ -25,7 +26,7 @@ function wheel(parent,x,y,z,r,bike){
 }
 export function vehicleArt(kind){
   const root=new THREE.Group(),p=new Pieces(root),wheels=[],bike=kind==='bike';
-  let crank;
+  let crank,brakeLights;
   if(bike){
     for(const z of [-.67,.65])wheels.push(wheel(root,0,.355,z,.323,true));
     for(const [a,b] of [
@@ -81,11 +82,17 @@ export function vehicleArt(kind){
     for(const y of [.49,.55,.61])p.box(0,y,1.558,.72,.017,.022,chrome);
     for(const z of [-1.55,1.55])p.box(0,.38,z,1.71,.085,.13,cream);
     p.put(hoop,.34,.92,.23,.175,.175,.18,rubber,0,0,-.4);
+    brakeLights=new THREE.Group();root.add(brakeLights);
+    const lamps=new Pieces(brakeLights);
+    for(const side of [-1,1])lamps.ball(side*.65,.63,-1.53,.17,.14,.065,'#ff5c42');
+    lamps.finish();brakeLights.visible=false;
   }
-  p.finish();let phase=0;
-  root.updateRide=(speed,dt,steer)=>{
-    phase+=speed*dt/(bike?.323:.28);
-    for(const {hub,spin} of wheels){spin.rotation.x=phase;if(hub.position.z>0)hub.rotation.y=-steer*.30;}
+  p.finish();let phase=0,previousSpeed=0;
+  root.updateRide=(speed,dt,steer,wheelPhase,braking)=>{
+    phase=wheelPhase??phase+speed*dt/(bike?.323:.28);
+    if(brakeLights)brakeLights.visible=braking??(dt>0&&Math.abs(previousSpeed)-Math.abs(speed)>dt*3);
+    previousSpeed=speed;
+    for(const {hub,spin} of wheels){spin.rotation.x=phase;if(hub.position.z>0)hub.rotation.y=bike?-steer*.30:-carSteerAngle(steer,speed);}
     if(crank)crank.rotation.x=phase*.45;
     return phase*.45;
   };

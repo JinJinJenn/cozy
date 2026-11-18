@@ -55,7 +55,8 @@ export class TerraceEditor{
     this.street.art.tablePreview(same?null:t,!reason);el('terrace-apply').disabled=!!reason||!!same;
     el('terrace-apply').textContent=old?'Move table':'Place table';el('terrace-remove').hidden=!old;
     el('terrace-remove').disabled=!!old&&!!s.tableIssue(t.id,null);
-    el('terrace-undo').disabled=!s.layout.terrace.undo.length;
+    const last=s.layout.terrace.undo.at(-1);
+    el('terrace-undo').disabled=!last||!!s.tableIssue(last.id,last.before);
     el('terrace-status').textContent=reason||'Click the terrace to position both chairs.';
   }
   commit(next,undo=false){

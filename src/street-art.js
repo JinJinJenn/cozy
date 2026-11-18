@@ -529,7 +529,7 @@ export function streetArt(island,plots,scene) {
 }
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 
-export function avatar(color,skin='#d9a779',hair='#62423f'){
+export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
   const g=new THREE.Group(),torso=new THREE.Group(),standing=new THREE.Group(),sitting=new THREE.Group();
   const restingArms=new THREE.Group(),hands=[],limbs=[];
   const a=new Pieces(torso),seated=new Pieces(sitting),arms=new Pieces(restingArms);
@@ -563,8 +563,52 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   a.ball(0,1.51,.012,.44,.49,.416,skin);
   a.ball(0,1.644,-.026,.476,.266,.438,hair);
   a.ball(0,1.496,-.123,.456,.391,.29,hair);
-  a.ball(.047,1.456,-.262,.259,.288,.255,hair);
-  a.ball(.083,1.337,-.30,.188,.208,.177,hair);
+  if(!wardrobe){
+    a.ball(.047,1.456,-.262,.259,.288,.255,hair);
+    a.ball(.083,1.337,-.30,.188,.208,.177,hair);
+  }else{
+    // A single shared skeleton can wear any of these separately batched pieces.
+    const accent='#eabb84';
+    const variation=(key,value,build)=>{
+      const group=new THREE.Group(),parts=new Pieces(group);
+      group.userData.wardrobe={key,value};group.visible=wardrobe[key]===value;
+      build(parts);parts.finish();torso.add(group);
+    };
+    variation('cut',1,p=>{
+      for(const side of [-1,1])p.ball(side*.184,1.44,-.06,.17,.42,.31,hair);
+      p.ball(0,1.42,-.16,.43,.4,.24,hair);
+    });
+    variation('cut',2,p=>{
+      p.ball(0,1.73,-.08,.53,.32,.48,hair);
+      for(const s of [-1,1])p.ball(s*.19,1.64,.018,.24,.24,.25,hair);
+    });
+    variation('cut',3,p=>{
+      p.round(0,1.71,0,.56,.14,.50,accent);p.ball(0,1.79,-.03,.48,.19,.45,color);
+      p.ball(0,1.68,.19,.42,.047,.29,accent);
+    });
+    variation('cut',4,p=>{
+      p.ball(0,1.84,-.14,.245,.22,.25,hair);p.round(0,1.75,-.12,.16,.052,.16,accent);
+    });
+    variation('outfit',1,p=>{
+      p.round(0,.80,0,.52,.25,.372,accent);p.box(0,.98,.174,.30,.22,.032,accent);
+      for(const s of [-1,1])p.box(s*.108,1.14,.152,.05,.22,.04,accent);
+    });
+    variation('outfit',2,p=>{
+      p.round(0,1.255,.008,.365,.13,.31,accent);
+      p.box(-.102,1.075,.176,.113,.32,.06,accent,0,-.14);
+    });
+    variation('outfit',3,p=>{
+      p.round(0,.76,0,.57,.25,.40,color);
+      for(const y of [.96,1.07,1.18])p.ball(.028,y,.18,.033,.033,.027,accent);
+    });
+    variation('glasses',true,p=>{
+      for(const side of [-1,1]){
+        p.box(side*.093,1.51,.215,.153,.016,.027,dark);p.box(side*.093,1.446,.217,.153,.015,.025,dark);
+        for(const edge of [-1,1])p.box(side*.093+edge*.069,1.478,.216,.016,.077,.025,dark);
+      }
+      p.box(0,1.492,.221,.052,.018,.021,dark);
+    });
+  }
   a.round(0,1.24,0,.276,.11,.238,'#eed5af');
   for(const side of [-1,1]){
     a.ball(side*.202,1.48,.019,.085,.132,.10,skin);

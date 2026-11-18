@@ -261,6 +261,35 @@ try{
   assert.equal(await visitor.locator('#world-action').innerText(),'Enter '+facade.name);
   await visitor.locator('#world-jump').click();await until(visitor,id=>window.__cozy.street.openRoof===id,facade.id);
   console.log('PASS Home 58 and map-pin travel, furniture selection, left-click walking, ground teleport, avatar follow, recenter, all three orbit buttons, map toggle and touch hold.');
+  const traffic=await visitor.waitForFunction(()=>{
+    const s=window.__cozy.street,people=s.town.people;
+    const previous=window.trafficSamples||=new Map();
+    for(let i=0;i<people.length;i++){
+      const p=people[i],v=p.position;
+      if(!p.userData.driving){previous.delete(i);continue;}
+      const start=previous.get(i);
+      if(!start){previous.set(i,{x:v.x,z:v.z});continue;}
+      if(Math.hypot(start.x-v.x,start.z-v.z)>3){
+        const neighbors=s.town.current,style=s.town.crowd.styles[i];
+        return {i,name:neighbors[i].name,population:people.length,styles:new Set(s.town.crowd.styles.map(s=>s.cut+'-'+s.outfit)).size,
+          names:new Set(neighbors.map(p=>p.name)).size,cut:style.cut};
+      }
+    }
+  },null,{timeout:90000,polling:100});
+  const sample=await traffic.jsonValue();await traffic.dispose();
+  assert.ok(sample.styles>=15);assert.equal(sample.names,sample.population);
+  assert.equal(await owner.evaluate(i=>window.__cozy.street.town.current[i].name,sample.i),sample.name);
+  if(process.env.COZY_TRAFFIC_SHOT){
+    await visitor.evaluate(i=>{
+      const s=window.__cozy.street,p=s.town.people[i],v=p.position,yaw=p.userData.heading;
+      s.cameraFocus={resident:i};s.controls.target.copy(v);s.controls.target.y+=1;
+      s.camera.position.set(v.x+Math.sin(yaw+.73)*6,v.y+3,v.z+Math.cos(yaw+.73)*6);s.controls.update();
+    },sample.i);
+    await visitor.evaluate(async()=>{await window.__cozy.flushChunks();});
+    await until(visitor,name=>document.querySelector('#place').textContent===name&&!document.querySelector('#resident-detail').hidden,sample.name);
+    await visitor.screenshot({path:process.env.COZY_TRAFFIC_SHOT,type:'jpeg',quality:92});
+  }
+  console.log('PASS a visitor saw resident',sample.name,'drive over three metres;',sample.names,'named residents and',sample.styles,'hair/outfit combinations.');
   assert.deepEqual(errors,[]);
 }catch(err){
   for(const p of pages)console.error(await p.evaluate(()=>{const s=window.__cozy?.street;return {actor:s?.session?.actors.get(s.session.id),

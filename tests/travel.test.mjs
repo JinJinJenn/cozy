@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {takeVehicle,moveVehicle,dismount,teleport} from '../src/street-travel.js';
 import {cameraClearance,defaultLayout} from '../src/street-world.js';
 import {StreetSession} from '../src/street-session.js';
+import {bindResidentTraffic} from '../src/resident-traffic.js';
+import {Simulation} from '../packages/sim/src/simulation.js';
 
 function street(){
   const a={id:'player',x:0,z:0,yaw:0};
@@ -44,6 +46,68 @@ test('a connected public driver keeps the car through an input stall and stale t
   remote.at=now-31000;tick();assert.equal(s.actors.has(a.id),false);
   s.actors.set(a.id,a);s.controls.set(a.id,remote);remote.at=now-8500;
   s.peers.clear();tick();assert.equal(s.actors.has(a.id),false);
+});
+
+test('steering ramps and recentres consistently at 20 and 60 Hz and braking reaches a full stop before reverse',()=>{
+  const run=hz=>{
+    const {s,a}=street();takeVehicle(s,a,'car');
+    for(let i=0;i<hz;i++)moveVehicle(s,a,{x:0,z:1},1/hz);
+    for(let i=0;i<hz*.2;i++)moveVehicle(s,a,{x:.65,z:1},1/hz);
+    assert.ok(a.steer>0&&a.yaw<0);
+    for(let i=0;i<hz*.2;i++)moveVehicle(s,a,{x:0,z:0},1/hz);
+    assert.equal(a.steer,0);
+    const end={x:a.x,z:a.z,yaw:a.yaw};let stopped=0;
+    for(let i=0;i<hz*2;i++){
+      moveVehicle(s,a,{x:0,z:-1},1/hz);
+      if(a.speed===0)stopped+=1/hz;
+    }
+    assert.ok(stopped>=.15&&a.speed<0);return end;
+  };
+  const low=run(20),high=run(60);
+  for(const k of ['x','z','yaw'])assert.ok(Math.abs(low[k]-high[k])<.003);
+});
+
+test('a glancing curb contact scrubs speed and guides the car along the road while a pedestrian still stops it',()=>{
+  const {s,a}=street();
+  Object.assign(a,{vehicle:'car',x:2.7,z:0,yaw:.22,speed:9});
+  for(let i=0;i<35;i++)moveVehicle(s,a,{x:0,z:0},1/60);
+  assert.ok(a.z>3&&a.speed>2&&a.yaw<.16&&a.x<3.2);
+  s.town.people=[{visible:true,position:{x:a.x,z:a.z+4}}];
+  const start=a.z;
+  for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:1},1/60);
+  assert.equal(a.speed,0);assert.ok(a.z<start+2.3);
+});
+
+test('a resident walks out, yields to a player, drives to a neighbor, visits the house and drives home',()=>{
+  const homes=[0,70].map((x,i)=>({id:'lot'+i,entry:{x,z:4},inside:{x,z:8}}));
+  const players=new Map();
+  const ctx={seed:'trip',plan:{roads:[{class:'street',width:7,pts:[[-20,0],[40,0],[100,0]]}]},
+    nav:{findPath:(_from,to)=>({pts:[to.slice()]}),height:()=>1}};
+  bindResidentTraffic(ctx,{island:{homes},session:{actors:players}});
+  const home=homes.find(h=>ctx.hasCarVisit(h.id)),other=homes.find(h=>h!==home);
+  const n={id:'n0',name:'Pip',traits:{sociability:.5,curiosity:.6},home:{lotId:home.id,comp:0},pace:1,pos:[home.inside.x,8],mood:0};
+  const sim=Object.assign(Object.create(Simulation.prototype),{ctx,npcs:[n],tick:0,cfg:{stepDt:.5,walkSpeed:3},_log(){}});
+  const trip=returning=>{
+    const plan=ctx.carTrip(n,returning);
+    n.action={kind:'move',purpose:'visit',...plan,i:0,then:{kind:'endVisit',returning}};
+    let started=false,drove=0,walkedIn=false;
+    for(let i=0;i<135&&n.action.kind==='move';i++){
+      if(sim.positions()[0].driving){
+        const [x,z]=n.pos,goal=n.action.pts[n.action.i],dir=Math.sign(goal[0]-x);
+        if(!started){
+          players.set('guest',{x:x+dir*2,z});sim.tick++;sim._advance(n);
+          assert.deepEqual(n.pos,[x,z]);players.clear();started=true;
+        }
+        sim.tick++;sim._advance(n);drove+=Math.abs(n.pos[0]-x);
+      }else{
+        if(started)walkedIn=true;
+        sim.tick++;sim._advance(n);
+      }
+    }
+    assert.ok(started&&walkedIn&&drove>60);assert.equal(n.action.kind,'idle');
+  };
+  trip(false);assert.deepEqual(n.pos,[other.inside.x,8]);assert.equal(n.returnVisit,true);
+  trip(true);assert.deepEqual(n.pos,[home.inside.x,8]);assert.equal(n.returnVisit,false);
 });
 test('a private seat survives a 30 second relay outage and is freed when the visit expires',()=>{
   const {s,a}=street(),seat={lot:'l103',object:'chair-front'};

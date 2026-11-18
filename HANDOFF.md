@@ -4,6 +4,19 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.19.0 changes how the roadster steers, brakes and follows the curb.
+W accelerates, S brakes and then reverses, and A/D steer. The close driving
+camera follows turns and gives you time to look around after a manual orbit.
+Some households now walk to a shared car, drive in their lane to visit a nearby
+home, then return. Their cars yield to people ahead. Guests receive the driver's
+resident index in the signed town frame and see the same trip.
+
+Click a resident or their car and choose **Follow** to see their name, home and
+personality. Wardrobes are seeded by home and retain shared draw batches.
+`npm run test:travel` exercises player driving and a moving town driver across
+two browsers. The travel unit tests cover curb contact, stopping for a person,
+return trips and steering at 20 and 60 Hz.
+
 Version 0.18.1 keeps the selected target under the cursor when terrain lifts the
 camera in a close-up. The travel playtest checks camera direction on the first
 corrected frame. The studio playtest covers clicking an easel and a framed print.

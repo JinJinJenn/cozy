@@ -118,16 +118,16 @@ export class SettlementView {
     this.previous = this.current;
     this.elapsed = 0;
     this.people = this.current.map(()=>new THREE.Object3D());
-    this.crowd=new ResidentCrowd(this.group,this.people.length);
+    this.crowd=new ResidentCrowd(this.group,this.current,island.seed);
     this.advance(0);
   }
-  posePeople(now,camera){this.crowd.render(this.people,camera,now);}
+  posePeople(now,camera){this.crowd.render(this.people,camera,now,this.island,this.street?.openRoof);}
   async bindStreet(street,useWorker=true){
     if(!this.sim||!this.island.homes.length)return;
     const ctx=this.sim.ctx;bindResidentWorld(ctx,street);
     this.sim=Simulation.create(this.sim.cfg,{ctx});this.current=this.sim.positions();this.previous=this.current;this.elapsed=0;
     this.crowd.dispose();this.people=this.current.map(()=>new THREE.Object3D());
-    this.crowd=new ResidentCrowd(this.group,this.people.length);this.advance(0);
+    this.crowd=new ResidentCrowd(this.group,this.current,this.island.seed);this.advance(0);
     this.street=street;if(!useWorker)return;
     this.worker=new Worker(new URL('./resident-worker.js',import.meta.url),{type:'module'});
     this.workerTimes=[];
@@ -164,14 +164,19 @@ export class SettlementView {
       this.sim.step();
       this.current = this.sim.positions();
     }
+    const alpha=this.worker?Math.min(1,(performance.now()-(this.lastWorkerFrame||0))/(step*1000)):this.elapsed/step;
     this.current.forEach((p, i) => {
-      const prev = this.previous[i], alpha = this.worker?Math.min(1,(performance.now()-(this.lastWorkerFrame||0))/(step*1000)):this.elapsed/step;
+      const prev = this.previous[i];
       const x = prev.x + (p.x - prev.x) * alpha, z = prev.z + (p.z - prev.z) * alpha;
       const actor = this.people[i];
       actor.position.set(x,(this.street?floorAt(this.island,this.street.plots,x,z,this.street.session?.layout||defaultLayout()):this.decks.heightAt(x,z))+.04,z);
       actor.visible = !p.asleep;
       actor.scale.y = p.seat ? 0.73 : 1;
-      if(p.seat)actor.userData.heading=Math.PI/2-p.heading;
+      actor.userData.driving=!!p.driving;
+      if(prev.driving&&p.driving){
+        const delta=p.heading-prev.heading;
+        actor.userData.heading=Math.PI/2-prev.heading-alpha*Math.atan2(Math.sin(delta),Math.cos(delta));
+      }else if(p.seat||p.driving)actor.userData.heading=Math.PI/2-p.heading;
     });
   }
   focus() {

@@ -2,7 +2,7 @@ import {homeAt} from './home-plan.js';
 import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
 
 const specifications={
-  car:{top:14,reverse:3.1,accel:5.3,brake:9,coast:2.3,turn:.56,halfWidth:.79,halfLength:1.55},
+  car:{top:15.5,reverse:3.3,accel:6.6,brake:12,coast:1.35,halfWidth:.86,halfLength:1.55},
   bike:{top:7.5,reverse:1.15,accel:3.4,brake:6,coast:1.5,turn:.93,halfWidth:.28,halfLength:.79}
 };
 const roadIndexes=new WeakMap();
@@ -33,7 +33,8 @@ function outdoors(s,p){
 function nearbyPeople(s,actor,x,z){
   const people=[];
   for(const other of s.actors.values())if(other.id!==actor.id&&Math.abs(other.x-x)<9&&Math.abs(other.z-z)<9)people.push(other);
-  for(const p of s.town.people)if(p.visible&&Math.abs(p.position.x-x)<9&&Math.abs(p.position.z-z)<9)people.push(p.position);
+  for(const p of s.town.people)if(p.visible&&Math.abs(p.position.x-x)<9&&Math.abs(p.position.z-z)<9)
+    people.push(p.userData?.driving?{x:p.position.x,z:p.position.z,vehicle:'car'}:p.position);
   return people;
 }
 function fits(s,kind,x,z,yaw,people){
@@ -57,7 +58,7 @@ function fits(s,kind,x,z,yaw,people){
 }
 function clearActivity(s,a){
   s.activities.finish(a);a.activity='';a.part='';a.feedback='';
-  delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;
+  delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;
 }
 export function takeVehicle(s,a,kind){
   if(!Object.hasOwn(specifications,kind))return;
@@ -77,6 +78,7 @@ export function takeVehicle(s,a,kind){
   a.feedback='The road is occupied. Try another stretch of street.';
 }
 export function moveVehicle(s,a,input,dt){
+  if(a.vehicle==='car')return driveCar(s,a,input,dt);
   a.steer=input.x;
   const spec=specifications[a.vehicle],target=input.z*(input.z<0?spec.reverse:spec.top);
   const current=a.speed||0,rate=!input.z?spec.coast:target*current<0?spec.brake:spec.accel;
@@ -89,6 +91,55 @@ export function moveVehicle(s,a,input,dt){
     const x=a.x+Math.sin(yaw)*speed*dt/n,z=a.z+Math.cos(yaw)*speed*dt/n;
     if(!fits(s,a.vehicle,x,z,yaw,people)){a.speed=0;return;}
     Object.assign(a,{x,z,yaw});
+  }
+}
+
+function approach(value,target,amount){
+  return value+Math.sign(target-value)*Math.min(Math.abs(target-value),amount);
+}
+export function carSteerAngle(steer,speed){
+  return steer*.62/(1+.011*speed*speed);
+}
+function driveCar(s,a,input,dt){
+  if(dt<=0)return;
+  const spec=specifications.car,people=nearbyPeople(s,a,a.x,a.z);
+  const steps=Math.max(1,Math.ceil(dt*60)),step=dt/steps;
+  for(let i=0;i<steps;i++){
+    const previous=a.speed||0,throttle=input.z||0;
+    const braking=throttle*previous<0;
+    if(braking)a.reverseHold=.20;
+    else if(!throttle||throttle>0)a.reverseHold=0;
+    else a.reverseHold=Math.max(0,(a.reverseHold||0)-step);
+    const target=braking||a.reverseHold?0:throttle*(throttle<0?spec.reverse:spec.top);
+    const rate=braking?spec.brake:!throttle?spec.coast+.015*previous*previous:spec.accel*(1-.32*Math.min(1,Math.abs(previous)/spec.top));
+    a.speed=approach(previous,target,rate*step);
+    a.steer=approach(a.steer||0,input.x||0,step*(input.x?3.8:6));
+    const travel=(previous+a.speed)*.5*step;
+    if(!travel)continue;
+    // The wheelbase comes from the axles of the rendered car. Limit steering
+    // lock at speed so a brief tap can trim a lane without whipping the camera.
+    const turn=-travel*Math.tan(carSteerAngle(a.steer,previous))/2.02;
+    const mid=a.yaw+turn*.5,yaw=a.yaw+turn;
+    const x=a.x+Math.sin(mid)*travel,z=a.z+Math.cos(mid)*travel;
+    if(fits(s,'car',x,z,yaw,people)){Object.assign(a,{x,z,yaw});continue;}
+    // Scrub along the kerb on a shallow contact. The proposed recovery goes
+    // through the same footprint, pedestrian and building checks as free travel.
+    const lines=roadsOf(s.island).cells.get(Math.floor(a.x/32)+','+Math.floor(a.z/32))||[];
+    let nearest,dist=Infinity;
+    for(const line of lines){const d=project(line,a).distance;if(d<dist){nearest=line;dist=d;}}
+    if(nearest){
+      const along=nearest.dx*Math.sin(mid)+nearest.dz*Math.cos(mid);
+      if(Math.abs(along)>.76){
+        const heading=Math.atan2(nearest.dx*Math.sign(along),nearest.dz*Math.sign(along));
+        const error=Math.atan2(Math.sin(heading-a.yaw),Math.cos(heading-a.yaw));
+        const corrected=a.yaw+approach(0,error,step*2.8);
+        const cx=a.x+nearest.dx*travel*along,cz=a.z+nearest.dz*travel*along;
+        if(fits(s,'car',cx,cz,corrected,people)){
+          Object.assign(a,{x:cx,z:cz,yaw:corrected,speed:a.speed*Math.exp(-step*2)});continue;
+        }
+      }
+    }
+    a.speed=0;return;
   }
 }
 function land(s,a,p,home){

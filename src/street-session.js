@@ -698,10 +698,12 @@ export class StreetSession {
         }
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
         if(Array.isArray(residents)&&residents.length===this.town.people.length){
+          const drivers=new Set(Array.isArray(f.drivers)?f.drivers.filter(i=>Number.isInteger(i)&&i>=0&&i<residents.length):[]);
           this.residentTargets=residents.map((r,i)=>{
             if(!Array.isArray(r)||![5,6].includes(r.length)||!r.every(Number.isFinite))return null;
             const m=this.town.people[i],p=m.position,visible=!!r[3];
-            if(newHost||m.visible!==visible||Math.hypot(r[0]-p.x,r[2]-p.z)>3)p.set(r[0],r[1],r[2]);
+            m.userData.driving=drivers.has(i);
+            if(newHost||m.visible!==visible||Math.hypot(r[0]-p.x,r[2]-p.z)>(m.userData.driving?10:3))p.set(r[0],r[1],r[2]);
             m.visible=visible;m.scale.y=r[4];
             if(r.length===6)m.userData.heading=r[5];
             return {x:p.x,y:p.y,z:p.z,to:r};
@@ -716,6 +718,7 @@ export class StreetSession {
     try{const residents=encodeResidents(this.town.people);
       const layout=this.layout?.furnishings?{...this.layout,furnishings:wireFurnishings(this.layout.furnishings)}:this.layout;
       const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout,actors:[...this.actors.values()],residents};
+      frame.drivers=[];this.town.people.forEach((p,i)=>{if(p.userData?.driving)frame.drivers.push(i);});
       if(this.addresses){
         const book=this.addresses.book;frame.parcelRevision=book.revision;frame.confirmedRevision=this.addresses.confirmedRevision;
         if([...this.controls.values()].some(c=>c.parcelRevision!==book.revision))frame.parcels=book.entries;

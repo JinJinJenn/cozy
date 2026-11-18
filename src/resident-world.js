@@ -2,6 +2,7 @@ import {walkingRoute} from './street-route.js';
 import {defaultLayout,walkable,toWorld} from './street-world.js';
 import {homeAt,homeWalkable} from './home-plan.js';
 import {distSeg} from '../packages/settlement/src/geom.js';
+import {bindResidentTraffic} from './resident-traffic.js';
 
 function crossesSolid(home,a,b){
   const radius=Math.hypot(home.w,home.d)/2+.8,dx=b[0]-a[0],dz=b[1]-a[1];
@@ -25,7 +26,7 @@ export function rerouteResidents(sim,homes){
       const to=trip.pts[i];
       if(homes.some(home=>crossesSolid(home,from,to))){
         const route=sim.ctx.nav.findPath(resident.pos,trip.pts.at(-1),resident.home.comp);
-        if(route){trip.pts=route.pts;trip.i=0;}else sim._end(resident);
+        if(route){trip.pts=route.pts;trip.i=0;delete trip.driveStart;delete trip.driveEnd;}else sim._end(resident);
         break;
       }
       from=to;
@@ -72,4 +73,5 @@ export function bindResidentWorld(ctx,street){
     }
     return {pts:pts.length?pts:[to.slice()],len};
   };
+  bindResidentTraffic(ctx,street);
 }
