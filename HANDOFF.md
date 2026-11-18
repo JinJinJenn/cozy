@@ -4,6 +4,11 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.12.4 improves the full-island orbit. With all 457 residents active,
+Low at 720p rose from 32.4 to 43.3 FPS on the tested Intel integrated GPU.
+Street and town orbits held 59.8 FPS. The [rendering review](docs/RENDERING-REVIEW.md)
+records the camera distances, settings and frame intervals.
+
 Version 0.12.3 lets you zoom from a sidewalk to a view of the whole island
 while your character stays in the street. Scroll or press **+ / −** to zoom,
 press **comma / period** to orbit, and press **Enter** to return to your

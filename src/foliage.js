@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {indexRepeatedVertices} from './mesh-index.js';
 
 // One detailed lobe at every viewing distance. The original position is retained
 // as the leaf-pattern coordinate when several lobes become a single crown.
@@ -12,6 +13,7 @@ for(let i=0;i<positions.count;i++){
 }
 foliage.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
 foliage.setAttribute('leafPosition',positions.clone());
+indexRepeatedVertices(foliage);
 foliage.userData.foliage=true;
 
 export const leafMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
@@ -63,5 +65,5 @@ export function crownGeometry(lobes){
   const geometry=new THREE.BufferGeometry();
   for(const [name,values] of Object.entries(out))geometry.setAttribute(name,new THREE.Float32BufferAttribute(values,3));
   geometry.userData={foliage:true,sourceTriangles:positions.count/3*parts.length,removedTriangles:removed};
-  geometry.computeBoundingSphere();return geometry;
+  geometry.computeBoundingSphere();return indexRepeatedVertices(geometry);
 }

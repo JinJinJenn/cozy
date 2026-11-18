@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {Pieces} from './street-pieces.js';
+import {Pieces,exteriorBlockKey} from './street-pieces.js';
 import {crownGeometry} from './foliage.js';
 import {gardenForStreet,gardenSeats,toWorld} from './street-world.js';
 import {flowerBed,gardenTree} from './harbor-art.js';
@@ -143,7 +143,7 @@ export function plantWoodlands(island,detail,blocks,parent){
       const y=island.sample(x,z);if(y<1.7||y<island.waterAt(x,z)+.8||island.slope(x,z)>.75)continue;
       if(park&&Math.hypot(x-park.x,z-park.z)<26)continue;
       if(reserve.get(cellKey(x,z))?.some(o=>o.poly?pointInPoly(x,z,o.poly):distSeg(x,z,...o.a,...o.b).d<o.r))continue;
-      const key=Math.floor(x/70)+','+Math.floor(z/70);
+      const key=exteriorBlockKey(x,z);
       if(!blocks.has(key))blocks.set(key,new Pieces(parent));
       const a=blocks.get(key).frame(x,y,z,t),s=.81+random()*.9;
       if(island.slope(x,z)>.24&&n%4===0){
@@ -187,7 +187,7 @@ export function furnishRoads(island,detail,blocks,parent,homes,frontPaths){
           if(frontPaths.some(([a,b])=>distSeg(x,z,a.x,a.z,b.x,b.z).d<3.2))continue;
           if(segments.some(s=>s.road!==road&&distSeg(x,z,...s.a,...s.b).d<s.road.width/2+5))continue;
           if(fixtures.some(f=>Math.hypot(x-f.x,z-f.z)<8))continue;
-          const key=Math.floor(x/70)+','+Math.floor(z/70);
+          const key=exteriorBlockKey(x,z);
           if(!blocks.has(key))blocks.set(key,new Pieces(parent));
           const yaw=Math.atan2(side*tz,-side*tx),a=blocks.get(key).frame(x,y,z,yaw);
           const rest=main&&index%3!==1,post=rest?-1.64:0,iron='#405e58',cream='#edddb6';

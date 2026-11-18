@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {foliage,leafMaterial} from './foliage.js';
-export const box=new THREE.BoxGeometry(1,1,1),ball=new THREE.IcosahedronGeometry(.5,1);
+import {indexRepeatedVertices} from './mesh-index.js';
+export const box=new THREE.BoxGeometry(1,1,1),ball=indexRepeatedVertices(new THREE.IcosahedronGeometry(.5,1));
+export const exteriorBlockKey=(x,z)=>Math.floor(x/140)+','+Math.floor(z/140);
 const round=new THREE.CylinderGeometry(.5,.48,1,12);
 export const roof=new THREE.BufferGeometry();
 roof.setAttribute('position',new THREE.Float32BufferAttribute([

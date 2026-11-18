@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {crownGeometry,foliage} from '../src/foliage.js';
+import {ball} from '../src/street-pieces.js';
+
+test('shared foliage indices reproduce every original triangle attribute bit for bit',()=>{
+  const crown=crownGeometry([{position:[2,.3,-1],scale:[1.3,2,1.7],yaw:.6,color:'#789057'}]);
+  for(const mesh of [ball,foliage,crown]){
+    const indices=mesh.index.array;
+    assert.equal(indices.length,mesh.attributes.position.count);
+    assert.ok(new Set(indices).size<indices.length*.6);
+    for(const {array,itemSize} of Object.values(mesh.attributes)){
+      const words=new Uint32Array(array.buffer,array.byteOffset,array.length);
+      for(const [i,j] of indices.entries())for(let k=0;k<itemSize;k++){
+        assert.equal(words[i*itemSize+k],words[j*itemSize+k]);
+      }
+    }
+  }
+});
 
 test('buried foliage faces are removed without changing the crown surface',()=>{
   const lobes=[

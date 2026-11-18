@@ -5,6 +5,23 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Whole-island performance in v0.12.4
+
+We repeated the same 360-frame Petalwood camera paths at 1280 × 720 on Intel
+Graphics 0x7D67 using Chrome D3D11 and GPU completion fences, with 457 residents.
+
+| Orbit and setting | v0.12.3 FPS | v0.12.4 FPS | v0.12.4 p95 frame interval |
+| --- | ---: | ---: | ---: |
+| Street, 24 m, Low | 59.8 | 59.8 | 17.3 ms |
+| Town, 180 m, Low | 59.8 | 59.8 | 17.4 ms |
+| Island, 1,800 m, Low | 32.4 | 43.3 | 25.0 ms |
+| Island, 1,800 m, Balanced | 31.9 | 42.5 | 26.5 ms |
+
+The wide orbit peaked at 2,566 draws, down from 3,226, with the same 5.67
+million triangles. Exterior batches now cover 140 m per side. Tree crowns,
+shrubs and other round pieces reuse vertices with bit-identical attributes.
+The island remains below 60 FPS at this distance on this adapter.
+
 ### Whole-island street orbit, v0.12.3
 
 Petalwood's street camera reaches 3,174 metres. In a 1,800-metre orbit,

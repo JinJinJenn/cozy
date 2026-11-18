@@ -26,18 +26,31 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   await panel(host);
   await host.getByRole('button',{name:'Follow River',exact:true}).click({button:'right'});
   await wait(host,id=>window.__cozy.street.cameraFocus?.actor===id,guestId);
-  // Frame both people from the pavement, then greet through the actual world picker.
-  await host.evaluate(async id=>{
+  // Find an unobstructed view of the guest before sending a native mouse click.
+  const spot=await host.evaluate(async id=>{
     const game=window.__cozy,street=game.street,a=street.meshes.get(id).position,b=street.meshes.get(street.session.id).position;
-    const dx=a.x-street.cafe.x,dz=a.z-street.cafe.z,n=Math.hypot(dx,dz);
     const x=(a.x+b.x)/2,z=(a.z+b.z)/2;
+    const heading=Math.atan2(a.x-street.cafe.x,a.z-street.cafe.z);
+    const canvas=street.controls.domElement,rect=canvas.getBoundingClientRect();
+    const hits=[];
     street.cameraFocus={x,z};
-    await game.setCamera([x+dx/n*5,a.y+2.8,z+dz/n*5],[x,a.y+1.48,z]);
-  },guestId);
-  const spot=await host.evaluate(id=>{
-    const st=window.__cozy.street,point=st.meshes.get(id).position.clone();point.y+=1.14;point.project(st.camera);
-    const rect=st.controls.domElement.getBoundingClientRect();
-    return {x:rect.left+(1+point.x)*rect.width/2,y:rect.top+(1-point.y)*rect.height/2};
+    for(const turn of [0,Math.PI/2,-Math.PI/2,Math.PI]){
+      const angle=heading+turn;
+      await game.setCamera([x+5*Math.sin(angle),a.y+3.5,z+5*Math.cos(angle)],[x,a.y+1.48,z]);
+      const camera=street.camera.clone();
+      camera.position.lerp(street.controls.target,1-street.cameraFraction());camera.updateMatrixWorld();
+      for(const height of [1.48,1.02,.55]){
+        const point=a.clone();point.y+=height;point.project(camera);
+        const clientX=Math.round(rect.left+(1+point.x)*rect.width/2);
+        const clientY=Math.round(rect.top+(1-point.y)*rect.height/2);
+        if(document.elementFromPoint(clientX,clientY)!==canvas)continue;
+        const ray=street.pointerRay({clientX,clientY});
+        const hit=street.pickAction(ray,false,street.floorPoint(ray,camera.far));
+        if(hit?.command?.to===id)return {x:clientX,y:clientY};
+        hits.push(hit?.label||'ground');
+      }
+    }
+    throw Error('Could not frame River at '+a.distanceTo(b).toFixed(2)+' m: '+hits.join(', '));
   },guestId);
   await host.mouse.click(spot.x,spot.y);
   await host.getByRole('button',{name:'Wave to River',exact:true}).click();

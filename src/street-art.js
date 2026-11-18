@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {distSeg,polyCentroid,pointInPoly} from '../packages/settlement/src/geom.js';
 import {toWorld,toRoom,isHome,hasEditableFront,frontAt,sideAt,wallState} from './street-world.js';
-import {Pieces,box,roof,helper} from './street-pieces.js';
+import {Pieces,box,roof,helper,exteriorBlockKey} from './street-pieces.js';
 import {buildCentre,marketFront} from './town-centre.js';
 import {beachLane,furnishRoads,harborGreen,plantWoodlands} from './harbor-garden.js';
 import {harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
@@ -777,7 +777,7 @@ export function townExteriors(island,detail,scene){
     while(w>=3.5&&![-1,1].every(s=>[-1,1].every(t=>{const p=toWorld(b,s*w*.54,t*d*.54);return pointInPoly(p.x,p.z,l.poly)}))){w*=.88;d*=.88;}
     if(w<3.5&&!planned)continue;
     if(planned){w=planned.w;d=planned.d;}
-    const key=Math.floor(x/70)+','+Math.floor(z/70);
+    const key=exteriorBlockKey(x,z);
     if(!blocks.has(key))blocks.set(key,new Pieces(parent));
     const y=planned?.y??island.sample(x,z),a=blocks.get(key).frame(x,y,z,yaw);
     const random=rng(island.seed+':house:'+l.id);
