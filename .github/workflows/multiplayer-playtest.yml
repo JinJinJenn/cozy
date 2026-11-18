@@ -16,6 +16,7 @@ on:
       - 'src/player-*.js'
       - 'tools/playtest-players.mjs'
       - 'src/private-saves.js'
+      - 'src/private-routes.js'
       - 'src/save-menu.js'
       - 'tools/test-domestic.mjs'
       - 'tools/playtest-recovery.mjs'

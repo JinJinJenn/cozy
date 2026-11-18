@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.12.2 lets private home guests try a second WebRTC discovery service
+after nine seconds without a signed host frame. Both routes lead to the same
+host, save and roster. Guests close the unused internet connection once admitted.
+The host holds a disconnected guest's seat for twenty seconds, and must keep
+the home open during the visit. Run `npm run test:lobby -- --players` to exercise
+recovery and `npm run test:domestic -- --table --public-trackers` to invite a
+spectator over public trackers while two players share a table.
+
 Version 0.12.0 adds Harbor Three to dining tables in generated homes. Choose
 **Travel → Find a game table** to take an available chair. The host checks
 tables with seated players first. You can also click the physical board.

@@ -93,7 +93,7 @@ try{
   }
   await waitForGuest(guest);
   console.log('Host and guest connected over '+(relay?'WebRTC':'BroadcastChannel'));
-  if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>k.startsWith('trystero-nostr/')));
+  if(relay)await host.waitForFunction(()=>[...window.__cozy.street.session.peers.keys()].some(k=>/^trystero-(nostr|torrent)\//.test(k)));
   assert.equal(await guest.locator('#build-open').isVisible(),false);
   assert.equal(await guest.evaluate(()=>window.__cozy.street.session.edit(1)),false);
   await guest.locator('#directions-open').click();

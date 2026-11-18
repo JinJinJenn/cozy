@@ -69,22 +69,29 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   const link=await host.locator('#invite-url').inputValue();
   await guest.goto(link);await ready(guest);await panel(guest);
   await Promise.all([visibleName(host,'River'),visibleName(guest,'Marigold')]);
-  // Lose one visitor's first private connection before its first signed
-  // frame. The same page must rejoin while the owner and existing guest stay.
   let signalling=!isolatedRelay;
   const visitor=await profile(()=>signalling);
   try{
     await visitor.goto(link);await ready(visitor);
-    const actor=await visitor.evaluate(async interrupt=>{
-      const s=window.__cozy.street.session;await s.wide;
-      if(interrupt){
-        if(s.connected||s.verifiedSeq!==-1||!s.privateWire)throw Error('Expected an unconnected visitor');
-        await s.privateWire.leave();
-      }
-      return s.id;
-    },isolatedRelay);
-    signalling=true;
+    const actor=await visitor.evaluate(()=>window.__cozy.street.session.id);
     await wait(visitor,()=>window.__cozy.street.session.connected);
+    if(isolatedRelay){
+      const route=p=>p.evaluate(()=>window.__cozy.street.session.privateRoutes.active);
+      assert.equal(await route(visitor),'trystero-torrent');
+      assert.equal(await route(guest),'trystero-nostr');
+      const before=await guest.evaluate(()=>window.__cozy.street.session.verifiedSeq);
+      await visitor.locator('#social-open').click();await visitor.locator('#player-wave').click();
+      await joint(guest,actor,'wave');
+      await visitor.locator('#directions-open').click();await visitor.locator('#visit-table').click();
+      await visitor.locator('#harbor-practice').waitFor();
+      const seat=await host.evaluate(id=>window.__cozy.street.session.actors.get(id).using,actor);
+      signalling=true;
+      await visitor.evaluate(()=>window.__cozy.street.session.privateRoutes.routes.get('torrent').connection.leave());
+      await wait(visitor,()=>window.__cozy.street.session.privateRoutes.active==='trystero-nostr'&&window.__cozy.street.session.connected);
+      assert.ok(await guest.evaluate(()=>window.__cozy.street.session.verifiedSeq)>before);
+      assert.equal(await route(guest),'trystero-nostr');
+      assert.deepEqual(await visitor.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).using;}),seat);
+    }
     await panel(visitor);
     await Promise.all([visibleName(visitor,'Marigold'),visibleName(visitor,'River')]);
     await wait(visitor,()=>document.querySelectorAll('#player-roster button').length===3);
@@ -92,5 +99,6 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
     assert.equal(await host.evaluate(()=>window.__cozy.street.session.canBuild),true);
     assert.equal(await guest.evaluate(()=>window.__cozy.street.session.connected),true);
   }finally{await visitor.context().close();}
-  console.log('PASS named roster, camera follow, shirt colors, animated wave/cheer, duplicate names, reload and private visitor recovery after a lost first connection');
+  console.log('PASS named roster, camera follow, shirt colors, animated wave/cheer, duplicate names, reload and third private visitor',
+    isolatedRelay?'with blocked primary discovery, cross-route wave and same-page recovery after link loss':'over public signalling');
 }

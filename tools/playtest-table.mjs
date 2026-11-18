@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-export async function playtestTable({host,guest,open,out}) {
+export async function playtestTable({host,guest,open,out,blockSpectatorPrimary=false}) {
   const lot=await host.evaluate(()=>window.__cozy.island.homes.find(h=>h.name==='Home 5').id);
   async function visit(page){
     await page.locator('#directions-open').click();
@@ -58,7 +58,11 @@ export async function playtestTable({host,guest,open,out}) {
   await frame(host);
   await host.screenshot({path:out+'/harbor-three.jpg',type:'jpeg',quality:92});
   const invite=await host.evaluate(()=>window.__cozy.street.session.invite());
-  const spectator=await open(invite);await moves(spectator,'03142');
+  const spectator=await open(invite,blockSpectatorPrimary);
+  await spectator.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:75000});
+  await moves(spectator,'03142');
+  const spectatorRoute=await spectator.evaluate(()=>window.__cozy.street.session.privateRoutes.active);
+  if(blockSpectatorPrimary)assert.equal(spectatorRoute,'trystero-torrent');
   assert.equal(await spectator.locator('#harbor-game').isVisible(),false);
   await guest.locator('#harbor-together').click();await moves(host,'');
   await host.locator('#harbor-squares button').nth(4).click();await moves(guest,'4');
@@ -67,5 +71,5 @@ export async function playtestTable({host,guest,open,out}) {
   await host.waitForFunction(()=>window.__cozy.street.clearExteriors.interiors.appliances.pieces.moves==='');
   await host.locator('#use-place').click();await host.locator('#harbor-game').waitFor({state:'hidden'});
   return {lot,soloReply:'center',twoPlayerWin:'top row of buoys',travelMatchedTable:true,bothPointerButtons:true,physicalPieces:true,
-    lateSpectator:true,swappedOpener:true,disconnectClearedBoard:true};
+    lateSpectator:true,spectatorRoute,swappedOpener:true,disconnectClearedBoard:true};
 }

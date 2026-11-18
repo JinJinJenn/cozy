@@ -15,14 +15,18 @@ const software=process.argv.includes('--software');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
   args:['--mute-audio','--disable-background-timer-throttling',...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
 const live=process.env.COZY_DOMESTIC_LIVE==='1',origin=live?'https://jinjinjenn.github.io/cozy/':'https://cozy.test/cozy/';
-const report={errors:[],origin,transport:'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
+const realTrackers=process.argv.includes('--public-trackers');
+const report={errors:[],origin,transport:realTrackers?'Native RTCDataChannel, public signalling':'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
 try{
- const context=async()=>{const ctx=await browser.newContext({viewport:software?{width:800,height:600}:{width:1440,height:900}});await relay(ctx);
+ const context=async(blockPrimary)=>{const ctx=await browser.newContext({viewport:software?{width:800,height:600}:{width:1440,height:900}});
+   if(!realTrackers)await relay(ctx);
    if(software)await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
    if(!live)await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
      const file=path.resolve(root,u.pathname.slice('/cozy/'.length)||'index.html');assert.ok(file.startsWith(root));
-     await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});return ctx;};
- const open=async(url)=>{const p=await(await context()).newPage();p.on('pageerror',e=>report.errors.push(e.message));
+     await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});
+   if(blockPrimary)await ctx.route('**/trystero-nostr.min.js',r=>r.abort());
+   return ctx;};
+ const open=async(url,blockPrimary=false)=>{const p=await(await context(blockPrimary)).newPage();p.on('pageerror',e=>report.errors.push(e.message));
    p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))report.errors.push(m.text());});
    if(software&&process.env.CI)p.on('domcontentloaded',()=>{
      // Each profile keeps its normal viewport and input coordinates. Reduce
@@ -36,11 +40,11 @@ try{
  assert.equal(report.version,'v'+JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version);
  await guest.waitForFunction(()=>window.__cozy.street.session.connected,null,{timeout:45000});
  report.peerKinds=await host.evaluate(()=>[...window.__cozy.street.session.peers.keys()]);
- assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
+ assert.ok(report.peerKinds.some(k=>/^trystero-(nostr|torrent)\//.test(k)));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
  if(process.argv.includes('--table')){
-   report.table=await playtestTable({host,guest,open,out});
+   report.table=await playtestTable({host,guest,open,out,blockSpectatorPrimary:realTrackers});
  }else if(process.argv.includes('--furnishing')){
    report.furnishing=await playtestFurnishing({host,guest,guestId,open,out});
  }else if(process.argv.includes('--recovery')){

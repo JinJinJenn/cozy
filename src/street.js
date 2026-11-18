@@ -598,7 +598,8 @@ export class Street {
     const people=[...s.actors.keys()].filter(id=>!id.startsWith('resident')).length;
     $('party').textContent=s.error?'Room unavailable':s.space==='public'?
       (s.owner||s.connected?'Public town · '+people+(people===1?' player':' players'):'Joining public town'):
-      s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
+      s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':
+      s.privateRoutes?.routes.size>1?'Trying another connection to the owner':'Waiting for the owner';
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
     $('build-open').hidden=s.space!=='public'&&!s.canBuild;$('owner-room').hidden=!s.canBuild;
     $('street-saves').hidden=s.space==='visit';$('save-download').hidden=!s.canBuild||!s.ready;

@@ -1,5 +1,4 @@
-// A local signalling fixture for isolated Chromium profiles. Only Nostr
-// messages pass through this fixture. Game packets use native RTCDataChannels.
+// Only discovery passes through this fixture. Game packets use native RTCDataChannels.
 export function testNostrRelay(){
   const relays=new Map(),signalGates=new WeakMap();
   const accepts=(event,filter)=>filter.kinds.includes(event.kind)&&event.created_at>=filter.since&&
@@ -15,8 +14,8 @@ export function testNostrRelay(){
     });
     return context.routeWebSocket(/^wss:\/\//,socket=>{
       const url=socket.url();
-      if(!relays.has(url))relays.set(url,{clients:new Map(),recent:new Map()});
-      const {clients,recent}=relays.get(url);
+      if(!relays.has(url))relays.set(url,{clients:new Map(),recent:new Map(),swarms:new Map()});
+      const {clients,recent,swarms}=relays.get(url);
       const subscriptions=new Map();
       clients.set(socket,subscriptions);
       if(signalGate)signalGates.set(socket,signalGate);
@@ -24,9 +23,31 @@ export function testNostrRelay(){
         if(packet[0]==='EVENT'&&signalGates.get(target)?.()===false)return;
         target.send(JSON.stringify(packet));
       };
-      socket.onClose(()=>clients.delete(socket));
+      socket.onClose(()=>{
+        clients.delete(socket);
+        for(const [hash,swarm] of swarms){
+          for(const [peer,client] of swarm)if(client===socket)swarm.delete(peer);
+          if(!swarm.size)swarms.delete(hash);
+        }
+      });
       socket.onMessage(raw=>{
-        const [type,value,filter]=JSON.parse(raw);
+        const packet=JSON.parse(raw);
+        if(!Array.isArray(packet)){
+          if(packet.action!=='announce'||!packet.info_hash||!packet.peer_id)return;
+          const {info_hash,peer_id,to_peer_id,offer_id,answer,offers=[]}=packet;
+          if(!swarms.has(info_hash))swarms.set(info_hash,new Map());
+          const swarm=swarms.get(info_hash);
+          swarm.set(peer_id,socket);
+          const base={action:'announce',info_hash,peer_id};
+          if(answer&&swarm.has(to_peer_id))send(swarm.get(to_peer_id),{...base,to_peer_id,offer_id,answer});
+          else{
+            const others=[...swarm.keys()].filter(id=>id!==peer_id);
+            for(let i=0;i<Math.min(offers.length,others.length);i++)
+              send(swarm.get(others[i]),{...base,...offers[i],to_peer_id:others[i]});
+          }
+          return;
+        }
+        const [type,value,filter]=packet;
         if(type==='REQ'){
           subscriptions.set(value,filter);
           for(const e of recent.values())if(accepts(e,filter))send(socket,['EVENT',value,e]);
