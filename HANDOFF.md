@@ -4,10 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.11.1 reconnects an invited guest when the private WebRTC link fails
+before admission or stops delivering signed frames. The guest stays on the same
+page with the same actor ID. The owner and other guests keep playing.
+
 Version 0.11.0 adds player profiles, named rosters and two animated greetings.
 Choose **Multiplayer → My player profile** to set a display name and shirt color.
 The browser remembers them across public town, private streets and reloads.
-Choose a name under **Players here** to follow that person's camera target.
+Choose a name under **Players here** to follow that person with the camera.
 Click a nearby player and choose **Wave to** to turn toward them and greet them.
 Wave and Cheer in the multiplayer panel also work while walking or sitting with free hands.
 Run `npm run test:lobby -- --players` for the public and private three-profile playtest.

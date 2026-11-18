@@ -1,10 +1,10 @@
 // A local signalling fixture for isolated Chromium profiles. Only Nostr
 // messages pass through this fixture. Game packets use native RTCDataChannels.
 export function testNostrRelay(){
-  const relays=new Map();
+  const relays=new Map(),signalGates=new WeakMap();
   const accepts=(event,filter)=>filter.kinds.includes(event.kind)&&event.created_at>=filter.since&&
     event.tags.some(([key,value])=>key==='x'&&filter['#x'].includes(value));
-  return async context=>{
+  return async (context,signalGate)=>{
     // Both profiles share this machine. Use native host ICE candidates so the
     // local fixture can establish a connection while public STUN is offline.
     await context.addInitScript(()=>{
@@ -19,7 +19,11 @@ export function testNostrRelay(){
       const {clients,recent}=relays.get(url);
       const subscriptions=new Map();
       clients.set(socket,subscriptions);
-      const send=(target,packet)=>target.send(JSON.stringify(packet));
+      if(signalGate)signalGates.set(socket,signalGate);
+      const send=(target,packet)=>{
+        if(packet[0]==='EVENT'&&signalGates.get(target)?.()===false)return;
+        target.send(JSON.stringify(packet));
+      };
       socket.onClose(()=>clients.delete(socket));
       socket.onMessage(raw=>{
         const [type,value,filter]=JSON.parse(raw);
@@ -30,6 +34,7 @@ export function testNostrRelay(){
         }else if(type==='CLOSE'){
           subscriptions.delete(value);
         }else if(type==='EVENT'){
+          if(signalGates.get(socket)?.()===false)return;
           const event=value;
           send(socket,['OK',event.id,true,'']);
           if(recent.has(event.id))return;

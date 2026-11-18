@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {mkdir} from 'node:fs/promises';
 
-export async function playPlayers({host,guest,paired,ready,wait,navigate,profile}){
+export async function playPlayers({host,guest,paired,ready,wait,navigate,profile,isolatedRelay}){
   const panel=async p=>{
     if(await p.locator('#social-pane').isHidden())await p.locator('#social-open').click();
   };
@@ -69,11 +69,27 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   const link=await host.locator('#invite-url').inputValue();
   await guest.goto(link);await ready(guest);await panel(guest);
   await Promise.all([visibleName(host,'River'),visibleName(guest,'Marigold')]);
-  const visitor=await profile();
+  // Lose one visitor's first private connection before its first signed
+  // frame. The same page must rejoin while the owner and existing guest stay.
+  let signalling=!isolatedRelay;
+  const visitor=await profile(()=>signalling);
   try{
     await visitor.goto(link);await ready(visitor);await panel(visitor);
+    const actor=await visitor.evaluate(async interrupt=>{
+      const s=window.__cozy.street.session;await s.wide;
+      if(interrupt){
+        if(s.connected||s.verifiedSeq!==-1||!s.privateWire)throw Error('Expected an unconnected visitor');
+        await s.privateWire.leave();
+      }
+      return s.id;
+    },isolatedRelay);
+    signalling=true;
+    await wait(visitor,()=>window.__cozy.street.session.connected);
     await Promise.all([visibleName(visitor,'Marigold'),visibleName(visitor,'River')]);
     await wait(visitor,()=>document.querySelectorAll('#player-roster button').length===3);
+    assert.equal(await visitor.evaluate(()=>window.__cozy.street.session.id),actor);
+    assert.equal(await host.evaluate(()=>window.__cozy.street.session.canBuild),true);
+    assert.equal(await guest.evaluate(()=>window.__cozy.street.session.connected),true);
   }finally{await visitor.context().close();}
-  console.log('PASS named public and private roster, actor-camera follow, replicated shirt colors and animated wave/cheer, duplicate names, reload and third visitor');
+  console.log('PASS named roster, camera follow, shirt colors, animated wave/cheer, duplicate names, reload and private visitor recovery after a lost first connection');
 }

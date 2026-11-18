@@ -158,23 +158,45 @@ export class StreetSession {
   async connect(publicly=true){
     const handlers=kind=>({
         onMessage:(peer,m)=>this.receive(kind+'/'+peer,m),
-        onPeerJoin:()=>this.announceOwner(kind),
+        onPeerJoin:()=>{if(this.owner)this.announceOwner(kind);else this.sendInput();},
         onPeerLeave:peer=>this.peers.delete(kind+'/'+peer),onError:()=>{}
     });
     const name='street-'+this.pub;
     const attach=async(kind,connection)=>{
-      if(!this.ownerSave||!this.owner)return;
+      if(kind!=='broadcast')this.privateWire=connection;
+      if(!this.owner){this.sendInput();return;}
+      if(!this.ownerSave)return;
       const body=JSON.stringify([this.pub,kind+'/'+connection.selfId,this.boot,this.hostStarted]);
       const sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));
       if(!this.closed&&this.owner){this.hostCards.set(kind,{connection,packet:{kind:'private-host',body,sig}});this.announceOwner(kind);}
     };
     this.connecting??=this.open(name,this.connections,handlers,t=>t.kind==='broadcast',attach);
     await this.connecting;
-    if(publicly&&!this.closed){
-      this.wide??=this.open(name,this.connections,handlers,t=>t.kind!=='broadcast',attach);
-      if(this.owner)save(project+'.host.'+this.pub,true);
+    if(publicly&&!this.closed&&new URLSearchParams(location.search).get('net')!=='local'){
+      this.joinPrivateWire??=()=>this.open(name,this.connections,handlers,t=>t.kind!=='broadcast',attach);
+      this.wide??=this.joinPrivateWire();
+      this.retryPrivateAt??=performance.now()+18000;
     }
+    if(publicly&&!this.closed&&this.owner)save(project+'.host.'+this.pub,true);
     return !this.closed;
+  }
+  async retryPrivateWire(now){
+    if(this.retrying||this.owner||this.closed||this.connected||!this.joinPrivateWire||now<this.retryPrivateAt)return;
+    this.retrying=true;
+    const delay=this.privateRetryDelay??18000;
+    this.privateRetryDelay=Math.min(60000,delay*2);this.retryPrivateAt=now+this.privateRetryDelay;
+    try{
+      await this.wide;
+      if(this.closed||this.owner||this.connected)return;
+      const previous=this.privateWire;
+      if(previous){
+        this.privateWire=null;
+        this.connections=this.connections.filter(link=>link!==previous);
+        try{await previous.leave();}catch(e){this.transportError=String(e.message||e);}
+      }
+      if(!this.closed&&!this.owner&&!this.connected)this.wide=this.joinPrivateWire();
+    }catch(e){this.transportError=String(e.message||e);}
+    finally{this.retrying=false;}
   }
   announceOwner(kind){
     const card=this.owner&&this.hostCards?.get(kind);if(card)card.connection.send(card.packet);
@@ -508,6 +530,7 @@ export class StreetSession {
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
+        if(this.joinPrivateWire){this.privateRetryDelay=18000;this.retryPrivateAt=this.lastFrame+18000;}
         this.actors=new Map(f.actors.map(a=>{if(a.profile)a.profile=readProfile(a.profile);return [a.id,a];}));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(this.invitedHome&&this.inviteBoot!==f.boot){
@@ -577,6 +600,7 @@ export class StreetSession {
       }
     }else{
       if(now-this.lastFrame>4000)this.connected=false;
+      if(!this.connected&&this.joinPrivateWire&&now>=this.retryPrivateAt)void this.retryPrivateWire(now);
       const blend=Math.min(1,(now-this.lastFrame)/this.residentInterval);
       this.residentTargets?.forEach((r,i)=>{
         if(r)this.town.people[i].position.set(r.x+(r.to[0]-r.x)*blend,r.y+(r.to[1]-r.y)*blend,r.z+(r.to[2]-r.z)*blend);

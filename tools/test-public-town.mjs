@@ -31,10 +31,10 @@ const inspect=p=>p.evaluate(()=>{
     residents:s.town.people.length,received:s.residentTargets?.length,peers:[...s.peers.keys()],signed:s.verifiedSeq,
     stored:Object.keys(localStorage).filter(k=>k.includes('waterfront-v1')).sort(),revision:s.layout.revision};
 });
-async function profile(){
+async function profile(signalGate){
   const ctx=await browser.newContext({viewport:{width:960,height:580},deviceScaleFactor:1});
   await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
-  if(!relay)await installRelay(ctx);
+  if(!relay)await installRelay(ctx,signalGate);
   await ctx.route('**/*',async route=>{
     const url=new URL(route.request().url());
     if(!url.href.startsWith(origin))return route.continue();
@@ -70,7 +70,7 @@ try{
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
   if(process.argv.includes('--players')){
-    await playPlayers({host,guest,paired,ready,wait,navigate,profile});assert.deepEqual(errors,[]);
+    await playPlayers({host,guest,paired,ready,wait,navigate,profile,isolatedRelay:!relay});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--addresses')){
     await playAddresses({host,guest,paired,ready,wait,navigate,profile});assert.deepEqual(errors,[]);
   }else{
