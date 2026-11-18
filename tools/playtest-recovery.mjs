@@ -51,10 +51,11 @@ export async function playtestRecovery({host,guest,open,origin,out}){
   },{lot,revision:source.revision});
   await fresh.waitForFunction(lot=>!window.__cozy.island.homesById.get(lot).divider,lot);
   await guest.waitForFunction(({lot,rev})=>{const s=window.__cozy.street.session;return s.connected&&s.layout.revision===rev+1&&!s.island.homesById.get(lot).divider;},{lot,rev:source.revision},{timeout:45000});
+  await Promise.all([fresh.context().close(),guest.context().close()]);
   await menu(newDevice);await newDevice.locator('#save-slot').selectOption('');await newDevice.locator('#save-switch').click();
-  await newDevice.waitForFunction(pub=>{const s=window.__cozy?.street?.session;return s?.ready&&s.pub===pub&&s.coffeeVisits?.resident0===1;},original,{timeout:120000});
+  await newDevice.waitForFunction(pub=>{const c=window.__cozy,s=c?.street?.session;return c?.ready&&s?.ready&&s.pub===pub&&s.coffeeVisits?.resident0===1;},original,{timeout:120000});
   await menu(newDevice);await newDevice.locator('#save-slot').selectOption(recovered);await newDevice.locator('#save-switch').click();
-  await newDevice.waitForFunction(({pub,rev})=>{const s=window.__cozy?.street?.session;return s?.ready&&s.pub===pub&&s.layout.revision===rev+1&&s.coffeeVisits?.resident1===1;},{pub:source.pub,rev:source.revision},{timeout:120000});
+  await newDevice.waitForFunction(({pub,rev})=>{const c=window.__cozy,s=c?.street?.session;return c?.ready&&s?.ready&&s.pub===pub&&s.layout.revision===rev+1&&s.coffeeVisits?.resident1===1;},{pub:source.pub,rev:source.revision},{timeout:120000});
   return {copiedByDownload:true,wrongPassphraseKeptLocalSave:true,validPreviewKeptLocalSave:true,
     connectedOwnersConverged:true,originalInviteRejoined:true,existingGuestReconnected:true,restoredOwnerBuilt:true,returnedToHome:true,visitHistory:true,bothLocalSavesReopened:true};
 }

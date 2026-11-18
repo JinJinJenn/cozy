@@ -19,7 +19,10 @@ const live=process.env.COZY_DOMESTIC_LIVE==='1',origin=live?'https://jinjinjenn.
 const realTrackers=process.argv.includes('--public-trackers');
 const report={errors:[],origin,transport:realTrackers?'Native RTCDataChannel, public signalling':'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
 try{
- const context=async(blockPrimary)=>{const ctx=await browser.newContext({viewport:software?{width:800,height:600}:{width:1440,height:900}});
+ const viewport=software?{width:800,height:600}:{width:1440,height:900};
+ // Use the smaller backing buffer from the first frame, including restore and reload.
+ const deviceScaleFactor=software && process.env.CI==='true' ? 0.5 : 1;
+ const context=async(blockPrimary)=>{const ctx=await browser.newContext({viewport,deviceScaleFactor});
    if(!realTrackers)await relay(ctx);
    if(software)await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
    if(!live)await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
@@ -29,12 +32,6 @@ try{
    return ctx;};
  const open=async(url,blockPrimary=false)=>{const p=await(await context(blockPrimary)).newPage();p.on('pageerror',e=>report.errors.push(e.message));
    p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))report.errors.push(m.text());});
-   if(software&&process.env.CI)p.on('domcontentloaded',()=>{
-     // Each profile keeps its normal viewport and input coordinates. Reduce
-     // software rasterization while several full simulations share one runner.
-     void p.waitForFunction(()=>window.__cozy?.ready,null,{polling:200,timeout:120000})
-       .then(()=>p.evaluate(()=>window.__cozy.setSize(400,300))).catch(()=>{});
-   });
    await p.goto(url);await p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street.session?.ready,null,{timeout:120000});return p;};
  const host=await open(origin+'?space=personal'),guest=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
  report.version=await host.locator('#graphics-settings summary span').innerText();

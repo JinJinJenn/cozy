@@ -63,6 +63,8 @@ export async function playAddresses({host,guest,paired,ready,wait,navigate,profi
   if(!await guest.locator('#social-pane').isVisible())await guest.locator('#social-open').click();
   await navigate(guest,'#address-private');await ready(guest);
   assert.deepEqual(await guest.evaluate(()=>{const s=window.__cozy.street.session;return {pub:s.pub,revision:s.layout.revision,home:s.near(s.actors.get(s.id))?.id};}),{...originals[1],home:lot});
+  // The public handover is complete. The invitation uses a fresh profile.
+  await host.context().close();
   await guest.locator('#social-open').click();await guest.locator('#copy-street').click();
   await guest.locator('#invite-url').waitFor({state:'visible'});
   const invite=await guest.locator('#invite-url').inputValue();assert.equal(new URL(invite).searchParams.get('home'),theirs.home);
