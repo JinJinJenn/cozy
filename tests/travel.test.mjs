@@ -92,6 +92,16 @@ test('the brake holds a stopped car with throttle or reverse held and releases i
   moveVehicle(s,a,{x:0,z:1},1/60);assert.ok(a.speed>0);assert.equal(a.brakeHeld,false);
 });
 
+test('a stopped roadster can pull away along the outside curb where two harbor road segments meet',()=>{
+  const {s,a}=street();
+  s.island.half=1000;
+  s.island.plan.roads=[{width:7,pts:[[-164.1,146],[-140.9,209.2],[-132.1,232],[-126.8,243.7]]}];
+  Object.assign(a,{vehicle:'car',x:-143.14785918458767,z:210.6634774964393,yaw:3.5099415749987566,speed:0});
+  const start={x:a.x,z:a.z};
+  for(let i=0;i<90;i++)moveVehicle(s,a,{x:0,z:1},1/60);
+  assert.ok(a.speed>2&&Math.hypot(a.x-start.x,a.z-start.z)>2);
+});
+
 test('front and rear tires build yaw, share grip under braking and settle after neutral steering',()=>{
   const cruise={speed:14},braking={speed:14};
   for(let i=0;i<25;i++){

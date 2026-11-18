@@ -4,6 +4,10 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.21.1 fixes a stop against the outside curb where two curved road
+segments meet. The roadster can ease back onto the carriageway and pull away.
+The travel tests retain the Harbor Town position that reproduced the issue.
+
 Version 0.21.0 gives the roadster independent front and rear tire forces,
 yaw inertia, load transfer and a grip budget shared by braking and cornering.
 The host and guest prediction integrate the same model. Hills affect coasting,

@@ -101,16 +101,29 @@ function driveCar(s,a,input,dt){
     // Scrub along the kerb on a shallow contact. The proposed recovery goes
     // through the same footprint, pedestrian and building checks as free travel.
     const lines=roadsOf(s.island).cells.get(Math.floor(a.x/32)+','+Math.floor(a.z/32))||[];
-    let nearest,dist=Infinity;
-    for(const line of lines){if(!line.drivable)continue;const d=project(line,a).distance;if(d<dist){nearest=line;dist=d;}}
+    let nearest,foot;
+    for(const line of lines){
+      if(!line.drivable)continue;
+      const hit=project(line,a);
+      if(!foot||hit.distance<foot.distance){nearest=line;foot=hit;}
+    }
     if(nearest){
       const along=nearest.dx*Math.sin(mid)+nearest.dz*Math.cos(mid);
       if(Math.abs(along)>.76){
         const heading=Math.atan2(nearest.dx*Math.sign(along),nearest.dz*Math.sign(along));
         const error=Math.atan2(Math.sin(heading-a.yaw),Math.cos(heading-a.yaw));
         const corrected=a.yaw+approach(0,error,step*2.8);
-        const cx=a.x+nearest.dx*travel*along,cz=a.z+nearest.dz*travel*along;
-        if(fits(s,'car',cx,cz,corrected,people)){
+        let cx=a.x+nearest.dx*travel*along,cz=a.z+nearest.dz*travel*along;
+        let clear=fits(s,'car',cx,cz,corrected,people);
+        if(!clear&&foot.distance>nearest.r-specifications.car.halfWidth-.24){
+          // At an outside bend, rotating to the tangent can swing the rear
+          // corner farther onto the curb. Resolve a small inward displacement
+          // with the rotation and check the complete footprint together.
+          const inset=Math.min(.65*step,foot.distance)/foot.distance;
+          cx+=(foot.x-a.x)*inset;cz+=(foot.z-a.z)*inset;
+          clear=fits(s,'car',cx,cz,corrected,people);
+        }
+        if(clear){
           Object.assign(a,{x:cx,z:cz,yaw:corrected,speed:a.speed*Math.exp(-step*2),sideSpeed:0,yawRate:0});continue;
         }
       }
