@@ -18,7 +18,7 @@ export function lampIsLit(layout,lot,kind){
 export const tvChannels=['Off','Harbor Ferry','The Kitchen Window','Night Sky'];
 
 export function televisionIn(home){
-  const sofa=home.furniture.find(f=>f.type==='sofa'),side=sofa.flip?-1:1;
+  const sofa=(home.generatedFurniture||home.furniture).find(f=>f.type==='sofa'),side=sofa.flip?-1:1;
   return {x:side*(home.w/2-.40),z:sofa.z,y:1.70,yaw:-side*Math.PI/2,side};
 }
 

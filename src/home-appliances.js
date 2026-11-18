@@ -22,15 +22,16 @@ function addLamp(parent,f,spec){
     new THREE.CylinderGeometry(bedside?.12:.15,bedside?.21:.23,bedside?.25:.14,16),
     new THREE.MeshLambertMaterial({color:bedside?'#ead4a5':'#58816c',emissive:'#ffbd62',emissiveIntensity:0})
   );
-  shade.position.set(f.x+spec.x,spec.shade,f.z+spec.z);
+  const support=new THREE.Group();support.position.set(f.x,0,f.z);support.rotation.y=(f.turn||0)*Math.PI/2;
+  shade.position.set(spec.x,spec.shade,spec.z);
   // A warm pool on the supporting surface, bounded by its physical edges.
   const pool=new THREE.Mesh(new THREE.PlaneGeometry(f.w-.02,f.d-.02),new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,uniforms:{strength:{value:0},origin:{value:new THREE.Vector2(.5+spec.x/f.w,.5-spec.z/f.d)}},
     vertexShader:'varying vec2 uvPoint;void main(){uvPoint=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
     fragmentShader:'varying vec2 uvPoint;uniform vec2 origin;uniform float strength;void main(){vec2 d=uvPoint-origin;float a=exp(-4.2*dot(d,d));gl_FragColor=vec4(1.0,.75,.34,a*strength*.54);\n#include <colorspace_fragment>\n}'
   }));
-  pool.position.set(f.x,spec.top+.004,f.z);pool.rotation.x=-Math.PI/2;pool.renderOrder=2;
-  parent.add(shade,pool);
+  pool.position.set(0,spec.top+.004,0);pool.rotation.x=-Math.PI/2;pool.renderOrder=2;
+  support.add(shade,pool);parent.add(support);
   return {kind:f.type,shade,pool,level:null};
 }
 

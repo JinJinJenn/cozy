@@ -19,6 +19,12 @@ Use action for a wall or floor merely to inflate prop coverage.
 
 ## Generated-home inventory
 
+In v0.10.0, moving a sofa, bed, rug, desk, bedside table or dining set preserves
+its activity slots. Dining chairs turn with the table. A lamp's shade, switch
+target and light pool move with its support. A visitor can switch the relocated
+desk lamp, and its state and position survive independent browser sessions.
+Plumbing, shelves and wall televisions still have fixed positions.
+
 | Object or component | v0.3 behavior | Required next work |
 | --- | --- | --- |
 | Living-room television and remote (v0.6) | Two viewers share sofa cushions. A compact studio offers a second seat on the rug. Both viewers can tune or switch off the same animated picture. Each private home's channel survives owner reload. | More programs and room-editor placement |

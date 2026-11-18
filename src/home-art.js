@@ -92,7 +92,10 @@ function furnish(a,b){
   for(const r of b.walls.filter(r=>r.side==='inside'&&!r.divider)){
     a.box(r.x,1.24,r.z,r.w,2.48,r.d,'#e6d8bf');a.box(r.x,.15,r.z,r.w+.04,.23,r.d+.04,accent);
   }
-  for(const f of b.furniture){const p=a.frame(f.x,0,f.z,f.flip?Math.PI:0);
+  for(const f of b.furniture)drawItem(a,f,accent);
+}
+function drawItem(a,f,accent){
+    const p=a.frame(f.x,0,f.z,(f.turn||0)*Math.PI/2+(f.flip?Math.PI:0));
     if(f.type==='tile'){
       p.box(0,.07,0,f.w,.025,f.d,'#d6d7c3');
       for(let x=-f.w/2+.4;x<f.w/2;x+=.4)p.box(x,.085,0,.016,.008,f.d,'#a4b2aa');
@@ -180,7 +183,16 @@ function furnish(a,b){
       p.box(.12,.84,0,.38,.04,.28,'#e7d8bb');p.round(-.36,.84,0,.24,.045,.24,'#b38b59');
       p.round(-.36,1.03,0,.045,.40,.045,metal);p.round(-.36,1.33,0,.08,.035,.08,'#b38b59');
     }
+}
+export function furnishingPreview(home,item,material){
+  const group=new THREE.Group(),pieces=new Pieces(group);
+  drawItem(pieces,{...item,x:0,z:0,turn:0},palette[home.palette][2]);
+  pieces.finish();
+  for(const mesh of group.children){
+    mesh.material=material;mesh.castShadow=false;mesh.receiveShadow=false;
+    mesh.instanceColor=null;
   }
+  return group;
 }
 export class HomeInteriors {
   constructor(island,parent){this.island=island;this.parent=parent;this.open=null;this.group=null;}
@@ -216,9 +228,10 @@ export class HomeInteriors {
   }
   update(pos,eye,session){
     const home=homeAt(this.island,pos,.16);
-    if(home!==this.open){
+    if(home!==this.open||(home?.furnishingRevision||0)!==this.drawnFurnitureRevision){
       this.close();
       this.open=home;
+      this.drawnFurnitureRevision=home?.furnishingRevision||0;
       if(home){
         this.group=new THREE.Group();const a=new Pieces(this.group).frame(home.x,home.y,home.z,home.yaw);furnish(a,home);a.finish();this.parent.add(this.group);
         this.appliances=new HomeAppliances(this.group,home);

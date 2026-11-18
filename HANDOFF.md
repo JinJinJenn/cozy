@@ -4,6 +4,20 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.10.0 adds furniture placement in generated homes on your private street.
+Enter a house and choose **Build → Edit → Furniture**. Select an item, click the floor
+to move it, right-click to rotate and choose **Place item**. Touch and keyboard users
+can use both position sliders and the rotation button. Comma and period turn the
+item left and right, as in [The Sims 3 Build/Buy controls](https://eaassets-a.akamaihd.net/eahelp/manuals/the-sims-3-manual_PC.pdf#page=2).
+**Undo move** restores the
+previous placement. Sofas, beds, desks, bedside tables, dining sets and rugs can move
+where the floor plan allows. The owner previews locally and guests see committed edits.
+
+Furniture moves carry the attached seats, use positions and working lamps. The owner
+cannot move a reserved or occupied item or cut off a route to the entrance. Positions
+survive reload and encrypted backup. Run `npm run test:domestic -- --furnishing` to
+exercise floor picking, rotation, guest use, undo, owner reload and late join.
+
 Version 0.9.1 places invited guests inside the house on admission. If the
 doorway is occupied, the host looks for another clear indoor spot. Address
 controls also update while a slow renderer is waiting for its next frame.

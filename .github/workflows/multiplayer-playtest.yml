@@ -17,6 +17,10 @@ on:
       - 'src/save-menu.js'
       - 'tools/test-domestic.mjs'
       - 'tools/playtest-recovery.mjs'
+      - 'tools/playtest-furnishing.mjs'
+      - 'src/home-*.js'
+      - 'src/furni*.js'
+      - 'src/room-divider.js'
       - 'src/street*.js'
       - 'src/vehicle-art.js'
       - 'tools/test-travel.mjs'
@@ -48,6 +52,8 @@ jobs:
             name: Travel and pointer controls over WebRTC
           - signalling: recovery
             name: Private street backup and owner recovery
+          - signalling: furnishing
+            name: Furnish an occupied home with a guest
           - signalling: addresses
             name: Public address claims and host handover
     steps:
@@ -96,6 +102,9 @@ jobs:
       - name: Reserve a house with another resident
         if: matrix.signalling == 'addresses'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --addresses
+      - name: Place a desk and use its lamp with another player
+        if: matrix.signalling == 'furnishing'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --furnishing --software
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4

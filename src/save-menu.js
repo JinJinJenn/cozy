@@ -1,6 +1,6 @@
 import {exportBackup,installBackup,maxFileBytes,readBackup,savedParcel,savedStreets,selectedSave,selectSave} from './private-saves.js';
 import {homeAt} from './home-plan.js';
-import {dividerLimit} from './room-divider.js';
+import {syncInteriors} from './home-furnishing.js';
 
 const el=id=>document.getElementById(id);
 export class SaveMenu{
@@ -63,13 +63,14 @@ export class SaveMenu{
         const data=await readBackup(await file.text(),password);
         if(!current())return;
         const homes=s.island.homesById,home=data.homeLot&&homes.get(data.homeLot);
-        const lots=Object.entries(data.layout.rooms?.lots||{});
-        if(data.homeLot&&!home||data.parcel&&!homes.has(data.parcel.home)||lots.some(([id,plan])=>!homes.has(id)||dividerLimit(homes.get(id),plan))){
+        if(data.homeLot&&!home||data.parcel&&!homes.has(data.parcel.home)||!syncInteriors(s.island,s.layout,data.layout,true)){
           throw Error('This home layout does not fit the current town.');
         }
         this.preview=data;el('save-pass').value='';
         const dividers=Object.keys(data.layout.rooms?.lots||{}).length;
-        el('save-status').textContent=(home?home.name+' · ':'')+'Revision '+data.layout.revision+' · '+dividers+' room divider'+(dividers===1?'':'s')+'. Open as a separate saved street on this device.';
+        const pieces=Object.values(data.layout.furnishings?.lots||{}).reduce((n,items)=>n+Object.keys(items).length,0);
+        el('save-status').textContent=(home?home.name+' · ':'')+'Revision '+data.layout.revision+' · '+dividers+' room divider'+(dividers===1?'':'s')+
+          (pieces?' · '+pieces+' moved '+(pieces===1?'item':'items'):'')+'. Open as a separate saved street on this device.';
         el('save-restore').hidden=false;
       }
     }catch(error){if(current())el('save-status').textContent=error.message;}

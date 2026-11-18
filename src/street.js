@@ -132,7 +132,7 @@ export class Street {
     listen(canvas,'pointerdown',e=>{
       clearHover();
       if(!e.isPrimary||![0,2].includes(e.button)){press=null;return;}
-      if(!this.buildLot||this.terraceEditor.active){
+      if(!this.buildLot||this.terraceEditor.active||this.homeEditor.furniture.home){
         $('world-choice').hidden=true;$('map-travel').hidden=true;
         press={id:e.pointerId,x:e.clientX,y:e.clientY,button:e.button,at:e.timeStamp};
       }
@@ -155,6 +155,9 @@ export class Street {
       if(tap&&tap.id===e.pointerId&&tap.button===e.button&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)<=5){
         if(!this.active)this.mapAtPointer(e);
         else if(this.terraceEditor.active){if(tap.button===0)this.terraceEditor.aim(e);}
+        else if(this.homeEditor.furniture.home){
+          if(tap.button===0)this.homeEditor.furniture.aim(e);else this.homeEditor.furniture.rotate();
+        }
         else if(!this.buildLot)this.walkAtPointer(e,tap.button===2||e.pointerType==='touch'&&e.timeStamp-tap.at>=450);
       }
     });

@@ -5,6 +5,8 @@ import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
+import {editedItems,installFurniture,occupantLimit,planInterior,syncInteriors} from './home-furnishing.js';
+import {furnishings,originalPose,samePose,supportFor,validPose} from './furniture-pose.js';
 import {tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
@@ -25,12 +27,13 @@ const furniture={
 const homeStations=new WeakMap();
 export function stationsFor(b){
   if(b.kind==='home'){
-    let spots=homeStations.get(b);
+    const uses=b.uses||b.seats;
+    let spots=homeStations.get(uses);
     if(!spots){
-      spots=(b.uses||b.seats).map((p,index)=>({...p,...toWorld(b,p.x,p.z),
+      spots=uses.map((p,index)=>({...p,...toWorld(b,p.x,p.z),
         target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
         pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
-      homeStations.set(b,spots);
+      homeStations.set(uses,spots);
     }
     return spots;
   }
@@ -107,7 +110,7 @@ export class StreetSession {
         if(!layout)throw Error('This saved layout could not be read. You can restore a backup from the public town.');
         this.layout=layout;
         this.saved=id.persistent!==false;
-        applyRoomPlans(this.island,{},this.layout.rooms?.lots);
+        if(!syncInteriors(this.island,null,this.layout))throw Error('The saved furnishings do not fit this house. Open a different save or restore a backup.');
         const home=this.island.homesById?.get(id.recovered?.homeLot);
         if(this.owner&&home)Object.assign(this.actors.get(this.id),home.inside);
       }
@@ -215,6 +218,33 @@ export class StreetSession {
     const nearby=p=>Math.abs(p.x-home.x)<=home.collisionHalfX&&Math.abs(p.z-home.z)<=home.collisionHalfZ;
     return [...this.actors.values()].flatMap(a=>a.using?.exit?[a,a.using.exit]:[a]).filter(nearby)
       .concat((this.town.current||[]).filter(nearby),[...this.activities.routes.values()].map(r=>r.goal).filter(nearby));
+  }
+  furnitureInUse(home,item){
+    const using=index=>home.uses[index]&&supportFor(home.uses[index])===item;
+    for(const a of this.actors.values())if(a.using?.lot===home.id&&using(a.using.index))return true;
+    for(const r of this.activities.routes.values())if(r.arrival?.lot===home.id&&using(r.arrival.index))return true;
+    return false;
+  }
+  editFurniture(lot,id,draft,revision,undo=false){
+    const home=this.island.homesById?.get(lot),state=this.layout.furnishings||{v:1,lots:{}};
+    if(!this.ready||!this.canBuild||!home||homeAt(this.island,this.actors.get(this.id))!==home)return false;
+    if(revision!==this.layout.revision){this.notice('The room changed. Review the placement and apply again.');return false;}
+    if(undo){
+      if(state.last?.[0]!==lot)return false;
+      [,id,draft]=state.last;
+    }
+    if(!Object.hasOwn(furnishings,id)||!validPose(draft)||!home.furniture.some(f=>f.id===id))return false;
+    const previous=state.lots[lot]?.[id]||originalPose;
+    if(samePose(previous,draft))return false;
+    if(this.furnitureInUse(home,id)){this.notice('Someone is using this item or walking to it.');return false;}
+    const items=editedItems(state.lots[lot],id,draft),{next,reason}=planInterior(home,items,home.divider);
+    const issue=reason||occupantLimit(home,next,id,this.roomOccupants(home),true);
+    if(issue){this.notice(issue);return false;}
+    const lots={...state.lots};
+    if(Object.keys(items).length)lots[lot]=items;else delete lots[lot];
+    installFurniture(home,items,next);
+    this.layout.furnishings={v:1,lots,...(undo?{}:{last:[lot,id,[...previous]]})};
+    this.layout.revision++;this.town.sim?._recheckAll();this.persist();return true;
   }
   editRoom(id,draft,revision,undo=false){
     if(!this.ready||!this.canBuild)return false;
@@ -446,13 +476,13 @@ export class StreetSession {
           }else if(!address.synced||f.parcelRevision!==address.book.revision)return;
           address.confirm(f.confirmedRevision);
         }
-        if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
         const newHost=this.hostBoot!==f.boot;
+        if((this.layout.revision!==layout.revision||newHost)&&!syncInteriors(this.island,this.layout,layout))return;
+        if(this.hostBoot&&newHost)this.oldBoots.add(this.hostBoot);
         if(this.space==='public'&&!this.connected)this.notice('');
         if(newHost)this.poseEpoch=(this.poseEpoch??0)+1;
         this.residentInterval=Math.min(160,Math.max(32,performance.now()-this.lastFrame));
         this.hostBoot=f.boot;this.verifiedSeq=f.seq;this.connected=true;this.lastFrame=performance.now();
-        if(this.layout.revision!==layout.revision||newHost)applyRoomPlans(this.island,this.layout.rooms?.lots,layout.rooms?.lots);
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
         if(this.invitedHome&&this.inviteBoot!==f.boot){

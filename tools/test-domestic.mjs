@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playtestRoom} from './playtest-room.mjs';
+import {playtestFurnishing} from './playtest-furnishing.mjs';
 import {playtestRecovery} from './playtest-recovery.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DOMESTIC_REPORT||path.join(root,'test-results/domestic');
 await mkdir(out,{recursive:true});
@@ -37,7 +38,9 @@ try{
  assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
- if(process.argv.includes('--recovery')){
+ if(process.argv.includes('--furnishing')){
+   report.furnishing=await playtestFurnishing({host,guest,guestId,open,out});
+ }else if(process.argv.includes('--recovery')){
    report.recovery=await playtestRecovery({host,guest,open,origin,out});
  }else if(process.argv.includes('--room')){
    report.room=await playtestRoom({host,guest,guestId,open,out});

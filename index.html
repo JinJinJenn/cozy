@@ -47,10 +47,20 @@ body.shot #ui,body.shot #mini{display:none}
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
       <button id="terrace-open" hidden>Furnish café terrace</button>
       <div id="room-tools" hidden>
+        <label>Edit <select id="room-mode"><option value="divider">Room divider</option><option value="furniture">Furniture</option></select></label>
+        <div id="divider-tools">
         <label>Divider position <input type="range" id="room-line" step="1"><output id="room-line-value"></output></label>
         <label>Doorway position <input type="range" id="room-door" step="1"><output id="room-door-value"></output></label>
         <p id="room-status" role="status"></p>
         <div><button id="room-rotate">Rotate 90°</button> <button id="room-apply" class="primary">Apply divider</button> <button id="room-remove">Remove divider</button> <button id="room-undo">Undo room edit</button></div>
+        </div>
+        <div id="furniture-tools" hidden>
+          <label>Item <select id="furniture-item"></select></label>
+          <label>Across <input id="furniture-x" type="range" step="1"><output id="furniture-x-value"></output></label>
+          <label>Depth <input id="furniture-z" type="range" step="1"><output id="furniture-z-value"></output></label>
+          <p id="furniture-status" role="status"></p>
+          <div><button id="furniture-rotate" title="Turn left with comma or right with period" aria-keyshortcuts=", .">Rotate 90°</button> <button id="furniture-apply" class="primary">Place item</button> <button id="furniture-undo">Undo move</button></div>
+        </div>
       </div>
       <div id="terrace-tools" hidden><label>Furniture <select id="terrace-slot"></select></label>
         <p id="terrace-status" role="status"></p>

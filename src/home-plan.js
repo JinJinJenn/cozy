@@ -2,6 +2,7 @@ import {polyCentroid,pointInPoly,distSeg} from '../packages/settlement/src/geom.
 import {rng} from '../packages/island-gen/src/rng.js';
 import {routeOnGrid} from './walk-grid.js';
 import {fixtureOutlet,lamps,televisionIn} from './home-fixtures.js';
+import {footprint} from './furniture-pose.js';
 
 export const homeWorld=(b,x,z)=>({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export const homeLocal=(b,p)=>({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
@@ -18,10 +19,11 @@ export function homeWalkableLocal(b,q){
   for(const r of b.furniture){
     if(!r.solid)continue;
     if(r.type==='sofa'){
-      const x=q.x-r.x,z=Math.abs(q.z-r.z);
+      const dx=q.x-r.x,dz=q.z-r.z;
+      const x=r.turn===1?-dz:r.turn===2?-dx:r.turn===3?dz:dx,z=Math.abs(r.turn%2?dx:dz);
       if(Math.abs(x-(r.flip?1:-1)*r.w*.42)<.37&&z<r.d/2+.31)return false;
       if(Math.abs(x)<r.w/2+.31&&Math.abs(z-(r.d/2-.05))<.36)return false;
-    }else if(hit(q,r))return false;
+    }else if(hit(q,footprint(r)))return false;
   }
   return true;
 }
@@ -112,7 +114,7 @@ export function prepareHomes(island,exclude=[]){
     // routed furniture approaches. Keep stable indices when the same home reopens.
     let uses;
     const b={id:l.id,kind:'home',name:'Home '+(homes.length+1),x,z,yaw,c:Math.cos(yaw),s:Math.sin(yaw),
-      parcel:l.poly,road:l.frontageRoadId,variant,get uses(){return uses??=usesFor(this);}};
+      parcel:l.poly,road:l.frontageRoadId,variant,get uses(){return this.placedUses||(uses??=usesFor(this));}};
     let w=Math.min(12,Math.sqrt(l.area)*(.68+random()*.12)),d=w*(variant===1?1.1:variant===2?.74:.89);
     while(w>=3.5&&![-1,1].every(s=>[-1,1].every(t=>{const p=homeWorld(b,s*(w/2+.6),t*(d/2+.9));return pointInPoly(p.x,p.z,l.poly);}))) {w*=.9;d*=.9;}
     if(w<3.5)continue;

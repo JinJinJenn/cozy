@@ -1,4 +1,6 @@
 #street-panel[hidden],#street-panel [hidden]{display:none}
+#room-tools>div{margin-top:8px}#furniture-tools label{margin-block:5px}#furniture-tools output{min-width:4em;text-align:right}
+#build-pane{max-height:65dvh;overflow-y:auto}#furniture-status{margin:7px 0;max-width:29em}
 body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #street-panel{position:fixed;inset:0;pointer-events:none;--paper:#fff7e8;--charcoal:#294640;color:var(--charcoal);font-family:"Trebuchet MS",system-ui,sans-serif}
 .street-hud,.street-actions,.street-drawer,#walk-pad{pointer-events:auto}

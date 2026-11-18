@@ -1,6 +1,7 @@
 import {homeLocal,homeWorld,homeWalkableLocal} from './home-plan.js';
 import {routeOnGrid} from './walk-grid.js';
 import {televisionIn} from './home-fixtures.js';
+import {footprint} from './furniture-pose.js';
 
 // A v1 divider spans the room. The three integers encode orientation, wall
 // offset and doorway offset in half metres, all relative to the original lot.
@@ -39,7 +40,7 @@ function fit(home,plan){
   const [turn,line,center]=plan;
   if(Math.abs(line/2)>span(home,1-turn)/2-1.15||Math.abs(center/2)>span(home,turn)/2-1.16)return 'Leave room beside the doorway and on both sides of the wall.';
   const panels=dividerParts(home,plan),fixed=home.walls.filter(w=>w.side==='inside'&&!w.divider);
-  const tv=televisionIn(home),fixtures=[...fixed,{...tv,w:.30,d:1.67},...home.furniture.filter(f=>f.type!=='rug'&&f.type!=='tile')];
+  const tv=televisionIn(home),fixtures=[...fixed,{...tv,w:.30,d:1.67},...home.furniture.filter(f=>f.type!=='rug'&&f.type!=='tile').map(footprint)];
   if(panels.some(p=>fixtures.some(f=>overlap(p,f,.08))))return 'The divider would cut through a fixture or an existing wall.';
   const walls=home.walls.filter(w=>!w.divider).concat(panels);
   const allowed=interiorPath(home,walls);
@@ -57,7 +58,7 @@ export function dividerLimit(home,plan,people=[],checkOccupantRoutes=false){
   if(plan===null)return '';
   if(!validDivider(plan))return 'Choose a valid wall and doorway position.';
   let cache=checks.get(home);if(!cache){cache=new Map();checks.set(home,cache);}
-  const key=plan.join(',');
+  const key=(home.furnishingRevision||0)+'/'+plan.join(',');
   if(!cache.has(key)){if(cache.size>=512)cache.clear();cache.set(key,fit(home,plan));}
   const limit=cache.get(key);if(limit)return limit;
   const panels=dividerParts(home,plan);

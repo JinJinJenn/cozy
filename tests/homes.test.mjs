@@ -11,11 +11,53 @@ import {readFileSync} from 'node:fs';
 import {StreetSession} from '../src/street-session.js';
 import {StreetActivities} from '../src/street-activities.js';
 import {applyRoomPlans,dividerLimit,dividerParts} from '../src/room-divider.js';
+import {planInterior,syncInteriors} from '../src/home-furnishing.js';
+import {footprint,readFurnishings} from '../src/furniture-pose.js';
 
 const generated=generate({preset:'harborTown',seed:'petalwood'}),world=generated.island;
 world.plan=generateSettlement(generated);
 generated.heightfield.set(createFlattenHook(world.plan)(generated));
 const plots=plotsForStreet(world),homes=prepareHomes(world,plots),layout=defaultLayout();
+
+test('six furnishings can move while their generated activities keep stable slots',()=>{
+  for(const [name,id,pose] of [
+    ['Home 58','sofa',[2,-2,1]],['Home 58','bed',[1,1,0]],['Home 58','desk',[-2,-2,1]],
+    ['Home 5','nightstand',[1,-1,0]],['Home 5','dining',[1,1,1]],['Home 58','rug',[-2,1,1]]
+  ]){
+    const home=homes.find(b=>b.name===name),old=home.furniture.find(f=>f.id===id);
+    const {next,reason}=planInterior(home,{[id]:pose});assert.equal(reason,'',id);
+    assert.deepEqual(next.uses.map(u=>[u.action,u.object]),home.uses.map(u=>[u.action,u.object]));
+    const moved=next.furniture.find(f=>f.id===id);
+    assert.equal(moved.x,old.x+pose[0]/4);assert.equal(footprint(moved).w,pose[2]%2?old.d:old.w);
+    assert.deepEqual(televisionIn(next),televisionIn(home));
+  }
+});
+
+test('furnishing edits protect guests, their reserved arrivals, old saves and atomic layout recovery',()=>{
+  const b=homes.find(b=>b.name==='Home 58'),id=b.id,pose=[-2,-2,1],desk=b.uses.findIndex(u=>u.lamp==='desk');
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,ready:true,owner:true,space:'personal',
+    id:'owner',actors:new Map([['owner',{...b.inside}]]),town:{current:[]},activities:{routes:new Map()},
+    layout:defaultLayout(),notice(){},persist(){}});
+  const original=b.uses[desk].target;
+  try{
+    s.activities.routes.set('guest',{arrival:{lot:id,index:desk},goal:b.inside});
+    assert.equal(s.editFurniture(id,'desk',pose,0),false);s.activities.routes.clear();
+    s.actors.set('guest',{...b.inside,using:{lot:id,index:desk}});assert.equal(s.editFurniture(id,'desk',pose,0),false);s.actors.delete('guest');
+    s.owner=false;assert.equal(s.editFurniture(id,'desk',pose,0),false);s.owner=true;
+    assert.equal(s.editFurniture(id,'desk',[64,64,0],0),false);
+    assert.equal(s.editFurniture(id,'desk',pose,0),true);assert.notDeepEqual(b.uses[desk].target,original);
+    assert.equal(s.editFurniture(id,'desk',[0,0,0],0),false);
+    const saved=readLayout(JSON.parse(JSON.stringify(s.layout)));
+    assert.deepEqual(saved.furnishings.lots[id].desk,pose);
+    assert.equal(s.editFurniture(id,'desk',null,1,true),true);assert.deepEqual(b.uses[desk].target,original);
+    const bad={...saved,furnishings:{v:1,lots:{[id]:{desk:pose},l99999:{bed:pose}}}};
+    assert.equal(syncInteriors(world,s.layout,bad),false);assert.deepEqual(b.uses[desk].target,original);
+    assert.ok(syncInteriors(world,s.layout,saved,true));assert.deepEqual(b.uses[desk].target,original);
+    assert.ok(syncInteriors(world,s.layout,saved));assert.deepEqual(b.placements.desk,pose);
+    assert.equal(readFurnishings({v:1,lots:{[id]:{kitchen:pose}}}),null);
+    assert.equal(readFurnishings({v:1,lots:{[id]:{desk:[1,2,4]}}}),null);
+  }finally{syncInteriors(world,{furnishings:{lots:{[id]:{}}}},defaultLayout());}
+});
 
 test('owner room revisions preserve furnishing stations, protected occupants, undo and saved geometry',()=>{
   const b=homes.find(b=>b.name==='Home 58'),uses=b.uses,plan=[1,2,0],id=b.id;
