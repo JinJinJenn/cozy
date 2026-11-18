@@ -4,6 +4,8 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+In v0.5.1 the hover cursor uses the same terrain intersection as the click, so a house behind the ground under the pointer cannot claim the hover label.
+
 Version 0.5.0 adds a two-seat convertible and commuter bike as player-controlled rides. Open Travel, take either vehicle, then use WASD or the touch pad. A second player can ride beside you. The host checks road, building, water and occupant clearance. Dismounting returns the ride. Vehicles do not persist as owned property and NPC traffic is still open work.
 
 Left-click to walk or choose an object action. Right-click or touch and hold for travel and camera options. Drag to orbit in street view. Enter returns to your character. M opens the map, where either button can select a destination. Travel also lists homes and venues by name. Run `npm run test:travel` for the two-profile driving, cycling, teleport and pointer playtest.

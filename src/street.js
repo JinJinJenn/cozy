@@ -132,7 +132,8 @@ export class Street {
       const point={clientX:e.clientX,clientY:e.clientY};
       this.hoverTimer=setTimeout(()=>{
         if(!this.active||this.buildLot||!this.session?.ready||!this.session.actors.has(this.session.id))return;
-        const pick=this.pickAction(this.pointerRay(point),false);
+        const ray=this.pointerRay(point);
+        const pick=this.pickAction(ray,false,this.floorPoint(ray,Math.min(1000,this.island.size)));
         if(pick){canvas.style.cursor='pointer';canvas.title=pick.label||pick.followLabel;}
       },90);
     });

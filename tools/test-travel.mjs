@@ -147,17 +147,23 @@ try{
   assert.ok(confirm,'the enabled map travel confirmation receives pointer input');
   await visitor.mouse.click(confirm.x,confirm.y);
   await until(visitor,({x,z})=>{const s=window.__cozy.street,a=s.session.actors.get(s.session.id);
-    return s.active&&Math.hypot(a.x-x,a.z-z)<2.6;},pin);
+    const drawn=s.meshes.get(a.id)?.position,t=s.controls.target;
+    return s.active&&drawn&&Math.hypot(a.x-x,a.z-z)<2.6&&Math.hypot(drawn.x-a.x,drawn.z-a.z)<.25&&Math.hypot(t.x-a.x,t.z-a.z)<.25;},pin);
   console.log('PASS map click selected the road and confirmed travel at the map pin.');
   const roadStart=await actor(visitor);
-  const step=await visitor.evaluate(({dx,dz})=>{
+  const step=await visitor.evaluate(async({dx,dz})=>{
     const s=window.__cozy.street,a=s.session.actors.get(s.session.id);
-    for(const distance of [3,-3,2.4,-2.4]){
-      const x=a.x+dx*distance,z=a.z+dz*distance,y=s.island.deckHeight?.(x,z)??s.island.sample(x,z);
+    const {walkable}=await import('./src/street-world.js');
+    const heading=Math.atan2(dx,dz);
+    for(const distance of [3,2.4,4.1])for(let i=0;i<16;i++){
+      const angle=heading+i*Math.PI/8,x=a.x+Math.sin(angle)*distance,z=a.z+Math.cos(angle)*distance;
+      const y=s.island.deckHeight?.(x,z)??s.island.sample(x,z);
       const c=s.camera.clone();c.position.lerp(s.controls.target,1-s.cameraFraction());c.updateMatrixWorld();
       const target=c.position.clone().set(x,y,z),ndc=target.clone().project(c);
       const at={x:(ndc.x+1)*innerWidth/2,y:(1-ndc.y)*innerHeight/2};
-      if(document.elementFromPoint(at.x,at.y)?.id==='gl'&&!s.pickAction(s.ray.ray.clone().set(c.position,target.sub(c.position).normalize())))return at;
+      if(document.elementFromPoint(at.x,at.y)?.id!=='gl')continue;
+      const ray=s.ray.ray.clone().set(c.position,target.sub(c.position).normalize()),ground=s.floorPoint(ray,1000);
+      if(ground&&Math.hypot(ground.x-x,ground.z-z)<.4&&walkable(s.island,s.plots,s.session.layout,ground)&&!s.pickAction(ray,false,ground))return at;
     }
   },road);assert.ok(step,'a visible road under the pointer');
   await visitor.mouse.click(step.x,step.y);
