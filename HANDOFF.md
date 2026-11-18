@@ -11,6 +11,9 @@ The owner can pick which lamps follow it under **Build → Edit → Lighting**.
 Visitors can use any switch. The owner save and encrypted backup preserve the
 links and the state of each light. The two-player browser test is
 `npm run test:domestic -- --lighting`.
+The release check found a walking route from the street into the house and
+from inside to the entry switch in all 1,968 houses generated across four
+locales with seeds `petalwood` and `willow-bay`.
 
 Version 0.12.5 keeps a linked public visitor's vehicle or seat through a brief
 input stall. Stale steering and throttle expire after 600 ms. The host gives

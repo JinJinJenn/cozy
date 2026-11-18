@@ -27,7 +27,7 @@ export async function playtestLighting({host,guest,open,out}){
       throw Error('The modeled entry switch could not be picked');
     },{id:lot,part});
     await guest.mouse.click(point.x,point.y);
-    await guest.getByRole('button',{name:'Flip entry light switch',exact:true}).click();
+    await guest.locator('#world-choice').getByRole('button',{name:'Flip entry light switch',exact:true}).click();
   }
   const lit=(page,entry,desk,bed)=>page.waitForFunction(({lot,entry,desk,bed})=>{
     const st=window.__cozy.street,app=st.clearExteriors.interiors.appliances;
