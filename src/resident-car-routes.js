@@ -1,6 +1,7 @@
 import {buildRoadGraph, roadsWithin} from '../packages/sim/src/nav.js';
 import {hashFloat} from '../packages/sim/src/rng.js';
 import {distSeg} from '../packages/settlement/src/geom.js';
+import {cornerSpeeds} from '../packages/sim/src/roadster.js';
 
 const joinTolerance = .25; // Settlement control points are rounded to decimetres.
 const separation = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -108,7 +109,7 @@ function laneRoute(ids, graph, roads) {
     }
   }
   points.push(legs.at(-1).end);
-  return {points, junctions, curb};
+  return {points, junctions, curb, cornerSpeeds:cornerSpeeds(points)};
 }
 
 export function planResidentVisits(plan, homes, seed) {

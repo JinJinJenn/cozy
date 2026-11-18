@@ -41,6 +41,11 @@ try {
   await page.goto(origin + '?shot=1&preset=harborTown&seed=petalwood&view=town');
   await ready();
   const initial = await info();
+  if(process.argv.includes('--residents')){
+    const {testResidents}=await import('./playtest-residents.mjs');
+    await testResidents(page);assert.deepEqual(errors,[]);
+    await browser.close();process.exit(0);
+  }
   if(process.argv.includes('--seed-shot')){
     await page.goto(origin+'?shot=1&preset=harborTown&seed=willow-bay&view=centre');
     await ready();

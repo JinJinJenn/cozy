@@ -10,5 +10,8 @@ export function residentStyle(seed,lot){
   const rng=new Rng(hashSeed(seed+'|wardrobe|'+lot));
   return {coat:rng.pick(jackets),skin:rng.pick(skins),hair:rng.pick(hairs),pants:rng.pick(trousers),
     accent:rng.pick(trim),paint:rng.pick(paint),cut:rng.int(5),outfit:rng.int(4),glasses:rng.chance(.28),
-    height:rng.range(.87,1.11),width:rng.range(.83,1.21)};
+    height:rng.range(.87,1.11),width:rng.range(.83,1.21),
+    faceWidth:rng.range(.87,1.14),faceHeight:rng.range(.89,1.12),faceDetail:rng.int(4),
+    stepLength:rng.range(.43,.66),armSwing:rng.range(.20,.55),bounce:rng.range(.012,.046),
+    phaseOffset:rng.range(0,2*Math.PI),glancePeriod:rng.range(3.1,6.8)};
 }

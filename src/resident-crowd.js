@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {avatar} from './street-art.js';
-import {vehicleArt} from './vehicle-art.js';
+import {settleChassis,vehicleArt} from './vehicle-art.js';
+import {wheelbase} from '../packages/sim/src/roadster.js';
 import {residentStyle} from './resident-style.js';
 import {homeAt} from './home-plan.js';
 
@@ -9,12 +10,32 @@ const roles=new Map([[0xe46b66,'coat'],[0xd9a779,'skin'],[0x62423f,'hair'],[0xea
   [0x587083,'pants'],[0x435869,'pants'],[0x46566a,'pants'],[0x526b7d,'pants'],[0x4e9589,'paint']]);
 const paletteKeys=[...new Set(roles.values())];
 
+// Several batches share each animated joint. Resolve its world transform once
+// per resident, stopping at hidden poses such as seated legs or unused props.
+function poseBranch(branch,pose){
+  if(branch.pose===pose)return branch.visible;
+  const {node,parent}=branch;branch.pose=pose;
+  branch.visible=!!(node.visible||node.userData.wardrobe)&&(!parent||poseBranch(parent,pose));
+  if(branch.visible){
+    if(node.matrixAutoUpdate)node.updateMatrix();
+    if(parent)node.matrixWorld.multiplyMatrices(parent.node.matrixWorld,node.matrix);
+    else node.matrixWorld.copy(node.matrix);
+  }
+  return branch.visible;
+}
+
 // The same resident rig and geometry as a close-up avatar, submitted in shared
 // batches. Logical residents remain in the simulation when outside the camera.
 export class ResidentCrowd {
   constructor(parent,residents,seed){
     this.parent=parent;this.rig=avatar('#e46b66',undefined,undefined,{});this.car=vehicleArt('car');
-    this.sources=[];this.batches=new Map();
+    this.rig.rotation.order='YXZ';
+    this.sources=[];this.batches=new Map();this.pose=0;
+    const branches=new Map(),identity=new THREE.Matrix4();
+    const branchFor=node=>{
+      if(!branches.has(node))branches.set(node,{node,parent:node.parent?branchFor(node.parent):null,pose:-1});
+      return branches.get(node);
+    };
     this.styles=residents.map(p=>{
       const style=residentStyle(seed,p.homeLotId);
       for(const key of paletteKeys)style[key]=new THREE.Color(style[key]);
@@ -32,17 +53,22 @@ export class ResidentCrowd {
         if(m.isInstancedMesh){m.getMatrixAt(i,local);m.getColorAt(i,color);}
         pieces.push({local,color,role:roles.get(color.getHex())});
       }
-      const parents=[];let variant;
+      let variant,faceDetails=false;
       for(let o=m;o&&o!==rig;o=o.parent){
-        if(o.userData.wardrobe)variant=o.userData.wardrobe;else parents.push(o);
+        if(o.userData.wardrobe)variant=o.userData.wardrobe;
+        if(o.userData.faceDetails)faceDetails=true;
       }
-      batch.capacity+=pieces.length*(rig===this.car?Math.min(count,12):count);
-      this.sources.push({source:m,batch,pieces,parents,variant,vehicle:rig===this.car});
+      const wearers=variant?this.styles.reduce((n,style)=>n+Number(style[variant.key]===variant.value),0):count;
+      batch.capacity+=pieces.length*(rig===this.car?Math.min(count,12):wearers);
+      const joint=!m.matrixAutoUpdate&&m.matrix.equals(identity)?m.parent:m;
+      faceDetails ||= variant?.key==='faceDetail'||variant?.key==='glasses';
+      this.sources.push({source:m,batch,pieces,branch:branchFor(joint),variant,faceDetails,vehicle:rig===this.car});
     });
     for(const b of this.batches.values()){
       this.allocate(b,Math.max(1,b.capacity));
     }
     this.costumes=this.styles.map(style=>this.sources.filter(s=>!s.vehicle&&(!s.variant||style[s.variant.key]===s.variant.value)));
+    this.distantCostumes=this.costumes.map(parts=>parts.filter(s=>!s.faceDetails));
     this.carParts=this.sources.filter(s=>s.vehicle);
   }
   allocate(b,capacity){
@@ -58,23 +84,29 @@ export class ResidentCrowd {
     b.mesh.count=0;this.parent.add(b.mesh);b.capacity=capacity;
   }
   submit(sources,style){
-    for(const {source,batch,pieces,parents} of sources){
-      if(parents.some(p=>!p.visible))continue;
+    const pose=++this.pose;
+    for(const {source,batch,pieces,branch} of sources){
+      if(!source.visible||!poseBranch(branch,pose))continue;
       if(batch.used+pieces.length>batch.capacity)this.allocate(batch,Math.max(batch.used+pieces.length,batch.capacity*2));
       for(const {local,color,role} of pieces){
-        matrix.multiplyMatrices(source.matrixWorld,local);
+        matrix.multiplyMatrices(branch.node.matrixWorld,local);
         batch.mesh.setMatrixAt(batch.used,matrix);batch.mesh.setColorAt(batch.used++,role?style[role]:color);
       }
     }
   }
-  render(people,camera,now,island,openRoof){
+  render(people,camera,now,island,openRoof,pixelHeight){
     const dt=Math.min(.18,Math.max(0,(now-(this.last??now))/1000));this.last=now;
     if(camera){camera.updateMatrixWorld();this.frustum.setFromProjectionMatrix(this.clip.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));}
+    // Keep the full silhouette. Only stop submitting facial markings once
+    // the entire face is smaller than half a drawing-buffer pixel.
+    const view=camera?.matrixWorldInverse.elements;
+    const focal=camera?.isPerspectiveCamera&&pixelHeight?pixelHeight*camera.projectionMatrix.elements[5]/2:Infinity;
     for(const b of this.batches.values())b.used=0;
     this.visible=0;
     for(let i=0;i<people.length;i++){
       const person=people[i],p=person.position,state=person.userData;
-      const dx=p.x-(state.x??p.x),dz=p.z-(state.z??p.z);state.x=p.x;state.z=p.z;
+      const dx=p.x-(state.x??p.x),dz=p.z-(state.z??p.z),dy=p.y-(state.y??p.y);
+      state.x=p.x;state.z=p.z;state.y=p.y;
       this.sphere.center.copy(p);this.sphere.center.y+=.85;
       if(!person.visible||camera&&!this.frustum.intersectsSphere(this.sphere))continue;
       if(camera&&island&&!state.driving&&camera.position.distanceToSquared(p)>36*36){
@@ -84,27 +116,34 @@ export class ResidentCrowd {
       this.visible++;
       const distance=Math.hypot(dx,dz);
       if(!state.driving&&person.scale.y>=.9&&distance>.002&&distance<3)state.heading=Math.atan2(dx,dz);
-      const rig=this.rig;rig.position.copy(p);rig.rotation.y=state.heading||0;
+      const rig=this.rig;rig.position.copy(p);rig.rotation.y=state.heading||0;rig.rotation.x=0;
       const style=this.styles[i],seated=person.scale.y<.9||state.driving;
       rig.scale.set(style.width,style.height,style.width);
-      rig.setStride(distance<3?distance:0,dt,seated,false,false,undefined,state);
+      rig.setStride(distance<3?distance:0,dt,seated,false,false,undefined,state,style);
+      rig.poseResidentHead(style,now*.001,state.driving);
       rig.setSeated(seated);
       if(state.driving){
         const lastYaw=state.carYaw??rig.rotation.y,delta=rig.rotation.y-lastYaw;
         const turn=Math.atan2(Math.sin(delta),Math.cos(delta))*(1-Math.exp(-dt*12));
         state.carYaw=lastYaw+turn;rig.rotation.y=state.carYaw;
-        rig.setRide('car',0);this.car.position.copy(p);this.car.rotation.y=state.carYaw;
+        if(distance>.004&&distance<8)state.roadPitch=-Math.atan(THREE.MathUtils.clamp(dy/distance,-.35,.35));
+        rig.rotation.x=state.roadPitch||0;this.car.position.copy(p);this.car.rotation.copy(rig.rotation);
         state.wheelPhase=(state.wheelPhase||0)+(distance<8?distance/.28:0);
-        const steer=distance>.001?THREE.MathUtils.clamp(-Math.atan2(turn*2.02,distance)/.62,-1,1):0;
+        const frontAngle=distance>.001?THREE.MathUtils.clamp(Math.atan2(turn*wheelbase,distance),-.60,.60):0;
         const speed=dt>0?distance/dt:0,braking=(state.carSpeed||0)-speed>dt*3;
+        const accel=dt>0&&state.carSpeed!==undefined?(speed-state.carSpeed)/dt:0;
+        settleChassis(state,dt>0?speed*turn/dt:0,accel,dt);
+        rig.setRide('car',0,state.roll,state.pitch);
         state.carSpeed=speed;
-        this.car.updateRide(0,0,steer,state.wheelPhase,braking);this.car.updateMatrixWorld(true);this.submit(this.carParts,style);
+        this.car.updateRide(0,0,0,state.wheelPhase,braking,state.roll,state.pitch,frontAngle);this.submit(this.carParts,style);
       }else{
-        state.carYaw=undefined;state.carSpeed=0;
+        state.carYaw=undefined;state.carSpeed=undefined;state.roadPitch=0;
         if(this.wasDriver)rig.setDomestic('',0);
       }
-      this.wasDriver=state.driving;rig.updateMatrixWorld(true);
-      this.submit(this.costumes[i],style);
+      this.wasDriver=state.driving;
+      const depth=view?-(view[2]*p.x+view[6]*p.y+view[10]*p.z+view[14]):0;
+      const costumes=depth*.5>focal*.56*style.width*style.faceWidth?this.distantCostumes:this.costumes;
+      this.submit(costumes[i],style);
     }
     for(const b of this.batches.values()){
       b.mesh.count=b.used;b.mesh.visible=b.used>0;

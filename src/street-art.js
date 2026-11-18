@@ -560,19 +560,23 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
   a.ball(0,1.19,0,.53,.205,.37,color);
   a.round(0,.68,0,.497,.065,.358,'#985a55');
   a.round(0,1.29,.009,.193,.16,.193,skin);
-  a.ball(0,1.51,.012,.44,.49,.416,skin);
-  a.ball(0,1.644,-.026,.476,.266,.438,hair);
-  a.ball(0,1.496,-.123,.456,.391,.29,hair);
+  const neck=new THREE.Group(),face=new THREE.Group();
+  neck.position.y=1.29;face.position.y=-1.29;
+  if(wardrobe){neck.add(face);torso.add(neck);}
+  const head=wardrobe?new Pieces(face):a;
+  head.ball(0,1.51,.012,.44,.49,.416,skin);
+  head.ball(0,1.644,-.026,.476,.266,.438,hair);
+  head.ball(0,1.496,-.123,.456,.391,.29,hair);
   if(!wardrobe){
-    a.ball(.047,1.456,-.262,.259,.288,.255,hair);
-    a.ball(.083,1.337,-.30,.188,.208,.177,hair);
+    head.ball(.047,1.456,-.262,.259,.288,.255,hair);
+    head.ball(.083,1.337,-.30,.188,.208,.177,hair);
   }else{
     // A single shared skeleton can wear any of these separately batched pieces.
     const accent='#eabb84';
     const variation=(key,value,build)=>{
       const group=new THREE.Group(),parts=new Pieces(group);
       group.userData.wardrobe={key,value};group.visible=wardrobe[key]===value;
-      build(parts);parts.finish();torso.add(group);
+      build(parts);parts.finish();(key==='outfit'?torso:face).add(group);
     };
     variation('cut',1,p=>{
       for(const side of [-1,1])p.ball(side*.184,1.44,-.06,.17,.42,.31,hair);
@@ -608,16 +612,31 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
       }
       p.box(0,1.492,.221,.052,.018,.021,dark);
     });
+    variation('faceDetail',1,p=>{
+      for(const s of [-1,1])p.ball(s*.045,1.424,.209,.107,.039,.033,hair,0,s*.13);
+    });
+    variation('faceDetail',2,p=>{
+      p.ball(0,1.344,.106,.30,.14,.20,hair);
+      for(const s of [-1,1])p.ball(s*.151,1.402,.108,.072,.16,.105,hair,0,-s*.19);
+    });
+    variation('faceDetail',3,p=>{
+      for(const s of [-1,1])for(const [x,y,z] of [[.092,1.449,.203],[.127,1.458,.187],[.144,1.438,.174]])
+        p.ball(s*x,y,z,.018,.014,.018,'#98684f');
+    });
   }
   a.round(0,1.24,0,.276,.11,.238,'#eed5af');
+  const features=new THREE.Group();features.userData.faceDetails=true;
+  if(wardrobe)face.add(features);
+  const detail=wardrobe?new Pieces(features):head;
   for(const side of [-1,1]){
-    a.ball(side*.202,1.48,.019,.085,.132,.10,skin);
-    a.ball(side*.208,1.421,.035,.046,.055,.048,'#dab978');
-    a.ball(side*.154,1.60,.138,.16,.17,.13,hair,0,-side*.42);
+    head.ball(side*.202,1.48,.019,.085,.132,.10,skin);
+    detail.ball(side*.208,1.421,.035,.046,.055,.048,'#dab978');
+    head.ball(side*.154,1.60,.138,.16,.17,.13,hair,0,-side*.42);
   }
-  a.ball(0,1.47,.210,.09,.095,.086,skin);
-  a.box(0,1.408,.202,.074,.015,.013,'#ad7767');
-  for(const s of [-1,1])a.ball(s*.09,1.48,.207,.037,.049,.028,dark);
+  detail.ball(0,1.47,.210,.09,.095,.086,skin);
+  detail.box(0,1.408,.202,.074,.015,.013,'#ad7767');
+  for(const s of [-1,1])detail.ball(s*.09,1.48,.207,.037,.049,.028,dark);
+  if(wardrobe){detail.finish();head.finish();}
   a.finish();seated.finish();arms.finish();sitting.add(restingArms);
   const body=new THREE.Group();body.add(torso,standing,sitting);g.add(body);
   const serving=new THREE.Group(),drinks=[];
@@ -637,24 +656,31 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
   trayParts.ball(.285,1.02,.07,.205,.30,.22,color);trayParts.ball(.27,.95,.24,.136,.15,.33,skin);
   trayParts.round(.24,1.035,.38,.34,.032,.34,cream);
   trayParts.finish();torso.add(tray);
-  g.setStride=(distance,dt,seated,cup,chat,dish,gait)=>{
-    if(gait){phase=gait.phase??0;strength=gait.strength??0;}
+  g.setStride=(distance,dt,seated,cup,chat,dish,gait,style)=>{
+    if(gait){phase=gait.phase??style?.phaseOffset??0;strength=gait.strength??0;}
     tray.visible=!!dish;
     carrying=cup;serving.visible=cup;
     drinks[0].visible=!chat;drinks[1].visible=true;
     if(chat)serving.rotation.x=-.10-.15*Math.max(0,Math.sin(performance.now()*.0018));
     else serving.rotation.x=0;
-    phase+=Math.min(distance,.50)*Math.PI/.54;
+    phase+=Math.min(distance,.50)*Math.PI/(style?.stepLength??.54);
     const pace=seated||dt<=0?0:Math.min(1,distance/dt/2.1);
     strength+=(pace-strength)*(1-Math.exp(-dt*18));
-    bob=.027*strength*Math.abs(Math.sin(phase));
+    const swing=Math.sin(phase)*strength;
+    bob=(style?.bounce??.027)*Math.abs(swing);
     if(gait){gait.phase=phase;gait.strength=strength;}
     for(const limb of limbs){
-      limb.leg.rotation.x=-limb.side*Math.sin(phase)*.48*strength;
-      limb.arm.rotation.x=limb.side*Math.sin(phase)*.31*strength;
+      limb.leg.rotation.x=-limb.side*swing*.48;
+      limb.arm.rotation.x=limb.side*swing*(style?.armSwing??.31);
       limb.arm.rotation.z=0;
       limb.arm.visible=!cup&&(!dish||limb.side<0);
     }
+  };
+  g.poseResidentHead=(style,seconds,driving)=>{
+    neck.scale.set(style.faceWidth,style.faceHeight,1);
+    const glance=Math.sin(seconds/style.glancePeriod+style.phaseOffset);
+    neck.rotation.y=driving?0:.38*glance**5;
+    neck.rotation.z=driving?0:.045*Math.sin(phase)*strength;
   };
   g.setSeated=(value,part,time=0,piano,flash=0)=>{
     torso.rotation.x=0;torso.position.z=0;
@@ -713,7 +739,7 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
     if(brush)brush.visible=action==='paint';
     if(action==='water'&&!can)can=wateringCan(limbs[1].arm);
     if(can)can.visible=action==='water';
-    body.position.x=body.position.z=0;
+    body.position.x=body.position.z=0;body.rotation.z=0;
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
     const showBowl=hasBowl&&(!action||action==='eat'||action==='sit');
@@ -795,10 +821,10 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
     }
     torso.rotation.x=action==='bathroom'?.12:action==='write'?.08:0;
   };
-  g.setRide=(kind,phase)=>{
+  g.setRide=(kind,phase,roll=0,pitch=0)=>{
     shadow.visible=false;
     if(kind==='car'){
-      body.position.set(.34,.02,-.22);restingArms.visible=false;
+      body.position.set(.34,.02,-.22);body.rotation.z=roll;body.rotation.x=pitch;restingArms.visible=false;
       for(const arm of hands){arm.visible=true;arm.rotation.x=-.10;}
     }else{
       body.position.set(0,.26,-.17);torso.rotation.x=.13;

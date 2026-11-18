@@ -5,17 +5,19 @@ import {createRequire} from 'node:module';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {testNostrRelay} from './test-nostr-relay.mjs';
+import {testTouchDriving} from './playtest-touch-driving.mjs';
 
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const root=fileURLToPath(new URL('../',import.meta.url)),live=process.argv.includes('--live');
 const software=process.argv.includes('--software');
+const touch=process.argv.includes('--touch');
 const origin=live?'https://jinjinjenn.github.io/cozy/':'https://travel-'+randomUUID()+'.test/cozy/';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
   args:[...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[]),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
 const relay=testNostrRelay(),errors=[];
 const until=(p,fn,arg)=>p.waitForFunction(fn,arg,{polling:80,timeout:45000});
 async function profile(){
-  const ctx=await browser.newContext({viewport:{width:1050,height:660},deviceScaleFactor:software?.6:1});
+  const ctx=await browser.newContext({viewport:touch?{width:390,height:844}:{width:1050,height:660},isMobile:touch,hasTouch:touch,deviceScaleFactor:software?.6:1});
   if(software)await ctx.addInitScript(()=>{
     // Give native input and WebRTC a turn between software-rendered frames.
     // Keep CSS coordinates and the game's simulation clock at their normal values.
@@ -54,6 +56,16 @@ try{
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
+  if(touch)await testTouchDriving({visitor,owner,actor,synced,until});
+  else await testDesktop(owner,visitor);
+  assert.deepEqual(errors,[]);
+}catch(err){
+  for(const p of pages)console.error(await p.evaluate(()=>{const s=window.__cozy?.street;return {actor:s?.session?.actors.get(s.session.id),
+    menu:document.querySelector('#world-choice')?.innerText,focus:s?.cameraFocus,roof:s?.openRoof};}).catch(()=>null));
+  console.error(errors);throw err;
+}finally{await browser.close();}
+
+async function testDesktop(owner,visitor){
   const clamped=await visitor.evaluate(()=>{
     const c=window.__cozy,{camera,controls}=c.street,eye=camera.position.clone();
     try{
@@ -300,9 +312,4 @@ try{
     await visitor.screenshot({path:process.env.COZY_TRAFFIC_SHOT,type:'jpeg',quality:92});
   }
   console.log('PASS a visitor followed',sample.name,'driving to',sample.destination+';',sample.names,'named residents and',sample.styles,'hair/outfit combinations.');
-  assert.deepEqual(errors,[]);
-}catch(err){
-  for(const p of pages)console.error(await p.evaluate(()=>{const s=window.__cozy?.street;return {actor:s?.session?.actors.get(s.session.id),
-    menu:document.querySelector('#world-choice')?.innerText,focus:s?.cameraFocus,roof:s?.openRoof};}).catch(()=>null));
-  console.error(errors);throw err;
-}finally{await browser.close();}
+}

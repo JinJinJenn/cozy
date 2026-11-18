@@ -1,9 +1,19 @@
 import * as THREE from 'three';
 import {Pieces} from './street-pieces.js';
-import {carSteerAngle} from './street-travel.js';
+import {carSteerAngle,wheelbase} from '../packages/sim/src/roadster.js';
 
 const hoop=new THREE.TorusGeometry(1,.075,6,22),tire=new THREE.TorusGeometry(1,.18,7,20);
 const rubber='#313738',cream='#f4e7c2',chrome='#b4c7c0',paint='#4e9589',leather='#8a5842';
+export function settleChassis(state,lateral,longitudinal,dt){
+  const step=Math.min(.15,dt),spring=12,decay=Math.exp(-spring*step);
+  const roll=THREE.MathUtils.clamp(lateral*.014,-.12,.12);
+  const pitch=THREE.MathUtils.clamp(-longitudinal*.010,-.075,.09);
+  const dr=(state.roll||0)-roll,dp=(state.pitch||0)-pitch;
+  const vr=(state.rollRate||0)+spring*dr,vp=(state.pitchRate||0)+spring*dp;
+  state.roll=roll+(dr+vr*step)*decay;state.pitch=pitch+(dp+vp*step)*decay;
+  state.rollRate=(vr*(1-spring*step)-spring*dr)*decay;
+  state.pitchRate=(vp*(1-spring*step)-spring*dp)*decay;
+}
 function strut(parts,from,to,width,color){
   const [x,y,z]=from,[ex,ey,ez]=to,dx=ex-x,dy=ey-y,dz=ez-z;
   const length=Math.hypot(dx,dy,dz);
@@ -12,6 +22,7 @@ function strut(parts,from,to,width,color){
 }
 function wheel(parent,x,y,z,r,bike){
   const hub=new THREE.Group(),spin=new THREE.Group(),p=new Pieces(spin);
+  hub.name=z>0?(x<0?'front-right-wheel':'front-left-wheel'):'rear-wheel';
   hub.position.set(x,y,z);parent.add(hub);hub.add(spin);
   p.put(bike?hoop:tire,0,0,0,r,r,bike?r*.75:r*2.25,rubber,Math.PI/2);
   if(bike){
@@ -25,7 +36,9 @@ function wheel(parent,x,y,z,r,bike){
   p.finish();return {hub,spin};
 }
 export function vehicleArt(kind){
-  const root=new THREE.Group(),p=new Pieces(root),wheels=[],bike=kind==='bike';
+  const root=new THREE.Group(),wheels=[],bike=kind==='bike';
+  const chassis=bike?root:new THREE.Group(),p=new Pieces(chassis);
+  if(!bike){chassis.name='chassis';root.add(chassis);}
   let crank,brakeLights;
   if(bike){
     for(const z of [-.67,.65])wheels.push(wheel(root,0,.355,z,.323,true));
@@ -70,7 +83,7 @@ export function vehicleArt(kind){
     p.box(0,.83,.50,1.42,.11,.18,'#4e6764');p.box(0,1.24,.46,1.43,.035,.045,chrome);
     const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.34,.38),
       new THREE.MeshLambertMaterial({color:'#b1e5df',transparent:true,opacity:.37,depthWrite:false,side:THREE.DoubleSide}));
-    glass.position.set(0,1.04,.496);glass.rotation.x=-.16;root.add(glass);
+    glass.position.set(0,1.04,.496);glass.rotation.x=-.16;chassis.add(glass);
     p.box(0,1.17,.46,.22,.08,.058,'#56615e');
     for(const side of [-1,1]){
       p.ball(side*.30,.85,.475,.119,.081,.034,'#d9caaa');
@@ -82,17 +95,22 @@ export function vehicleArt(kind){
     for(const y of [.49,.55,.61])p.box(0,y,1.558,.72,.017,.022,chrome);
     for(const z of [-1.55,1.55])p.box(0,.38,z,1.71,.085,.13,cream);
     p.put(hoop,.34,.92,.23,.175,.175,.18,rubber,0,0,-.4);
-    brakeLights=new THREE.Group();root.add(brakeLights);
+    brakeLights=new THREE.Group();chassis.add(brakeLights);
     const lamps=new Pieces(brakeLights);
     for(const side of [-1,1])lamps.ball(side*.65,.63,-1.53,.17,.14,.065,'#ff5c42');
     lamps.finish();brakeLights.visible=false;
   }
   p.finish();let phase=0,previousSpeed=0;
-  root.updateRide=(speed,dt,steer,wheelPhase,braking)=>{
+  root.updateRide=(speed,dt,steer,wheelPhase,braking,roll=0,pitch=0,frontAngle)=>{
     phase=wheelPhase??phase+speed*dt/(bike?.323:.28);
     if(brakeLights)brakeLights.visible=braking??(dt>0&&Math.abs(previousSpeed)-Math.abs(speed)>dt*3);
     previousSpeed=speed;
-    for(const {hub,spin} of wheels){spin.rotation.x=phase;if(hub.position.z>0)hub.rotation.y=bike?-steer*.30:-carSteerAngle(steer,speed);}
+    const angle=frontAngle??-carSteerAngle(steer,speed);
+    if(!bike){chassis.rotation.z=roll;chassis.rotation.x=pitch;}
+    for(const {hub,spin} of wheels){
+      spin.rotation.x=phase;
+      if(hub.position.z>0)hub.rotation.y=bike?-steer*.30:Math.atan2(wheelbase*Math.sin(angle),wheelbase*Math.cos(angle)-hub.position.x*Math.sin(angle));
+    }
     if(crank)crank.rotation.x=phase*.45;
     return phase*.45;
   };

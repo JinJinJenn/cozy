@@ -1,9 +1,10 @@
 import {roadsOf,project} from './street-road-index.js';
 import {homeAt} from './home-plan.js';
 import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
+import {stepRoadster,wheelbase} from '../packages/sim/src/roadster.js';
 
 const specifications={
-  car:{top:15.5,reverse:3.3,accel:6.6,brake:12,coast:1.35,halfWidth:.86,halfLength:1.55},
+  car:{halfWidth:.86,halfLength:1.55},
   bike:{top:7.5,reverse:1.15,accel:3.4,brake:6,coast:1.5,turn:.93,halfWidth:.28,halfLength:.79}
 };
 function outdoors(s,p){
@@ -39,6 +40,7 @@ function fits(s,kind,x,z,yaw,people){
 function clearActivity(s,a){
   s.activities.finish(a);a.activity='';a.part='';a.feedback='';
   delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;delete a.brakeHeld;
+  delete a.sideSpeed;delete a.yawRate;delete a.longAccel;delete a.lateralAccel;delete a.roadPitch;
 }
 export function takeVehicle(s,a,kind){
   if(!Object.hasOwn(specifications,kind))return;
@@ -78,31 +80,23 @@ export function moveVehicle(s,a,input,dt){
 function approach(value,target,amount){
   return value+Math.sign(target-value)*Math.min(Math.abs(target-value),amount);
 }
-export function carSteerAngle(steer,speed){
-  return steer*.62/(1+.011*speed*speed);
-}
 function driveCar(s,a,input,dt){
   if(dt<=0)return;
   a.brakeHeld=!!input.brake;
-  const spec=specifications.car,people=nearbyPeople(s,a,a.x,a.z);
+  const people=nearbyPeople(s,a,a.x,a.z);
+  const dx=Math.sin(a.yaw)*wheelbase*.5,dz=Math.cos(a.yaw)*wheelbase*.5;
+  const height=s.island.deckHeight||((x,z)=>s.island.sample(x,z));
+  const grade=Math.max(-.35,Math.min(.35,(height(a.x+dx,a.z+dz)-height(a.x-dx,a.z-dz))/wheelbase));
+  a.roadPitch=-Math.atan(grade);
   const steps=Math.max(1,Math.ceil(dt*60)),step=dt/steps;
   for(let i=0;i<steps;i++){
-    const previous=a.speed||0,throttle=input.z||0;
-    const braking=input.brake||throttle*previous<0;
-    if(braking)a.reverseHold=.20;
-    else if(!throttle||throttle>0)a.reverseHold=0;
-    else a.reverseHold=Math.max(0,(a.reverseHold||0)-step);
-    const target=braking||a.reverseHold?0:throttle*(throttle<0?spec.reverse:spec.top);
-    const rate=braking?spec.brake:!throttle?spec.coast+.015*previous*previous:spec.accel*(1-.32*Math.min(1,Math.abs(previous)/spec.top));
-    a.speed=approach(previous,target,rate*step);
-    a.steer=approach(a.steer||0,input.x||0,step*(input.x?3.8:6));
+    const previous=a.speed||0,side=a.sideSpeed||0,omega=a.yawRate||0;
+    stepRoadster(a,input,step,grade);
     const travel=(previous+a.speed)*.5*step;
-    if(!travel)continue;
-    // The wheelbase comes from the axles of the rendered car. Limit steering
-    // lock at speed so a brief tap can trim a lane without whipping the camera.
-    const turn=-travel*Math.tan(carSteerAngle(a.steer,previous))/2.02;
+    const drift=(side+a.sideSpeed)*.5*step,turn=(omega+a.yawRate)*.5*step;
+    if(!travel&&!drift&&!turn)continue;
     const mid=a.yaw+turn*.5,yaw=a.yaw+turn;
-    const x=a.x+Math.sin(mid)*travel,z=a.z+Math.cos(mid)*travel;
+    const x=a.x+Math.sin(mid)*travel+Math.cos(mid)*drift,z=a.z+Math.cos(mid)*travel-Math.sin(mid)*drift;
     if(fits(s,'car',x,z,yaw,people)){Object.assign(a,{x,z,yaw});continue;}
     // Scrub along the kerb on a shallow contact. The proposed recovery goes
     // through the same footprint, pedestrian and building checks as free travel.
@@ -117,11 +111,11 @@ function driveCar(s,a,input,dt){
         const corrected=a.yaw+approach(0,error,step*2.8);
         const cx=a.x+nearest.dx*travel*along,cz=a.z+nearest.dz*travel*along;
         if(fits(s,'car',cx,cz,corrected,people)){
-          Object.assign(a,{x:cx,z:cz,yaw:corrected,speed:a.speed*Math.exp(-step*2)});continue;
+          Object.assign(a,{x:cx,z:cz,yaw:corrected,speed:a.speed*Math.exp(-step*2),sideSpeed:0,yawRate:0});continue;
         }
       }
     }
-    a.speed=0;return;
+    a.speed=0;a.sideSpeed=0;a.yawRate=0;a.longAccel=0;a.lateralAccel=0;return;
   }
 }
 function land(s,a,p,home){

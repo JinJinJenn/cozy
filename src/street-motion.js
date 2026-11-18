@@ -6,9 +6,13 @@ export function presentWalker(session,actor,state,now,dt){
   const reset=!state.ready||state.epoch!==session.poseEpoch||state.travelSeq!==actor.travelSeq||state.vehicle!==actor.vehicle||Math.hypot(actor.x-state.x,actor.z-state.z)>3||
     state.activity!==actor.activity||state.revision!==session.layout.revision&&!walkable(session.island,session.plots,session.layout,state);
   const oldX=state.x,oldZ=state.z;
+  if(reset){state.roll=0;state.pitch=0;state.rollRate=0;state.pitchRate=0;}
   if(reset||!guest){
     state.x=actor.x;state.z=actor.z;state.yaw=reset?actor.yaw:state.yaw;
     state.speed=actor.speed||0;state.steer=actor.steer||0;state.reverseHold=actor.reverseHold||0;
+    state.sideSpeed=actor.sideSpeed||0;state.yawRate=actor.yawRate||0;
+    state.longAccel=actor.longAccel||0;state.lateralAccel=actor.lateralAccel||0;
+    state.roadPitch=actor.roadPitch||0;
   }else if(local&&actor.vehicle==='car'&&session.connected){
     state.id=actor.id;
     moveVehicle(session,state,session.keys,Math.min(dt,.1));
@@ -18,6 +22,8 @@ export function presentWalker(session,actor,state,now,dt){
       state.x+=(actor.x+(actor.vx||0)*age-state.x)*gain;
       state.z+=(actor.z+(actor.vz||0)*age-state.z)*gain;
       state.speed+=(actor.speed-state.speed)*gain;
+      state.sideSpeed+=((actor.sideSpeed||0)-state.sideSpeed)*gain;
+      state.yawRate+=((actor.yawRate||0)-state.yawRate)*gain;
     }
   }else if(local&&!actor.vehicle&&(session.keys.x||session.keys.z||!actor.walking)&&!actor.activity&&session.connected){
     const {keys}=session;

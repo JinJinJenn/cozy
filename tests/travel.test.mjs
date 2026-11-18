@@ -7,6 +7,7 @@ import {bindResidentTraffic} from '../src/resident-traffic.js';
 import {planResidentVisits} from '../src/resident-car-routes.js';
 import {carriagewayAt,sidewalkStop} from '../src/street-road-index.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
+import {stepRoadster,cornerSpeeds} from '../packages/sim/src/roadster.js';
 
 function street(){
   const a={id:'player',x:0,z:0,yaw:0};
@@ -83,12 +84,38 @@ test('a glancing curb contact scrubs speed and guides the car along the road whi
 test('the brake holds a stopped car with throttle or reverse held and releases immediately',()=>{
   const {s,a}=street();takeVehicle(s,a,'car');a.speed=10;
   const start=a.z;
-  for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:1,brake:true},1/60);
-  assert.equal(a.speed,0);assert.ok(a.z-start>3.9&&a.z-start<4.4);
+  for(let i=0;i<90;i++)moveVehicle(s,a,{x:0,z:1,brake:true},1/60);
+  assert.equal(a.speed,0);assert.ok(a.z-start>5.5&&a.z-start<6.4);
   const stop=a.z;
   for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:-1,brake:true},1/60);
   assert.equal(a.z,stop);assert.equal(a.brakeHeld,true);
   moveVehicle(s,a,{x:0,z:1},1/60);assert.ok(a.speed>0);assert.equal(a.brakeHeld,false);
+});
+
+test('front and rear tires build yaw, share grip under braking and settle after neutral steering',()=>{
+  const cruise={speed:14},braking={speed:14};
+  for(let i=0;i<25;i++){
+    stepRoadster(cruise,{x:1,z:0},1/60);
+    stepRoadster(braking,{x:1,z:0,brake:true},1/60);
+  }
+  assert.ok(cruise.yawRate<-.12&&Math.abs(cruise.sideSpeed)>.1);
+  assert.ok(Math.abs(braking.lateralAccel)<Math.abs(cruise.lateralAccel));
+  assert.ok(Math.abs(cruise.lateralAccel)<9.6&&braking.speed<cruise.speed-1);
+  const turn=cruise.yawRate;stepRoadster(cruise,{x:0,z:0},1/60);
+  assert.ok(cruise.yawRate*turn>0);
+  for(let i=0;i<150;i++)stepRoadster(cruise,{x:0,z:0},1/60);
+  assert.ok(Math.abs(cruise.sideSpeed)<.02&&Math.abs(cruise.yawRate)<.02);
+  const up={speed:8},down={speed:8},flat={speed:8};
+  for(let i=0;i<60;i++)for(const [a,slope] of [[up,.09],[down,-.09],[flat,0]])stepRoadster(a,{x:0,z:0},1/60,slope);
+  assert.ok(up.speed<flat.speed-.7&&down.speed>flat.speed+.7);
+  for(let i=0;i<180;i++)stepRoadster(down,{x:0,z:1,brake:true},1/60,-.2);
+  assert.equal(down.speed,0);
+});
+
+test('drivers carry the braking distance for a sharp corner upstream',()=>{
+  const speeds=cornerSpeeds([[0,-25],[0,-10],[0,-4],[0,0],[3,0],[30,0]]);
+  assert.ok(speeds[0]>speeds[2]&&speeds[2]>speeds[3]&&speeds[3]<4);
+  assert.equal(speeds.at(-1),0);
 });
 
 test('visits turn through a T junction, cross a short bridge and take the opposite lane home',()=>{

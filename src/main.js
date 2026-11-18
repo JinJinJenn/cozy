@@ -185,7 +185,7 @@ function renderScene(){
     const near=distance>1500?6:distance>450?2:distance>120?.5:.13;
     if(camera.near!==near){camera.near=near;camera.updateProjectionMatrix();}
   }
-  town?.posePeople(performance.now(),camera);
+  town?.posePeople(performance.now(),camera,canvas.height);
   renderer.render(scene,camera);
   camera.position.copy(orbitEye);
   camera.updateMatrixWorld();

@@ -569,8 +569,15 @@ export class Simulation {
                 const range=Math.hypot(g.x-n.pos[0],g.z-n.pos[1]);
                 limit=Math.min(limit,3.8+Math.max(0,range-4)*.48);
               }
-              const cruise=limit*n.pace;
+              const corner=a.cornerSpeeds?.[a.i-a.driveStart];
+              const cruise=Math.min(limit*n.pace,corner===undefined?Infinity:Math.sqrt(corner*corner+7*len));
               speed=Math.min(cruise,accelerated);
+              const previous=a.speed||0;
+              const lookahead=Math.min(len,speed*time+previous*previous/7);
+              if(this.ctx.trafficClear&&lookahead>speed*time+.2&&
+                !this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,lookahead,false)){
+                speed=Math.min(speed,Math.max(1,previous-3.5*time));
+              }
               if(this.ctx.trafficClear&&!this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,Math.min(len,speed*time))){
                 a.speed=0;a.waitingForTraffic=true;break;
               }

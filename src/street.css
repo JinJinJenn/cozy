@@ -21,12 +21,30 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #street-panel #wall-grip{position:absolute;left:0;top:0;z-index:1;pointer-events:auto;touch-action:none;cursor:grab;
   transform:translate(-50%,-50%);border:2px solid #fff5d4;border-radius:16px;background:#365f58;color:white;box-shadow:0 2px 8px #193d3966;white-space:nowrap}
 #street-panel #wall-grip:active{cursor:grabbing}.street-actions{z-index:2}
-@media(pointer:coarse){#walk-pad{display:grid;position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:85px;height:85px;border:2px solid #fcf4dfaa;border-radius:50%;background:#344e486b;place-items:center;touch-action:none}
+#car-pedals{display:none}
+@media(any-pointer:coarse){#walk-pad{display:grid;position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(16px,env(safe-area-inset-bottom));width:85px;height:85px;border:2px solid #fcf4dfaa;border-radius:50%;background:#344e486b;place-items:center;touch-action:none;user-select:none}
 #pad-stick{width:32px;height:32px;border-radius:50%;background:#fff6dfdf}.street-actions{left:auto;right:10px;max-width:calc(100% - 132px)}.desktop-hint{display:none}}
 @media(max-width:520px){.street-hud h1{font-size:20px}#street-panel button{font-size:12px;padding:6px 7px}}
-@media(pointer:coarse){#street-panel.building #walk-pad{display:none}
+@media(any-pointer:coarse){#street-panel.building #walk-pad{display:none}
   #street-panel.building .street-actions{left:10px;max-width:unset}
   #street-panel.building .street-drawer{max-width:100%}}
+
+@media(any-pointer:coarse){
+  #street-panel.driving{--drive-bottom:max(12px,env(safe-area-inset-bottom))}
+  .driving #walk-pad{bottom:var(--drive-bottom);height:54px;width:clamp(84px,23vw,126px);border-radius:18px;background:#294640df}
+  .driving #walk-pad::before,.driving #walk-pad::after{position:absolute;color:#fff7e8;font:24px/1 Georgia;pointer-events:none}
+  .driving #walk-pad::before{content:'‹';left:6px}.driving #walk-pad::after{content:'›';right:6px}
+  .driving #pad-stick{width:28px;height:36px;border-radius:12px}
+  .driving #car-pedals{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:var(--drive-bottom);
+    display:grid;grid-template-columns:auto auto auto;gap:4px;align-items:end;touch-action:none;user-select:none}
+  #car-speed{grid-column:1/-1;justify-self:end;padding:2px 8px;border-radius:8px;background:#294640ed;color:#fff7e8;font-variant-numeric:tabular-nums}
+  #street-panel #car-pedals button{pointer-events:auto;min-width:46px;min-height:54px;padding:4px 8px;border:2px solid #fff7e8;
+    border-radius:11px;font-size:13px;touch-action:none;box-shadow:0 2px 4px #20392e55}
+  #car-pedals button[data-pedal=brake]{background:#87483c;color:white}
+  #car-pedals button[data-pedal=gas]{background:#376454;color:white}
+  #street-panel #car-pedals button[data-held]{transform:translateY(2px);box-shadow:inset 0 0 0 3px #fff3c9;filter:brightness(.82)}
+  .driving .street-actions{bottom:calc(var(--drive-bottom) + 85px);max-width:calc(100% - 38px);max-height:calc(100dvh - var(--drive-bottom) - 120px);overflow:auto}
+}
 
 #live-action{display:flex;align-items:center;gap:.7em;margin:0 0 .45em;padding:.25em .3em;color:var(--charcoal);font-size:14px}
 #live-action button{padding:.25em .55em;font-size:12px}
@@ -86,4 +104,8 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #graphics-settings{position:fixed;right:12px;top:12px;z-index:5;min-width:105px;padding:9px 12px;background:#fff8e9ed;color:#304d46;border:1px solid #bdbea9;border-radius:11px;font:12px system-ui;box-shadow:0 2px 8px #233b3120}
 #graphics-settings summary{cursor:pointer;font-weight:650;list-style:none}#graphics-settings summary span{font-size:10px;font-weight:400;margin-left:10px;opacity:.7}
 #graphics-settings label{display:grid;gap:6px;margin-top:12px}#graphics-settings output{display:block;font-size:11px;margin-top:8px}
+@media(max-width:520px){
+  body.in-street #graphics-settings:not([open]){min-width:0}
+  .street-hud{box-sizing:border-box;max-width:calc(100% - 144px)}
+}
 body.shot #graphics-settings{display:none}

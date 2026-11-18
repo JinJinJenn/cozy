@@ -7,8 +7,9 @@ import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsFo
 import {homeAt} from './home-plan.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic,withinStage} from './street-music.js';
+import {StreetTouch} from './street-touch.js';
 import {PianoMenu,pickPiano} from './piano-menu.js';
-import {vehicleArt} from './vehicle-art.js';
+import {settleChassis,vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
 import {HomeEditor} from './home-editor.js';
 import {SaveMenu} from './save-menu.js';
@@ -33,7 +34,7 @@ export class Street {
       this.roofline=Math.max(this.roofline,b.y+(b.roofHeight??b.height??6));
     }
     this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
-    this.music=new StreetMusic();this.abort=new AbortController();this.joy={x:0,z:0};this.cafe=this.plots.find(b=>b.cafe);
+    this.music=new StreetMusic();this.abort=new AbortController();this.cafe=this.plots.find(b=>b.cafe);
     this.club=this.plots.find(b=>b.kind==='club');
     this.keyFlashes={melody:0,bass:0};
     this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
@@ -77,7 +78,7 @@ export class Street {
     const panel=$('street-panel');let tap=null;
     listen(panel,'touchstart',e=>{
       const button=e.target.closest('button'),finger=e.changedTouches[0];
-      tap=e.touches.length===1&&button&&!button.disabled&&button.id!=='wall-grip'&&!button.closest('#piano-keys')?
+      tap=e.touches.length===1&&button&&!button.disabled&&button.id!=='wall-grip'&&!button.closest('#piano-keys,#car-pedals')?
         {button,id:finger.identifier,x:finger.clientX,y:finger.clientY}:null;
     });
     listen(panel,'touchcancel',()=>{tap=null;});
@@ -127,6 +128,7 @@ export class Street {
       if(e.code==='KeyE'&&!e.repeat&&!this.buildLot){e.preventDefault();this.use();}
     });
     listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
+    listen(document,'visibilitychange',()=>{if(document.hidden)this.clearInput();});
     listen($('use-place'),'click',()=>this.use());
     $('tv-channel').replaceChildren(...tvChannels.map((name,i)=>new Option(name,String(i))));
     listen($('tv-channel'),'change',()=>{
@@ -274,12 +276,7 @@ export class Street {
     });
     listen($('list-street'),'change',async()=>{await this.session.setListed($('list-street').checked);$('list-street').checked=this.session.listed;});
     listen($('browse-streets'),'click',async()=>{await this.session.discover();this.browsing=true;this.showRooms();});
-    const pad=$('walk-pad'),stick=$('pad-stick');
-    const steer=e=>{const r=pad.getBoundingClientRect();let x=(e.clientX-r.left-r.width/2)/(r.width*.35),z=(r.top+r.height/2-e.clientY)/(r.height*.35);
-      const n=Math.max(1,Math.hypot(x,z));x/=n;z/=n;this.joy={x,z};stick.style.transform='translate('+x*22+'px,'+-z*22+'px)';};
-    listen(pad,'pointerdown',e=>{pad.setPointerCapture(e.pointerId);steer(e);});
-    listen(pad,'pointermove',e=>{if(pad.hasPointerCapture(e.pointerId))steer(e);});
-    listen(pad,'lostpointercapture',()=>{this.joy={x:0,z:0};stick.style.transform='';});
+    this.touch=new StreetTouch(panel,listen,()=>{if(this.active)this.input();});
   }
   pointerRay(e){
     const rect=this.controls.domElement.getBoundingClientRect();
@@ -533,7 +530,7 @@ export class Street {
       this.camera.position.copy(this.controls.target).add(this.returnOffset);this.controls.update();
     }
   }
-  clearInput(){this.sprint=false;this.keys?.clear();this.joy={x:0,z:0};this.session?.setInput(0,0);}
+  clearInput(){this.sprint=false;this.keys?.clear();this.touch?.clear();this.session?.setInput(0,0);}
   use(){if(!this.session?.ready)return;void this.music.unlock();this.session.use();}
   activate(){
     if(!this.art)return false;
@@ -571,19 +568,20 @@ export class Street {
     this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
-  deactivate(){if(!this.active)return;this.active=false;this.walkMarker.visible=false;this.clearInput();this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+  deactivate(){if(!this.active)return;this.active=false;this.walkMarker.visible=false;this.clearInput();this.touch.setDriving(false);this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
     this.clearExteriors.update({x:Infinity,z:Infinity},{x:0,z:0});
     document.body.classList.remove('in-street');$('street-panel').hidden=true;
     this.controls.enablePan=true;this.controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;this.controls.minDistance=8;this.controls.maxDistance=4200;
     this.camera.far=9000;this.camera.near=1;this.camera.updateProjectionMatrix();}
   input(){
+    const vehicle=this.session.actors.get(this.session.id)?.vehicle;
+    this.touch.setDriving(vehicle==='car'&&!this.buildLot);
     if(this.buildLot){this.session.setInput(0,0);return;}
     const keys=this.keys,down=(a,b)=>Number(keys.has(a)||keys.has(b));
-    const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+this.joy.z;
-    const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.joy.x;
+    const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+(vehicle==='car'?this.touch.throttle:this.touch.z);
+    const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.touch.x;
     if(forward||side)this.cameraFocus=null;
-    const vehicle=this.session.actors.get(this.session.id)?.vehicle;
-    if(vehicle){this.session.setInput(Math.max(-1,Math.min(1,side)),Math.max(-1,Math.min(1,forward)),vehicle==='car'&&keys.has('Space'));return;}
+    if(vehicle){this.session.setInput(Math.max(-1,Math.min(1,side)),Math.max(-1,Math.min(1,forward)),vehicle==='car'&&(keys.has('Space')||this.touch.brake));return;}
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
     const pace=(this.sprint?1:.73)/Math.max(1,Math.hypot(forward,side));
     this.session.setInput(pace*(forward*dx-side*dz)/n,pace*(forward*dz+side*dx)/n);
@@ -621,6 +619,7 @@ export class Street {
       if(!mesh){
         const neighbor=id==='resident0'?{cut:3,outfit:1,glasses:false}:id==='resident1'?{cut:2,outfit:2,glasses:true}:null;
         mesh=avatar(shirt,id==='resident1'?'#996941':'#d9a779',id==='resident1'?'#393038':'#62423f',neighbor);
+        mesh.rotation.order='YXZ';
         this.scene.add(mesh);this.meshes.set(id,mesh);
       }
       mesh.setShirt(shirt);
@@ -628,6 +627,7 @@ export class Street {
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
+      mesh.rotation.x=a.vehicle==='car'?(id===s.id?pose.roadPitch:a.roadPitch)||0:0;
       mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
       const watching=a.activity==='watch';
       const seated=['sit','dine','relax','piano','bathroom','eat','read','tablegame'].includes(a.activity)||watching;
@@ -645,8 +645,10 @@ export class Street {
       if(a.vehicle){
         const predicted=id===s.id&&!s.owner&&a.vehicle==='car';
         const brake=(predicted?s.keys.brake:a.brakeHeld)||undefined;
-        const phase=mesh.userData.ride.updateRide(predicted?pose.speed:a.speed||0,dt,predicted?pose.steer:(a.steer||0),undefined,brake);
-        mesh.setRide(a.vehicle,phase);
+        const drive=predicted?pose:a;
+        if(a.vehicle==='car')settleChassis(pose,drive.lateralAccel||0,drive.longAccel||0,dt);
+        const phase=mesh.userData.ride.updateRide(drive.speed||0,dt,drive.steer||0,undefined,brake,pose.roll,pose.pitch);
+        mesh.setRide(a.vehicle,phase,pose.roll,pose.pitch);
       }
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
@@ -695,8 +697,10 @@ export class Street {
       const activity=person.userData.driving?(destination?'Driving to '+destination:'Driving'):person.scale.y<.9?'Sitting':null;
       detail.textContent=[home,trait,activity].filter(Boolean).join(' · ');
     }
+    const speed=local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''}`:'';
+    if(speed&&$('car-speed').textContent!==speed)$('car-speed').textContent=speed;
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
-      local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''} · W gas · Space brake · S brake / reverse · A/D steer · E get out`:
+      local.vehicle==='car'?speed+' · W gas · Space brake · S brake / reverse · A/D steer · E get out':
       local.vehicle?'W/S pedal or reverse · A/D steer · E to get off':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
       'Left-click to walk or interact · Right-click for options · Drag to orbit · Scroll or +/− to zoom';

@@ -34,6 +34,12 @@ body.shot #ui,body.shot #mini{display:none}
 <div id="street-panel" hidden>
   <header class="street-hud"><h1 id="place">Harbor Town</h1><p id="resident-detail" hidden></p><p><span id="party"></span> · Jenn's Cozy Town</p><p id="waypoint" hidden><b id="bearing" aria-hidden="true">↑</b> <span id="range"></span></p></header>
   <div id="walk-pad" aria-label="Walk"><div id="pad-stick"></div></div>
+  <div id="car-pedals" role="group" aria-label="Driving pedals">
+    <span id="car-speed"></span>
+    <button type="button" data-pedal="reverse">Reverse</button>
+    <button type="button" data-pedal="brake">Brake</button>
+    <button type="button" data-pedal="gas">Gas</button>
+  </div>
   <div id="world-choice" hidden><button id="world-action" class="primary"></button> <button id="world-jump" hidden>Teleport here</button> <button id="world-look" hidden>Look here</button> <button id="world-dismiss" aria-label="Dismiss action">×</button></div>
   <section class="street-actions" aria-label="Street controls">
     <section id="piano-controls" hidden aria-labelledby="piano-title"><strong id="piano-title">Stage keyboard</strong>

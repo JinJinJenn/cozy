@@ -16,7 +16,7 @@ export function bindResidentTraffic(ctx,street){
     if(!approach||!walkIn)return null;
     const driveStart=approach.pts.length+1,driveEnd=driveStart+route.points.length-1;
     return {pts:[...approach.pts,...route.points,...walkIn.pts],driveStart,driveEnd,curbPickup:true,
-      destination:home.id,junctions:route.junctions};
+      destination:home.id,junctions:route.junctions,cornerSpeeds:route.cornerSpeeds};
   };
   ctx.hasCarVisit=id=>visits.has(id);
 

@@ -4,6 +4,30 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.21.0 gives the roadster independent front and rear tire forces,
+yaw inertia, load transfer and a grip budget shared by braking and cornering.
+The host and guest prediction integrate the same model. Hills affect coasting,
+the front wheels steer through different angles, and the sprung body and
+driver lean over the wheels. From 50 km/h on level ground the test car stops
+in 11.5 m.
+
+Resident drivers follow lane routes. They use corner curvature and available
+braking distance to choose a speed and look ahead for slower traffic. In the
+six-minute Harbor Town replay, 73 residents drove, 71 visited another street
+and all 73 returned home. The longest wait was three seconds.
+
+On a touchscreen, steer on the
+left. Hold Gas on the right and slide the same thumb to Brake to stop or
+Reverse to back up. Getting out restores the walking pad. The bike still uses
+the forward and backward axis. Touch and keyboard inputs share the multiplayer
+driving protocol.
+
+Residents use the same rig with individual face proportions, facial details,
+stride lengths, arm swing and head motion. The wardrobe seed still produces the
+same clothes and hair for existing households. Run `npm run test:travel -- --touch`
+for a two-browser touch drive and `npm run test:viewer -- --residents` for
+the four-household portrait and stride check.
+
 Version 0.20.1 keeps residents on the pavement until they can board a car.
 Residents choose a clear spot outside the junction to stand and talk. In a
 six-minute replay of Harbor Town's browser worker, all 73 drivers returned

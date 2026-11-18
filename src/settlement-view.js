@@ -121,7 +121,7 @@ export class SettlementView {
     this.crowd=new ResidentCrowd(this.group,this.current,island.seed);
     this.advance(0);
   }
-  posePeople(now,camera){this.crowd.render(this.people,camera,now,this.island,this.street?.openRoof);}
+  posePeople(now,camera,pixelHeight){this.crowd.render(this.people,camera,now,this.island,this.street?.openRoof,pixelHeight);}
   async bindStreet(street,useWorker=true){
     if(!this.sim||!this.island.homes.length)return;
     const ctx=this.sim.ctx;bindResidentWorld(ctx,street);
