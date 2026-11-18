@@ -13,6 +13,8 @@ if(baseline&&!/^[a-f0-9]{7,40}$/.test(baseline))throw Error('Expected a commit h
 const software=process.argv.includes('--software'),cache=new Map(),results=[];
 const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')?4:1;
 const television=process.argv.includes('--television');
+const wideStreet=process.argv.includes('--wide-street');
+if(wideStreet&&(television||baseline))throw Error('The island-scale street camera requires the current street view.');
 if(television&&(orbit||baseline))throw Error('The television comparison uses a fixed camera on the current build.');
 const trackCompletion=process.argv.includes('--gpu-completion');
 const adapter=process.env.COZY_ADAPTER_LUID,expectedGpu=process.env.COZY_EXPECT_GPU;
@@ -55,16 +57,18 @@ try{
       });
       await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='watch';});
     }
-    const scenes=television?[0,1,2,3,0].map(channel=>({channel})):[24,180].map(distance=>({distance}));
+    const scenes=television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
     for(const scene of scenes){
       const {distance,channel}=scene;
       if(television){
         await page.locator('#tv-channel').selectOption(String(channel));
         await page.waitForFunction(n=>window.__cozy.street.clearExteriors.interiors.appliances?.tv.channel===n,channel);
-      }else await page.evaluate(async d=>{const c=window.__cozy;c.controls.maxDistance=420;const t=c.controls.target;
-        if(d>100)c.setView('centre');
-        await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();},distance);
-      const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion})=>{
+      }else await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;
+        if(d>100&&!wideStreet)c.setView('centre');
+        await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();
+        if(wideStreet&&(!c.street.active||c.controls.getDistance()<d*.96))throw Error('Street camera did not reach island scale');
+      },{distance,wideStreet});
+      const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion,wideStreet})=>{
         for(let i=0;i<30;i++)await new Promise(requestAnimationFrame);
         window.benchLong=[];
         let peakCalls=0,peakTriangles=0,maxVisibleResidents=0;
@@ -88,7 +92,8 @@ try{
             if(!fence)throw Error('WebGL frame fence unavailable');
             pending.push(fence);gl.flush();
           }
-          if(orbit){const c=window.__cozy,t=c.controls.target,a=i*.012;c.camera.position.set(t.x+Math.sin(a)*distance*.8,t.y+distance*.6,t.z+Math.cos(a)*distance*.8);c.controls.update();}
+          if(orbit){const c=window.__cozy,t=c.controls.target,a=i*.012;c.camera.position.set(t.x+Math.sin(a)*distance*.8,t.y+distance*.6,t.z+Math.cos(a)*distance*.8);c.controls.update();
+            if(wideStreet&&c.street.cameraFraction()<.99)throw Error('A roof pulled the aerial camera into the street');}
         }
         while(pending.length){
           await new Promise(requestAnimationFrame);retireFrames();
@@ -100,7 +105,7 @@ try{
         return {frames:count,peakCalls,peakTriangles,maxVisibleResidents,frameMs:{p50:pct(intervals,.5),p95:pct(intervals,.95),p99:pct(intervals,.99),max:intervals.at(-1)},
           ...(gl?{gpuCompletion:{framesPerSecond:completedFps,previousFramesInFlightP95:pct(queueDepths,.95)}}:{}),
           longTasks:window.benchLong,info:window.__cozy.info()};
-      },{count:software?60:360,orbit,distance,trackCompletion});
+      },{count:software?60:360,orbit,distance,trackCompletion,wideStreet});
       sample.residents=sample.info.residents.length;
       delete sample.info.residents;
       const record={mode,...scene,gpu,...sample,errors};results.push(record);console.log(JSON.stringify(record));

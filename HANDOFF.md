@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.12.3 lets you zoom from a sidewalk to a view of the whole island
+while your character stays in the street. Scroll or press **+ / −** to zoom,
+press **comma / period** to orbit, and press **Enter** to return to your
+character. Both mouse buttons can select a distant roof. Right-click offers
+travel options, and right-clicking a player's name follows them. The ocean
+now continues the depth of the island's seabed beyond the terrain boundary.
+Run `npm run test:travel` for the two-browser camera and vehicle playtest.
+
 Version 0.12.2 lets private home guests try a second WebRTC discovery service
 after nine seconds without a signed host frame. Both routes lead to the same
 host, save and roster. Guests close the unused internet connection once admitted.

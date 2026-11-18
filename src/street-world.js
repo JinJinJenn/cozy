@@ -92,6 +92,22 @@ export function gardenForStreet(cafe){
 }
 export const gardenSeats=[[-1.25,.74,'sit'],[1.25,.74,'sit']];
 export const toRoom = (b,p) => ({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
+// Walk the padded building index along a sightline, in order from the start.
+export function visitSightlineCells(start,end,visit){
+  const size=32,dx=end.x-start.x,dz=end.z-start.z;
+  let x=Math.floor(start.x/size),z=Math.floor(start.z/size);
+  const endX=Math.floor(end.x/size),endZ=Math.floor(end.z/size);
+  const stepX=Math.sign(dx),stepZ=Math.sign(dz);
+  const deltaX=dx?size/Math.abs(dx):Infinity,deltaZ=dz?size/Math.abs(dz):Infinity;
+  let crossX=dx?((x+(dx>0?1:0))*size-start.x)/dx:Infinity;
+  let crossZ=dz?((z+(dz>0?1:0))*size-start.z)/dz:Infinity;
+  for(;;){
+    visit(x+','+z);
+    if(x===endX&&z===endZ)return;
+    if(z===endZ||(x!==endX&&crossX<=crossZ)){x+=stepX;crossX+=deltaX;}
+    else{z+=stepZ;crossZ+=deltaZ;}
+  }
+}
 // Earliest intersection of the orbit boom with an oriented building. Starting
 // inside is intentional for the occupied room, whose walls already cut away.
 export function cameraClearance(target,eye,building,clipGable=false){

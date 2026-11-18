@@ -18,11 +18,15 @@ export class PlayerMenu {
     for(const gesture of ['wave','cheer'])listen(el('player-'+gesture),'click',()=>{
       street.session.command({type:'gesture',gesture});street.closePanels();
     });
-    listen(el('player-roster'),'click',event=>{
+    const follow=event=>{
       const id=event.target.closest('button')?.dataset.player,s=street.session;
       if(!id||!s.actors.has(id))return;
-      street.cameraFocus=id===s.id?null:{actor:id};street.closePanels();street.controls.domElement.focus({preventScroll:true});
-    });
+      event.preventDefault();
+      if(id===s.id)street.centerOnPlayer();else street.cameraFocus={actor:id};
+      street.closePanels();street.controls.domElement.focus({preventScroll:true});
+    };
+    listen(el('player-roster'),'click',follow);
+    listen(el('player-roster'),'contextmenu',follow);
   }
   open(){
     const profile=this.street.session.profile;

@@ -53,6 +53,44 @@ try{
     return s.owner?s.peers.size>0:s.connected;})));
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
+  const cameraPose=()=>visitor.evaluate(()=>{const {controls,camera}=window.__cozy.street;
+    return {radius:controls.getDistance(),angle:controls.getAzimuthalAngle(),offset:camera.position.clone().sub(controls.target).toArray()};});
+  const initial=await cameraPose();
+  await visitor.keyboard.press('Period');
+  assert.ok(Math.abs((await cameraPose()).angle-initial.angle)>.15);
+  await visitor.keyboard.press('Comma');
+  assert.ok(Math.abs((await cameraPose()).angle-initial.angle)<.03);
+  for(let i=0;i<32;i++)await visitor.keyboard.press('Minus');
+  const wide=await cameraPose();
+  assert.ok(wide.radius>3000,'street zoom reached the island scale');
+  await visitor.keyboard.press('Equal');assert.ok((await cameraPose()).radius<wide.radius*.83);
+  await visitor.mouse.move(525,320);await visitor.mouse.wheel(0,-160);
+  await until(visitor,d=>window.__cozy.street.controls.getDistance()<d*.79,wide.radius);
+  await visitor.evaluate(async()=>{await window.__cozy.flushChunks();});
+  const roof=await visitor.evaluate(()=>{
+    const s=window.__cozy.street,rect=s.controls.domElement.getBoundingClientRect();
+    const camera=s.camera.clone();camera.position.lerp(s.controls.target,1-s.cameraFraction());camera.updateMatrixWorld();
+    for(const b of s.island.homes){
+      const point=camera.position.clone().set(b.x,b.y+b.height+.12,b.z);
+      if(point.distanceTo(camera.position)<1100)continue;
+      const ndc=point.project(camera),x=Math.round(rect.left+(ndc.x+1)*rect.width/2),y=Math.round(rect.top+(1-ndc.y)*rect.height/2);
+      if(document.elementFromPoint(x,y)!==s.controls.domElement)continue;
+      const ray=s.pointerRay({clientX:x,clientY:y}),ground=s.floorPoint(ray,s.camera.far);
+      if(ground&&s.pickAction(ray,true,ground)?.label==='Enter '+b.name)return {x,y,name:b.name};
+    }
+  });
+  assert.ok(roof,'a distant roof is selectable at island scale');
+  if(process.env.COZY_WIDE_SHOT)await visitor.screenshot({path:process.env.COZY_WIDE_SHOT,type:'jpeg',quality:92});
+  for(const button of ['left','right']){
+    await visitor.mouse.click(roof.x,roof.y,{button});
+    assert.equal(await visitor.locator('#world-action').innerText(),'Enter '+roof.name);
+    assert.equal(await visitor.locator('#world-jump').isVisible(),button==='right');
+    await visitor.keyboard.press('Escape');
+  }
+  await visitor.keyboard.press('Enter');
+  assert.ok((await cameraPose()).radius<20,'Enter returns to a character-scale view');
+  await visitor.evaluate(offset=>{const s=window.__cozy.street;s.camera.position.fromArray(offset).add(s.controls.target);s.controls.update();},initial.offset);
+  console.log('PASS keyboard orbit, keyboard and wheel zoom, and both pointer buttons on',roof.name,'from island scale. Maximum street radius',wide.radius.toFixed(0),'m.');
   const driver=(await actor(visitor)).id,cyclist=(await actor(owner)).id;
   await mount(visitor,'car');await Promise.all(pages.map(p=>synced(p,driver,'car')));
   await mount(owner,'bike');await Promise.all(pages.map(p=>synced(p,cyclist,'bike')));

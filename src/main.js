@@ -44,14 +44,13 @@ controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Ma
 
 const waterMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,
-  uniforms:{uTime:{value:0},uHalf:{value:1000},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:900},uFogFar:{value:3600}},
-  vertexShader:`attribute float depth;varying float vD;varying vec3 vW;varying float vDist;
-    void main(){vD=depth;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vec4 mv=viewMatrix*w;vDist=length(mv.xyz);gl_Position=projectionMatrix*mv;}`,
-  fragmentShader:`uniform float uTime,uHalf,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;varying float vDist;
+  uniforms:{uTime:{value:0},uShallow:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uFoam:{value:new THREE.Color()},uFog:{value:new THREE.Color()},uFogNear:{value:900},uFogFar:{value:3600}},
+  vertexShader:`attribute float depth;varying float vD;varying vec3 vW;
+    void main(){vD=depth;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`uniform float uTime,uFogNear,uFogFar;uniform vec3 uShallow,uDeep,uFoam,uFog;varying float vD;varying vec3 vW;
     void main(){
       float d=vD; if(d<-0.02) discard;
       float k=mix(.11,3.,step(.8,vW.y));float t=1.-exp(-max(d,0.)*k);
-      t=mix(t,1.,smoothstep(uHalf*.88,uHalf,max(abs(vW.x),abs(vW.z))));
       vec3 col=mix(uShallow,uDeep,t*mix(1.,.62,step(.8,vW.y)));
       float w1=sin(uTime*.9+vW.x*.12+vW.z*.07),w2=sin(uTime*1.3-vW.z*.15+vW.x*.05);
       float band=.55+.22*w1+.14*w2;
@@ -66,10 +65,12 @@ const waterMat=new THREE.ShaderMaterial({
       float crest=smoothstep(.83,.98,sin(wave))*smoothstep(.12,.92,breaks*.52+w2*.46+w1*.33);
       float resolved=1.-smoothstep(.3,2.2,fwidth(wave));
       col+=vec3(.029,.043,.041)*crest*resolved;
-      col*=.99+.012*w1+.009*w2;
+      float distanceToEye=length(cameraPosition-vW);
+      col*=.99+(.012*w1+.009*w2)*(1.-smoothstep(400.,1200.,distanceToEye));
       float a=mix(.5,1.,t)*smoothstep(-.02,.1,d);
+      a=mix(a,1.,smoothstep(1.5,5.,d));
       a=max(a,foam*.85*smoothstep(-.02,.06,d));
-      float f=smoothstep(uFogNear,uFogFar,length(cameraPosition-vW));
+      float f=smoothstep(uFogNear,uFogFar,distanceToEye);
       gl_FragColor=vec4(col,a);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
@@ -82,10 +83,27 @@ const oceanMat=new THREE.MeshBasicMaterial({color:0x3f8fb1,fog:true});
 const floorMat=new THREE.MeshBasicMaterial({color:0x2a6f86,fog:true});
 const floorPlane=new THREE.Mesh(new THREE.PlaneGeometry(90000,90000).rotateX(-Math.PI/2),floorMat);floorPlane.position.y=-75;scene.add(floorPlane);
 const ocean=new THREE.Mesh(new THREE.BufferGeometry(),waterMat);ocean.renderOrder=2;scene.add(ocean);
-function buildOcean(half){
-  const B=40000,quads=[[-B,-B,B,-half],[-B,half,B,B],[-B,-half,-half,half],[half,-half,B,half]],pos=[],idx=[];
-  for(const [x0,z0,x1,z1] of quads){const o=pos.length/3;pos.push(x0,0,z0,x1,0,z0,x0,0,z1,x1,0,z1);idx.push(o,o+2,o+1,o+1,o+2,o+3);}
-  ocean.geometry.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('depth',new THREE.Float32BufferAttribute(new Float32Array(pos.length/3).fill(80),1));g.setIndex(idx);ocean.geometry=g;waterMat.uniforms.uHalf.value=half;
+function buildOcean(island){
+  const half=island.half,outer=half*1.45,positions=[],depth=[],indices=[];
+  // Continue the bathymetry across the terrain boundary. All three rings
+  // share one mesh and material, and are built only when the locale changes.
+  const steps=Math.ceil(island.size/island.cell);
+  const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
+  for(let side=0;side<4;side++){
+    const [ax,az]=corners[side],[bx,bz]=corners[(side+1)%4];
+    for(let i=0;i<steps;i++){
+      const x=ax+(bx-ax)*i/steps,z=az+(bz-az)*i/steps;
+      const edgeDepth=-island.sample(x*half,z*half);
+      positions.push(x*half,0,z*half,x*outer,0,z*outer,x*40000,0,z*40000);
+      depth.push(edgeDepth,Math.max(30,edgeDepth),80);
+      const a=depth.length-3,b=(a+3)%(12*steps);
+      indices.push(a,b,a+1,b,b+1,a+1,a+1,b+1,a+2,b+1,b+2,a+2);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('depth',new THREE.Float32BufferAttribute(depth,1));
+  geometry.setIndex(indices);ocean.geometry.dispose();ocean.geometry=geometry;
 }
 let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
 let town=null, street=null, captureTime=0;
@@ -193,6 +211,11 @@ function renderScene(){
   const fraction=street?.cameraFraction()??1;
   orbitEye.copy(camera.position);
   camera.position.lerp(controls.target,1-fraction);
+  if(street?.active){
+    const distance=camera.position.distanceTo(controls.target);
+    const near=distance>1500?6:distance>450?2:distance>120?.5:.13;
+    if(camera.near!==near){camera.near=near;camera.updateProjectionMatrix();}
+  }
   town?.posePeople(performance.now(),camera);
   renderer.render(scene,camera);
   camera.position.copy(orbitEye);
@@ -271,7 +294,7 @@ async function load(presetId,seed,view='oblique',viewOpts){
     $('centre-view').hidden=!island.townSquare;
     captureTime=0;
     const tGen=performance.now()-t0;
-    applyPalette(island.preset.palette);buildOcean(island.half);
+    applyPalette(island.preset.palette);buildOcean(island);
     setView(view,viewOpts);
     const t1=performance.now();await flushChunks();
     if(generation!==loadGen) return;

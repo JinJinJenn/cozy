@@ -21,6 +21,11 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
   }finally{await guest.keyboard.up('d');}
   await host.getByRole('button',{name:'Follow River',exact:true}).click();
   await wait(host,id=>window.__cozy.street.cameraFocus?.actor===id,guestId);
+  await host.keyboard.press('Enter');
+  await wait(host,()=>!window.__cozy.street.cameraFocus);
+  await panel(host);
+  await host.getByRole('button',{name:'Follow River',exact:true}).click({button:'right'});
+  await wait(host,id=>window.__cozy.street.cameraFocus?.actor===id,guestId);
   // Frame both people from the pavement, then greet through the actual world picker.
   await host.evaluate(async id=>{
     const game=window.__cozy,street=game.street,a=street.meshes.get(id).position,b=street.meshes.get(street.session.id).position;

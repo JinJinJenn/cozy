@@ -4,7 +4,7 @@ import {tvChannels} from './home-fixtures.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
-import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,shellBounds,toRoom,toWorld,walkable,wallState} from './street-world.js';
+import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsForStreet,shellBounds,toRoom,toWorld,visitSightlineCells,walkable,wallState} from './street-world.js';
 import {homeAt} from './home-plan.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic} from './street-music.js';
@@ -25,6 +25,10 @@ export class Street {
     Object.assign(this,{island,scene,camera,controls,town});
     this.plots=plotsForStreet(island);this.clearExteriors=townExteriors(island,this.plots,scene);
     if(!this.plots.length)return;
+    this.roofline=island.stats.maxH;
+    for(const b of [...island.homes,...island.streetFootprints,...this.plots]){
+      this.roofline=Math.max(this.roofline,b.y+(b.roofHeight??b.height??6));
+    }
     this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
     this.music=new StreetMusic();this.abort=new AbortController();this.joy={x:0,z:0};this.cafe=this.plots.find(b=>b.cafe);
     this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
@@ -80,8 +84,19 @@ export class Street {
         }
         return;
       }
-      if(e.target.matches('input,select,textarea'))return;
-      if(e.code==='Enter'&&!e.target.closest('button,a')){e.preventDefault();this.cameraFocus=null;}
+      if(e.target.isContentEditable||e.target.closest('input,select,textarea')||e.ctrlKey||e.metaKey||e.altKey)return;
+      if(!this.buildLot&&['Equal','NumpadAdd','Minus','NumpadSubtract','Comma','Period'].includes(e.code)){
+        e.preventDefault();
+        const target=this.controls.target,offset=this.camera.position.sub(target);
+        if(e.code==='Comma'||e.code==='Period'){
+          offset.applyAxisAngle(THREE.Object3D.DEFAULT_UP,(e.code==='Comma'?-1:1)*Math.PI/12);
+        }else{
+          const factor=e.code==='Minus'||e.code==='NumpadSubtract'?1.25:.8;
+          offset.setLength(THREE.MathUtils.clamp(offset.length()*factor,this.controls.minDistance,this.controls.maxDistance));
+        }
+        this.camera.position.add(target);this.controls.update();return;
+      }
+      if(e.code==='Enter'&&!e.target.closest('button,a')){e.preventDefault();this.centerOnPlayer();}
       if(directions.has(e.code)){e.preventDefault();this.cameraFocus=null;$('world-choice').hidden=true;this.keys.add(e.code);this.input();}
       if(e.code==='KeyE'&&!e.repeat&&!this.buildLot){e.preventDefault();this.use();}
     });
@@ -151,7 +166,7 @@ export class Street {
       this.hoverTimer=setTimeout(()=>{
         if(!this.active||this.buildLot||!this.session?.ready||!this.session.actors.has(this.session.id))return;
         const ray=this.pointerRay(point);
-        const pick=this.pickAction(ray,false,this.floorPoint(ray,Math.min(1000,this.island.size)));
+        const pick=this.pickAction(ray,false,this.floorPoint(ray,this.camera.far));
         if(pick){canvas.style.cursor='pointer';canvas.title=pick.label||pick.followLabel;}
       },90);
     });
@@ -228,6 +243,14 @@ export class Street {
     this.camera.position.copy(eye);this.camera.updateMatrixWorld();
     return this.ray.ray;
   }
+  centerOnPlayer(){
+    this.cameraFocus=null;
+    const target=this.controls.target;
+    if(!this.buildLot&&this.controls.getDistance()>75){
+      this.camera.position.sub(target).setLength(18).add(target);
+      this.controls.update();
+    }
+  }
   floorPoint(ray,range){
     const pt=this.rayPoint,layout=this.session?.layout||{};
     let lo=0;
@@ -250,7 +273,7 @@ export class Street {
   walkAtPointer(e,context=false){
     if(!this.session?.ready)return;
     $('world-choice').hidden=true;this.choice=null;
-    const ray=this.pointerRay(e),point=this.floorPoint(ray,Math.min(1000,this.island.size));
+    const ray=this.pointerRay(e),point=this.floorPoint(ray,this.camera.far);
     const pick=this.pickAction(ray,context,point);
     if(pick){this.showWorldChoice(e,pick,context);return;}
     if(point){
@@ -275,7 +298,7 @@ export class Street {
   pickAction(ray,context,ground){
     const s=this.session,local=s.actors.get(s.id);
     const range=ground?Math.hypot(ground.x-ray.origin.x,ground.z-ray.origin.z,
-      floorAt(this.island,this.plots,ground.x,ground.z,s.layout)-ray.origin.y)+.25:Math.min(1000,this.island.size);
+      floorAt(this.island,this.plots,ground.x,ground.z,s.layout)-ray.origin.y)+.25:this.camera.far;
     let best=null,depth=range;
     const offer=(p,radius,command,label,focus,followLabel)=>{
       if(ray.distanceSqToPoint(p)>radius*radius)return;
@@ -333,7 +356,11 @@ export class Street {
       const point=b.inside||toWorld(b,0,frontAt(b,s.layout)-1);
       best={command:{type:'walk',...point},label:'Enter '+(b.name||places[b.kind][0]),point};
     };
-    for(const home of this.island.homes)shell(home,home);
+    const tested=new Set();
+    visitSightlineCells(ray.origin,end,key=>{
+      const homes=this.island.homeCells.get(key);
+      if(homes)for(const home of homes)if(!tested.has(home)){tested.add(home);shell(home,home);}
+    });
     for(const venue of this.plots)shell(venue,shellBounds(venue,s.layout));
     return best;
   }
@@ -467,7 +494,7 @@ export class Street {
     const p=this.session.actors.get(this.session.id)||this.session.spawn;
     const y=floorAt(this.island,this.plots,p.x,p.z,this.session.layout),off=toWorld(this.cafe,7.7,7.7);
     this.cameraFocus=null;this.controls.mouseButtons.RIGHT=THREE.MOUSE.ROTATE;this.controls.mouseButtons.MIDDLE=THREE.MOUSE.ROTATE;
-    this.controls.minDistance=2.6;this.controls.maxDistance=420;this.controls.enablePan=false;
+    this.controls.minDistance=2.6;this.controls.maxDistance=this.island.size*1.55;this.controls.enablePan=false;
     this.camera.far=4500;this.camera.near=.13;this.camera.updateProjectionMatrix();
     this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
@@ -491,19 +518,24 @@ export class Street {
   cameraFraction(){
     if(!this.active||this.buildLot)return 1;
     const eye=this.camera.position,at=this.controls.target;
+    // An orbital camera above the town should keep its chosen altitude even
+    // when a building hides a character on the pavement far below.
+    const distance=Math.max(1,at.distanceTo(eye));
+    const aerial=THREE.MathUtils.smoothstep(eye.y,this.roofline+2,this.roofline+45)*
+      THREE.MathUtils.smoothstep(distance,65,160);
+    if(aerial===1)return 1;
     let limit=1;
     for(const b of this.plots)limit=Math.min(limit,cameraClearance(at,eye,shellBounds(b,this.session.layout)));
-    const x0=Math.floor(Math.min(at.x,eye.x)/32),x1=Math.floor(Math.max(at.x,eye.x)/32);
-    const z0=Math.floor(Math.min(at.z,eye.z)/32),z1=Math.floor(Math.max(at.z,eye.z)/32);
     const tested=new Set();
-    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
-      const key=x+','+z;
-      for(const b of [...this.island.footprintCells.get(key)||[],...this.island.homeCells.get(key)||[]]){
+    const check=buildings=>{
+      if(!buildings)return;
+      for(const b of buildings){
         if(b.id===this.openRoof||tested.has(b))continue;tested.add(b);
         limit=Math.min(limit,cameraClearance(at,eye,b));
       }
-    }
-    return limit<1?Math.max(.02,limit-.16/Math.max(1,at.distanceTo(eye))):1;
+    };
+    visitSightlineCells(at,eye,key=>{check(this.island.footprintCells.get(key));check(this.island.homeCells.get(key));});
+    return limit<1?THREE.MathUtils.lerp(Math.max(.05/distance,limit-.16/distance),1,aerial):1;
   }
   render(now=performance.now()){
     const s=this.session;if(!s||!this.active)return;
@@ -563,7 +595,8 @@ export class Street {
     $('place').textContent=this.buildLot?(this.buildLot.name||places[this.buildLot.kind][0]):near?(near.name||places[near.kind][0]):'Harbor Town';
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
       local.vehicle?'W/S accelerate or reverse · A/D steer · E to get out':this.cameraFocus?'Enter to return to your character · Drag to orbit':
-      'Left-click to walk or interact · Right-click for options · Drag to orbit · M for map';
+      this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
+      'Left-click to walk or interact · Right-click for options · Drag to orbit · Scroll or +/− to zoom';
     const friend=neighborName(local.friend),outing=local.outing,coffee=$('coffee-action');
     coffee.hidden=!!this.buildLot||(!outing&&near?.kind!=='cafe')||!!outing&&!['carry','chat','bay'].includes(outing);
     coffee.disabled=!s.ready||(!s.owner&&!s.connected);

@@ -5,6 +5,26 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Whole-island street orbit, v0.12.3
+
+Petalwood's street camera reaches 3,174 metres. In a 1,800-metre orbit,
+headless Chrome on Intel Graphics 0x7D67 (D3D11, 1280 × 720) completed
+32.4 FPS on Low and 31.9 FPS on Balanced. The p95 frame intervals were
+32.6 ms and 33.7 ms. Each run measured 360 frames with GPU fences and all
+457 residents in simulation. The orbit checks that every camera position
+stays at the requested aerial distance.
+
+On the same build and adapter, Low completed 59.8 FPS in the 24-metre
+street orbit and 59.8 FPS in the 180-metre town orbit. Their p95 frame
+intervals were 17.3 ms and 17.5 ms respectively.
+
+The peak frame submitted 3,226 draw calls and 5.67 million triangles.
+In one fixed aerial frame, the town exterior group alone submitted 1,160
+calls and 3.15 million triangles. The full-island view still exceeds a
+16.7 ms frame budget on this adapter. Run
+`node tools/benchmark.mjs --wide-street --720p --orbit --gpu-completion`
+with the adapter selection described below to reproduce it.
+
 ### Living-room television, v0.6
 
 The TV draws a 224 × 128 picture at eight frames per second. Each client allocates

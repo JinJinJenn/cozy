@@ -6,7 +6,7 @@ Open the ordinary game link to meet in public Harbor Town. One browser runs the 
 
 ## Getting around
 
-Left-click open ground to walk. Hover over a furnishing to see its action, then click to choose it. Click a closed house to visit. Right-click to walk, teleport, or move the camera to the spot. On a person, choose **Follow** to keep them in view. Drag either mouse button to orbit in street view and scroll to zoom. **Enter** brings the camera home. **Escape** dismisses the menu or cancels the current walk. On a touch screen, hold a spot and release for the right-click menu.
+Left-click open ground to walk. Hover over a furnishing to see its action, then click to choose it. Click a closed house to visit. Right-click to walk, teleport, or move the camera to the spot. On a person, choose **Follow** to keep them in view. Drag either mouse button or press comma and period to orbit. Scroll or press + and − to zoom out to island scale. **Enter** returns to your character at street distance. You can also right-click a name in the multiplayer roster to follow that player. **Escape** dismisses the menu or cancels the current walk. On a touch screen, hold a spot and release for the right-click menu.
 
 Open **Travel** to choose a destination, drive a convertible or ride a bicycle. W and S accelerate, brake and reverse. A and D steer. The touch pad also drives. Press E or tap the dismount button to get out. Cars follow the roads and bikes can take shortcuts across dry grass. Your friends can ride at the same time and see your wheels turn. Rides end when you dismount or teleport.
 

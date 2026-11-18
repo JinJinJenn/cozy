@@ -1,12 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultLayout,floorAt,gardenForStreet,frontAt,legalWall,moveWalker,plotsForStreet,readLayout,toWorld,toRoom,walkable} from '../src/street-world.js';
+import {defaultLayout,floorAt,gardenForStreet,frontAt,legalWall,moveWalker,plotsForStreet,readLayout,toWorld,toRoom,visitSightlineCells,walkable} from '../src/street-world.js';
 import {generate} from '../packages/island-gen/index.js';
 import {createFlattenHook,generateSettlement} from '../packages/settlement/index.js';
 import {pointInPoly} from '../packages/settlement/src/geom.js';
 import {StreetSession} from '../src/street-session.js';
 const b={kind:'cafe',cafe:true,x:12,z:-16,y:4,c:Math.cos(.7),s:Math.sin(.7),w:9.2,d:8.6};
 const island={half:100,sample:()=>3,slope:()=>0,waterAt:()=>0};
+test('camera sightlines visit crossed cells at island scale, along grid edges and in both directions',()=>{
+  const cases=[[32,-32,32,-32],[32,-32,-64,-32],[-64,31,-64,-33],[32,32,-1920,-1920],
+    [-1200,600,891,-1540],[32,32,32.001,938],[-.001,0,64,-32]];
+  for(const [x,z,ex,ez] of cases)for(const reverse of [false,true]){
+    const a=reverse?{x:ex,z:ez}:{x,z},b=reverse?{x,z}:{x:ex,z:ez};
+    const cells=new Set();
+    visitSightlineCells(a,b,key=>{assert.ok(!cells.has(key));cells.add(key);});
+    for(let i=0;i<=2000;i++){
+      const p=i/2000;
+      assert.ok(cells.has(Math.floor((a.x+(b.x-a.x)*p)/32)+','+Math.floor((a.z+(b.z-a.z)*p)/32)));
+    }
+    assert.ok(cells.size<=1+Math.abs(Math.floor(x/32)-Math.floor(ex/32))+Math.abs(Math.floor(z/32)-Math.floor(ez/32)));
+  }
+});
 test('a moving partition sweeps occupants and its open door leaf',()=>{
   assert.equal(legalWall(-1.5,1.5,[toWorld(b,2,.3)],b),-.5);
   assert.equal(legalWall(1.5,-1.5,[toWorld(b,1.02,-.6)],b),1);
