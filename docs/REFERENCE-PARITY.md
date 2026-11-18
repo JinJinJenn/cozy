@@ -16,7 +16,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 | Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
 | Room editing | Jenn's Cafe, Sky Lounge | Guests stay seated while an owner previews, places or undoes a divider in a generated home. Venue walls and terrace tables are also editable. | Multi-room plans, furniture placement and support rules |
 | Multiplayer arrival | Sky Lounge public lobby | Automatic public joining, delayed-signal convergence, separate private streets | Explicit private-home access, larger groups and full host handover |
-| Personal homes | Owner-specific room saves | Existing browser-local venue layout saves preserved | Stable personal home IDs, recoverable backup, session parcel leases and migrations |
+| Personal homes | Owner-specific room saves | Private street identity, edits, fixture state, visit history and an optional home address can move between browsers in an encrypted file | Individual home ownership and public session parcel leases |
 | Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |
 
 ## Full-system coverage
@@ -34,7 +34,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
 | Room discovery | Sky Lounge port: automatic common lobby and roster | Two fresh profiles meet through the game URL. The HUD shows the player count. Named rosters remain open. |
 | Private access | Sky Lounge: invitation, closed/listed rooms, admission and owner controls | Partial street invites/listing; private home capabilities and moderation missing |
-| Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Partial browser-local saves; recoverable identity/home export and migration missing |
+| Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Encrypted file recovery preserves the owner and existing invite. Devices retain separate selectable saves. Offline history merging remains open. |
 | Host departure | Sky Lounge port: successor host and retained layout | Remaining peers elect a new host. Full NPC scheduler and in-flight action handover remain open. |
 | Room creation | Sky Lounge: templates, entrances, named rooms and navigation | Missing general personal-home creation and connected-room editing |
 | Build catalog | Sky Lounge: broad catalog, coordinated sets and configuration | Partial venue-specific terrace placement; reusable catalog and set placement missing |

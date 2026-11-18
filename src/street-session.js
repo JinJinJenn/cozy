@@ -10,8 +10,8 @@ import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
 import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
+import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
 
-const project='jenns-cozy-town-waterfront-v1';
 const nowAllowed=state=>performance.now()-(state.commandAt??-Infinity)>=180;
 const zero={x:0,z:0};
 const furniture={
@@ -41,15 +41,6 @@ const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
 const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw);
-function stored(key){try{return JSON.parse(localStorage.getItem(key))}catch{return null}}
-function save(key,data){try{localStorage.setItem(key,JSON.stringify(data));return true}catch{return false}}
-async function identity(){
-  const key=project+'.identity',old=stored(key);
-  if(old&&validKey(old.pub)){try{return {pub:old.pub,privateKey:await crypto.subtle.importKey('jwk',old.jwk,algorithm,false,['sign'])}}catch{}}
-  const pair=await crypto.subtle.generateKey(algorithm,true,['sign','verify']),pub=encode(await crypto.subtle.exportKey('raw',pair.publicKey));
-  const jwk=await crypto.subtle.exportKey('jwk',pair.privateKey);
-  return {pub,privateKey:pair.privateKey,persistent:save(key,{pub,jwk})};
-}
 function linkFor(pub){const u=new URL(location.href);u.search='';u.hash='';
   u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(new URLSearchParams(location.search).get('net')==='local')u.searchParams.set('net','local');return u.href;}
 function transports(){
@@ -96,19 +87,28 @@ export class StreetSession {
         return;
       }
       if(this.owner){
-        const id=navigator.locks?await navigator.locks.request(project+'.create-owner',identity):await identity();this.pub=id.pub;
+        const id=navigator.locks?await navigator.locks.request(project+'.create-owner',loadOwner):await loadOwner();this.pub=id.identity.pub;this.localSlot=id.slot;
         if(navigator.locks){
           let inform;const acquired=new Promise(r=>inform=r);
-          void navigator.locks.request(project+'.host.'+id.pub,{ifAvailable:true},async lock=>{
+          void navigator.locks.request(project+'.host.'+this.pub,{ifAvailable:true},async lock=>{
             inform(!!lock);if(lock&&!this.closed)await new Promise(r=>this.releaseLock=r);});
-          if(!await acquired){this.owner=false;this.visit=id.pub;}
+          if(!await acquired){this.owner=false;this.visit=this.pub;}
         }
-        if(this.owner)this.privateKey=id.privateKey;
-        this.layout=readLayout(stored(project+'.layout.'+this.pub))||defaultLayout();this.saved=id.persistent!==false;
+        if(this.owner){
+          this.ownerSave=id;this.privateKey=id.privateKey;this.publicKey=id.publicKey;
+          this.hostStarted=Date.now();this.hostCards=new Map();
+        }
+        const savedLayout=id.recovered?id.recovered.layout:readSaveValue(project+'.layout.'+this.pub);
+        const layout=savedLayout===undefined&&!id.recovered?defaultLayout():readLayout(savedLayout);
+        if(!layout)throw Error('This saved layout could not be read. You can restore a backup from the public town.');
+        this.layout=layout;
+        this.saved=id.persistent!==false;
         applyRoomPlans(this.island,{},this.layout.rooms?.lots);
+        const home=this.island.homesById?.get(id.recovered?.homeLot);
+        if(this.owner&&home)Object.assign(this.actors.get(this.id),home.inside);
       }
       if(this.owner){
-        this.coffeeVisits=stored(project+'.coffee.'+this.pub)||{};
+        this.coffeeVisits=this.ownerSave.recovered?.coffee??readSaveValue(project+'.coffee.'+this.pub)??{};
         this.startPatrol();
       }else{
         if(!validKey(this.visit))throw Error('Invalid street invitation');
@@ -116,7 +116,7 @@ export class StreetSession {
       }
       if(this.closed)return;
       this.ready=true;
-      await this.connect(!this.owner||!!stored(project+'.host.'+this.pub));
+      await this.connect(!this.owner||!!this.ownerSave?.slot||!!stored(project+'.host.'+this.pub));
     }catch(e){this.notice(e.message);this.error=e.message;}
   }
   startPatrol(){
@@ -147,16 +147,45 @@ export class StreetSession {
   async connect(publicly=true){
     const handlers=kind=>({
         onMessage:(peer,m)=>this.receive(kind+'/'+peer,m),
+        onPeerJoin:()=>this.announceOwner(kind),
         onPeerLeave:peer=>this.peers.delete(kind+'/'+peer),onError:()=>{}
     });
     const name='street-'+this.pub;
-    this.connecting??=this.open(name,this.connections,handlers,t=>t.kind==='broadcast');
+    const attach=async(kind,connection)=>{
+      if(!this.ownerSave||!this.owner)return;
+      const body=JSON.stringify([this.pub,kind+'/'+connection.selfId,this.boot,this.hostStarted]);
+      const sig=encode(await crypto.subtle.sign(signature,this.privateKey,utf8.encode(body)));
+      if(!this.closed&&this.owner){this.hostCards.set(kind,{connection,packet:{kind:'private-host',body,sig}});this.announceOwner(kind);}
+    };
+    this.connecting??=this.open(name,this.connections,handlers,t=>t.kind==='broadcast',attach);
     await this.connecting;
     if(publicly&&!this.closed){
-      this.wide??=this.open(name,this.connections,handlers,t=>t.kind!=='broadcast');
+      this.wide??=this.open(name,this.connections,handlers,t=>t.kind!=='broadcast',attach);
       if(this.owner)save(project+'.host.'+this.pub,true);
     }
     return !this.closed;
+  }
+  announceOwner(kind){
+    const card=this.owner&&this.hostCards?.get(kind);if(card)card.connection.send(card.packet);
+  }
+  async checkOtherOwner(sender,message){
+    if(!this.ownerSave||!this.owner||typeof message.body!=='string'||message.body.length>400||
+      typeof message.sig!=='string'||message.sig.length>140)return;
+    try{
+      const [pub,peer,boot,started]=JSON.parse(message.body);
+      if(pub!==this.pub||peer!==sender||typeof boot!=='string'||!/^[0-9a-f-]{36}$/i.test(boot)||
+        !Number.isSafeInteger(started)||started<=0||started>this.hostStarted||
+        started===this.hostStarted&&boot>=this.boot)return;
+      if(!await crypto.subtle.verify(signature,this.publicKey,decode(message.sig),utf8.encode(message.body))||this.closed||!this.owner)return;
+      // Copies have the same signing key. Once connected, keep one writer.
+      // Losing this election never writes the winning host's state to our slot.
+      this.owner=false;this.privateKey=null;this.ownerSave=null;this.hostCards.clear();this.visit=this.pub;
+      this.boot=crypto.randomUUID();this.hostBoot=null;this.oldBoots.clear();this.verifiedSeq=-1;
+      this.connected=false;this.lastFrame=0;this.controls.clear();this.peers.clear();this.activities=new StreetActivities(this);
+      if(this.listed){this.listed=false;this.advertise();}
+      this.notice('This street is already hosted on another device. You joined as a guest. Your saved copy is kept here.');
+      this.sendInput();
+    }catch{ /* Ignore unrelated or invalid peer announcements. */ }
   }
   get canBuild(){return this.owner&&this.space!=='public';}
   async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;return linkFor(this.pub);}
@@ -171,7 +200,11 @@ export class StreetSession {
   advertise(){this.directory.forEach(c=>c.send({kind:this.listed?'listed':'unlisted',pub:this.pub}));}
   rooms(){for(const [id,v] of this.roomList)if(performance.now()-v.seen>12000)this.roomList.delete(id);return [...this.roomList.values()];}
   async setListed(value){if(!this.owner||!await this.invite())return;this.listed=value;await this.discover();this.advertise();}
-  persist(){if(this.space==='public')return;this.saved=save(project+'.layout.'+this.pub,this.layout);if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');}
+  persist(){
+    if(!this.canBuild)return;
+    this.saved=this.ownerSave?.slot?writeRecovered(this.ownerSave,this.layout,this.coffeeVisits):save(project+'.layout.'+this.pub,this.layout);
+    if(!this.saved)this.notice('Storage unavailable. Edits last for this visit.');
+  }
   roomOccupants(home){
     const nearby=p=>Math.abs(p.x-home.x)<=home.collisionHalfX&&Math.abs(p.z-home.z)<=home.collisionHalfZ;
     return [...this.actors.values()].flatMap(a=>a.using?.exit?[a,a.using.exit]:[a]).filter(nearby)
@@ -196,7 +229,8 @@ export class StreetSession {
   rememberCoffee(id){
     const last=this.coffeeVisits[id];
     const count=Number.isSafeInteger(last)?Math.min(9999,last+1):1;
-    this.coffeeVisits[id]=count;if(this.space!=='public')save(project+'.coffee.'+this.pub,this.coffeeVisits);
+    this.coffeeVisits[id]=count;
+    if(this.ownerSave?.slot)this.persist();else if(this.canBuild)save(project+'.coffee.'+this.pub,this.coffeeVisits);
     return count;
   }
   limitFor(b,goal,side=sideAt(b,this.layout)-b.w/2){
@@ -354,6 +388,7 @@ export class StreetSession {
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
+    if(!this.lobby&&m.kind==='private-host')return this.checkOtherOwner(sender,m);
     if(this.lobby){
       if(m.kind==='presence')return this.lobby.receive(sender,m);
       const member=this.lobby.members.get(sender);
@@ -386,6 +421,7 @@ export class StreetSession {
         if(this.closed||this.boot!==epoch||f.room!==this.pub||!Number.isFinite(f.t)||!Number.isFinite(f.seq)||!Array.isArray(f.actors)||f.actors.length>16||
           !f.actors.every(validActor)||!layout||!f.actors.some(a=>a.id===this.id))return;
         if(this.oldBoots.has(f.boot)||(this.hostBoot===f.boot&&f.seq<=this.verifiedSeq))return;
+        if(!this.lobby&&this.connected&&this.hostBoot!==f.boot&&performance.now()-this.lastFrame<4000)return;
         if(this.hostBoot&&this.hostBoot!==f.boot)this.oldBoots.add(this.hostBoot);
         const newHost=this.hostBoot!==f.boot;
         if(this.space==='public'&&!this.connected)this.notice('');
@@ -421,6 +457,9 @@ export class StreetSession {
     if(!this.ready)return;
     const now=performance.now();this.time+=dt;
     this.lobby?.tick(now);
+    if(this.owner&&this.hostCards&&now>=(this.nextOwnerPulse??0)){
+      this.nextOwnerPulse=now+2500;for(const kind of this.hostCards.keys())this.announceOwner(kind);
+    }
     if(this.owner){
       this.town.advance(dt);
       for(const [id,a] of this.actors){

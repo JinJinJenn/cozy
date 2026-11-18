@@ -5,14 +5,18 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playtestRoom} from './playtest-room.mjs';
+import {playtestRecovery} from './playtest-recovery.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DOMESTIC_REPORT||path.join(root,'test-results/domestic');
 await mkdir(out,{recursive:true});
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,args:['--mute-audio','--disable-background-timer-throttling']});
+const software=process.argv.includes('--software');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
+  args:['--mute-audio','--disable-background-timer-throttling',...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
 const live=process.env.COZY_DOMESTIC_LIVE==='1',origin=live?'https://jinjinjenn.github.io/cozy/':'https://cozy.test/cozy/';
 const report={errors:[],origin,transport:'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
 try{
- const context=async()=>{const ctx=await browser.newContext({viewport:{width:1440,height:900}});await relay(ctx);
+ const context=async()=>{const ctx=await browser.newContext({viewport:software?{width:800,height:600}:{width:1440,height:900}});await relay(ctx);
+   if(software)await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
    if(!live)await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
      const file=path.resolve(root,u.pathname.slice('/cozy/'.length)||'index.html');assert.ok(file.startsWith(root));
      await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});return ctx;};
@@ -27,7 +31,9 @@ try{
  assert.ok(report.peerKinds.some(k=>k.startsWith('trystero-nostr/')));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
- if(process.argv.includes('--room')){
+ if(process.argv.includes('--recovery')){
+   report.recovery=await playtestRecovery({host,guest,open,origin,out});
+ }else if(process.argv.includes('--room')){
    report.room=await playtestRoom({host,guest,guestId,open,out});
  }else{
  report.home=await host.evaluate(async()=>{

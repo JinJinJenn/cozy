@@ -10,6 +10,10 @@ on:
       - 'index.html'
       - 'src/main.js'
       - 'src/public-town.js'
+      - 'src/private-saves.js'
+      - 'src/save-menu.js'
+      - 'tools/test-domestic.mjs'
+      - 'tools/playtest-recovery.mjs'
       - 'src/street*.js'
       - 'src/vehicle-art.js'
       - 'tools/test-travel.mjs'
@@ -39,6 +43,8 @@ jobs:
             name: WebRTC with public signalling
           - signalling: travel
             name: Travel and pointer controls over WebRTC
+          - signalling: recovery
+            name: Private street backup and owner recovery
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,7 +61,7 @@ jobs:
             "$playwright" install-deps chromium
           fi
       - name: Walk, renovate, undo and reconnect
-        if: matrix.signalling != 'travel'
+        if: matrix.signalling == 'local' || matrix.signalling == 'public'
         env:
           SIGNALLING: ${{ matrix.signalling }}
         run: |
@@ -66,7 +72,7 @@ jobs:
             npm run test:street -- --relay
           fi
       - name: Meet in the public town and recover a private street
-        if: matrix.signalling != 'travel'
+        if: matrix.signalling == 'local' || matrix.signalling == 'public'
         env:
           SIGNALLING: ${{ matrix.signalling }}
         run: |
@@ -79,10 +85,15 @@ jobs:
       - name: Drive, cycle and use pointer controls with a friend
         if: matrix.signalling == 'travel'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:travel -- --software
+      - name: Transfer a private street between browser profiles
+        if: matrix.signalling == 'recovery'
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:domestic -- --recovery --software
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: street-failure-${{ matrix.signalling }}
-          path: test-results/street-failure
+          path: |
+            test-results/street-failure
+            test-results/domestic/review.json
           if-no-files-found: ignore

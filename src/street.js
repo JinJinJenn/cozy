@@ -11,6 +11,7 @@ import {StreetMusic} from './street-music.js';
 import {vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
 import {HomeEditor} from './home-editor.js';
+import {SaveMenu} from './save-menu.js';
 
 const $=id=>document.getElementById(id);
 const names={home:'Sit on the sofa',wayside:'Sit on the bench',terrace:'Sit at the terrace table',garden:'Sit on the bench',cafe:'Switch café lanterns',restaurant:'Take a table',club:'Join the music',spa:'Relax',gym:'Work out',cottage:'Sit down',house:'Sit down'};
@@ -40,6 +41,7 @@ export class Street {
     townURL.searchParams.set('space','personal');$('personal-street').href=townURL.href;
     this.terraceEditor=new TerraceEditor(this,listen);
     this.homeEditor=new HomeEditor(this,listen);
+    this.saveMenu=new SaveMenu(this,listen);
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -397,6 +399,7 @@ export class Street {
     grip.style.left=(r.left+(projected.x+1)*r.width/2)+'px';grip.style.top=(r.top+(1-projected.y)*r.height/2)+'px';
   }
   closePanels(){
+    this.saveMenu.close();
     for(const id of ['build-pane','social-pane','directions-pane','wall-grip','world-choice'])$(id).hidden=true;
     if(this.buildLot){
       this.homeEditor.close();this.terraceEditor.close();
@@ -427,6 +430,7 @@ export class Street {
       },60);
     }
     this.active=true;this.closePanels();this.clearInput();this.nextUI=0;
+    $('street-saves').hidden=this.session.space==='visit';$('save-download').hidden=!this.session.canBuild;
     document.body.classList.add('in-street');$('street-panel').hidden=false;$('street-note').textContent='';
     $('build-open').hidden=this.session.space!=='public'&&!this.session.canBuild;$('owner-room').hidden=!this.session.canBuild;$('invite-url').hidden=true;
     $('personal-street').hidden=this.session.space==='personal'&&this.session.owner;
@@ -500,6 +504,7 @@ export class Street {
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
+    if(this.buildLot&&!s.canBuild)this.closePanels();
     if(this.buildLot){if(!this.terraceEditor.active&&!this.homeEditor.home)this.positionGrip();}
     else{
       const focus=this.cameraFocus;
@@ -564,6 +569,7 @@ export class Street {
       s.owner?(people>1?people+' players':'Your street'):s.connected?people+' players':'Waiting for the owner';
     $('reconnect-street').hidden=s.owner||s.connected||!s.ready||now-Math.max(this.joinStarted,s.lastFrame)<12000;
     $('build-open').hidden=s.space!=='public'&&!s.canBuild;$('owner-room').hidden=!s.canBuild;
+    $('street-saves').hidden=s.space==='visit';$('save-download').hidden=!s.canBuild||!s.ready;
     if(s.space==='public')$('build-open').textContent='Build at home';
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     $('tv-remote').hidden=local.activity!=='watch'||!!this.buildLot;

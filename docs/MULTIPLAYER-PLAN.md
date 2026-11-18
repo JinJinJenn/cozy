@@ -40,6 +40,14 @@ study its behavior and implement original code and art.
 
 ## Ownership and saves
 
+As of v0.8, a private street owner can download a passphrase-encrypted file
+containing the street signing key, committed layout, coffee history, optional
+home address and world version. Restoring adds a new local save and preserves
+the previous one. The public lobby identity is temporary and separate.
+Connected v0.8 copies choose one private host by signed start time and
+session ID. Each offline device retains the revision it last saved locally.
+Public parcel leasing and merging edits across devices remain open.
+
 | Record | Authority | Lifetime |
 | --- | --- | --- |
 | Player identity | Player's signing key | Across visits and sessions; recoverable backup required |

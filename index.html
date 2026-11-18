@@ -55,7 +55,15 @@ body.shot #ui,body.shot #mini{display:none}
         <p id="terrace-status" role="status"></p>
         <div><button id="terrace-rotate">Rotate</button> <button id="terrace-apply" class="primary">Place table</button> <button id="terrace-remove">Remove</button> <button id="terrace-undo">Undo table edit</button></div>
       </div></div>
-    <div id="social-pane" class="street-drawer" hidden><div><a id="personal-street" href="?space=personal">My private street</a> <a id="public-street" href="./">Return to public town</a></div><div id="owner-room" hidden><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label></div>
+    <div id="social-pane" class="street-drawer" hidden><div><a id="personal-street" href="?space=personal">My private street</a> <a id="public-street" href="./">Return to public town</a></div><div id="owner-room" hidden><button id="copy-street">Invite a guest</button><input id="invite-url" aria-label="Street invite link" readonly hidden><label><input type="checkbox" id="list-street">List my street publicly</label>
+      </div><details id="street-saves" hidden><summary>Street backups</summary><fieldset id="save-fields">
+        <div id="save-slots" hidden><label>Saved streets <select id="save-slot"></select></label><button id="save-switch">Open selected street</button></div>
+        <label>Backup passphrase <input id="save-pass" type="password" maxlength="1024" autocomplete="off" spellcheck="false"></label>
+        <button id="save-download">Download encrypted backup</button>
+        <label>Restore from file <input id="save-file" type="file" accept=".cozy,application/json"></label>
+        <button id="save-unlock">Unlock backup</button><span id="save-status" role="status"></span>
+        <button id="save-restore" class="primary" hidden>Open recovered street</button>
+      </fieldset></details>
       <button id="browse-streets">Browse listed streets</button><div id="room-results"></div></div>
     <p id="street-note" aria-live="polite"></p><small class="desktop-hint" id="walk-hint">WASD to walk · Drag to orbit · E to interact</small>
   </section>

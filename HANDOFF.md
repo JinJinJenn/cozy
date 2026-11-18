@@ -4,6 +4,20 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.8.0 adds encrypted private street backups. On your private street,
+open **Multiplayer → Street backups**, enter a passphrase, and download the
+file. A backup made inside a generated house opens at that address. Restore
+from the public town or your private street by choosing the file, entering
+its passphrase, and opening the recovered save. The original device save
+and every recovered copy remain selectable under **Saved streets**.
+
+The file carries the private owner identity, committed building and fixture
+states, room undo, and coffee visit counts. The original invite still works.
+When two v0.8 owners of the same identity meet, one hosts and the other
+joins as a guest. Offline copies keep separate histories. Close the old host
+and reload the recovered copy to host its saved revision. Run
+`npm run test:domestic -- --recovery` for the multi-profile transfer playtest.
+
 Version 0.7.0 adds a room divider to the Build tool in generated homes. Enter
 a house on a private street, open **Build**, and preview the wall and doorway.
 The owner can rotate, reposition, remove, or undo it while guests keep using
