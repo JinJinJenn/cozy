@@ -7,6 +7,7 @@ import {beachLane,furnishRoads,harborGreen,plantWoodlands} from './harbor-garden
 import {harborRoof,gardenTree,shopFront,coastPlanting,patioParasol} from './harbor-art.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {scoreStep,noteAtStep} from './street-music.js';
+import {baseNote,keyShape,pressedKeys} from './piano.js';
 import {prepareHomes} from './home-plan.js';
 import {homeShell,HomeInteriors} from './home-art.js';
 import {flowerDisplay,lapelArt,wateringCan} from './flower-art.js';
@@ -72,14 +73,29 @@ function clubKeyboard(a,x){
   }
   a.box(x,.32,-2.12,1.48,.055,.08,brass);
   a.box(x,.73,-1.98,1.8,.16,.79,'#302d40');
-  for(let k=0;k<14;k++){
-    const keyX=x-.79+(k+.5)*1.58/14;
-    a.box(keyX,.84,-1.85,1.58/14-.009,.06,.47,'#fff0d5');
-    if(k%7!==2&&k%7!==6)a.box(keyX+.055,.89,-1.96,.065,.060,.25,'#282534');
-  }
   a.box(x,.89,-2.26,1.67,.17,.18,walnut);
   for(let i=0;i<4;i++)a.round(x-.65+i*.12,1.0,-2.26,.065,.045,.065,brass);
   a.box(x,.43,-1.1,.82,.15,.46,'#b76e74');
+}
+function stageKeys(parent,part){
+  const material=new THREE.MeshLambertMaterial();
+  const mesh=new THREE.InstancedMesh(box,material,keyShape.length),color=new THREE.Color();
+  mesh.name=part+' keys';mesh.position.x=part==='melody'?-1.7:1.7;parent.add(mesh);
+  let previous=-1;
+  function update(mask){
+    if(previous===mask)return;
+    for(let i=0;i<keyShape.length;i++){
+      const key=keyShape[i],down=!!(mask&(1<<i));
+      if(previous!==-1&&!((previous^mask)&(1<<i)))continue;
+      helper.position.set(key.x,key.y-(down?.024:0),key.z);
+      helper.rotation.set(down?.055:0,0,0);helper.scale.set(key.w,.06,key.d);helper.updateMatrix();
+      mesh.setMatrixAt(i,helper.matrix);
+      color.set(down?(part==='melody'?'#edb34f':'#77ccba'):(key.black?'#282534':'#fff0d5'));mesh.setColorAt(i,color);
+    }
+    mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;previous=mask;
+  }
+  update(0);mesh.computeBoundingSphere();
+  return {update,material};
 }
 function servingDish(a,x,y,z,dish){
   if(dish==='chowder'){
@@ -396,7 +412,7 @@ export function streetArt(island,plots,scene) {
       helper.scale.set(.45,.045,.035);helper.rotation.set(0,0,0);helper.updateMatrix();mesh.setMatrixAt(n,helper.matrix);
     }
     mesh.computeBoundingSphere();mesh.count=0;houses[clubIndex].faces[2].add(mesh);
-    return {part,mesh,mat};
+    return {part,mesh,mat,keys:stageKeys(houses[clubIndex].g,part)};
   });
   const ghost=partition(),outline=new THREE.MeshBasicMaterial({color:0x338876,transparent:true,opacity:.34,depthWrite:false});
   const ghosts=new Map([[cafe.id,ghost]]);
@@ -464,13 +480,14 @@ export function streetArt(island,plots,scene) {
     let melody=false,bass=false;
     for(const seat of meals){seat.chowder.visible=false;seat.fish.visible=false;}
     for(const a of actors){
-      if(a.part==='melody')melody=true;if(a.part==='bass')bass=true;
+      if(a.part==='melody')melody=a;if(a.part==='bass')bass=a;
       if(a.outing==='eating'&&meals[a.dinnerSeat]?.[a.dish])meals[a.dinnerSeat][a.dish].visible=true;
     }
-    for(const {part,mesh} of meters){
+    for(const {part,mesh,keys} of meters){
       const active=part==='melody'?melody:bass;
-      const note=active?noteAtStep(part,step):null;
-      mesh.count=note===null?0:2+note%5;
+      const note=active&&!active.piano?noteAtStep(part,step):null;
+      const mask=active?.piano?pressedKeys(active.piano.notes,time):note===null?0:1<<(note-baseNote(part));
+      keys.update(mask);mesh.count=mask?2+(31-Math.clz32(mask))%5:0;
     }
   },preview(b,value,show,side=0){
     for(const [id,frame] of ghosts){
@@ -508,7 +525,7 @@ export function streetArt(island,plots,scene) {
       t.tree.visible=Math.hypot(pos.x+u*dx-t.x,eyeY+u*dy-t.y,pos.z+u*dz-t.z)>2.15;
     }
     return opened;},
-    dispose(){disposeGroup(g);outline.dispose();trial.userData.preview.dispose();for(const m of meters)m.mat.dispose();scene.remove(g);}};
+    dispose(){disposeGroup(g);outline.dispose();trial.userData.preview.dispose();for(const m of meters){m.mat.dispose();m.keys.material.dispose();}scene.remove(g);}};
 }
 export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.material.map?.dispose();m.material.dispose();m.geometry.dispose();}});}
 
@@ -595,14 +612,19 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
       limb.arm.visible=!cup&&(!dish||limb.side<0);
     }
   };
-  g.setSeated=(value,part,time=0)=>{
+  g.setSeated=(value,part,time=0,piano)=>{
     torso.rotation.x=0;torso.position.z=0;
     standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
     restingArms.visible=!part&&!carrying;
     for(const [i,arm] of hands.entries()){
       arm.visible=!!part;
-      if(part){const beat=time/.30,step=Math.floor(beat);
-        arm.rotation.x=noteAtStep(part,step)!==null&&i===step%2?.13*Math.sin((beat-step)*Math.PI):0;}
+      if(part){
+        const beat=time/.30,step=Math.floor(beat),last=piano?.notes.at(-1);
+        if(piano){
+          const age=last?time-last[2]:1;
+          arm.rotation.x=age>=0&&age<.3&&i===Number(last[1]>=9)?.22*Math.sin(age/.30*Math.PI):0;
+        }else arm.rotation.x=noteAtStep(part,step)!==null&&i===step%2?.13*Math.sin((beat-step)*Math.PI):0;
+      }
     }
   };
   const book=new THREE.Group(),bookArt=new Pieces(book);body.add(book);

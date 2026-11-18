@@ -13,7 +13,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 | --- | --- | --- | --- |
 | Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
 | Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, configurable linked home lighting and a shared cook/serve/eat loop | Catalog-wide behaviors, richer props and interaction transitions |
-| Shared music | Sky Lounge ensemble | Moon Room melody and bass stations | More parts, instruments and late-join music coverage |
+| Shared music | Sky Lounge ensemble | Two live keyboards, independent melody and bass, a house tune and nearby listeners | More instrument voices, shared song selection and a ready/start workflow |
 | Outdoor activities and appearance | Town garden objects, Sky Lounge player customization | Players can pick and wear three species of roadside flowers, water a friend's cut box and keep the pinned flower between streets. | Home gardening, a clothing inventory and access to other planted beds |
 | Room editing | Jenn's Cafe, Sky Lounge | Owners can move six generated furniture types, edit a divider and place or pack club chairs and painting easels during a visit. | Catalog purchases, wall placement, stacking and multi-room plans |
 | Shared creative activities | Sky Lounge social rooms | Two visitors can paint separate pictures in the public studio. Private easels retain their painting through packing, reloading and encrypted backup. Visitors can download a finished print. | Freehand painting and hanging a finished print in another room |
@@ -44,7 +44,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Surface placement | Sky Lounge: floor/wall/shelf support and attached children | Desk and bedside lamps follow their support, including the switch target and light pool. Free shelf placement, stacking and height checks remain open. |
 | Parametric construction | Sky Lounge: cabinet runs and configurable strings | Missing cabinet-span and anchored-strand tools |
 | Linked controls | Sky Lounge: switches, remotes, screens and speakers | Owners can link the desk and bedside lamps to the entry switch. Visitors can use the switch and each individual lamp. Both the wiring and lamp states survive a reload or encrypted transfer. General control links for other devices remain open. |
-| Instruments | Sky Lounge: multiple live instruments and note feedback | Partial two-part Moon Room performance; instrument catalog and free performance UI missing |
+| Instruments | Sky Lounge: multiple live instruments and note feedback | Two stage keyboards play chords live with visible key presses, hand motion and local spectator audio. Additional instrument types and home placement remain open. |
 | Music tools | Sky Lounge: import/library, part selection, ready/start, late joining | Partial existing score playback; full import/library and ensemble workflow missing |
 | Shared audio queue | Sky Lounge: editable stereo queue and repeat | Missing |
 | Object games | Sky Lounge: multiplayer table game and playable electronic props | Harbor Three uses two reservable dining chairs, physical buoys and rings, solo practice, live turns, spectator updates and rematches. Playable electronic props remain open. |

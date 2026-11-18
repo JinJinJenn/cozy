@@ -58,6 +58,15 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #player-profile input{width:12em;max-width:52%;min-width:0}
 #player-profile button{justify-self:start}
 #harbor-game{margin:2px 3px 8px}#harbor-game p{font-size:13px;margin:.3em 0 .5em;max-width:24em}
+#piano-controls{margin:2px 3px 7px}
+#piano-register{display:inline-flex;align-items:center;gap:.25em}
+#piano-keys{position:relative;display:flex;margin:.5em 0 .2em;width:min(100%,24em);height:5.1em;background:#433a3e;border:2px solid #433a3e;border-radius:4px;box-sizing:border-box}
+#street-panel #piano-keys button{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:.1em;margin:0;padding:0 0 .26em;border-radius:0 0 4px 4px;font:inherit;touch-action:none}
+#piano-keys b{font-size:.78em}#piano-keys small{font-size:.65em}
+#street-panel #piano-keys .white{width:12.5%;background:#fff1d6;color:#493c37;border:1px solid #ab9a83}
+#street-panel #piano-keys .black{position:absolute;z-index:1;transform:translateX(-50%);top:0;width:8%;height:60%;color:#fff4da;background:#37343a;border:1px solid #201e24}
+#street-panel #piano-keys .pressed{background:#eeb951;color:#302821}
+#piano-keys[hidden],#piano-register[hidden]{display:none}
 #harbor-squares{display:grid;grid-template-columns:repeat(3,2.6em);width:max-content;gap:2px;background:#6b503a;border:3px solid #6b503a;border-radius:6px;margin-bottom:5px}
 #street-panel #harbor-squares button{border:0;border-radius:2px;height:2.4em;padding:0;background:#f1d9b1;color:#575246;font:700 17px/1 system-ui}
 #street-panel #harbor-squares button:nth-child(even){background:#a9c7ba}

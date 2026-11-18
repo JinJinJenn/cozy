@@ -4,6 +4,7 @@ import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {PrivateRoutes} from './private-routes.js';
 import {VisitAdmission} from './visit-admission.js';
+import {acceptNotes,setFreePlay,validKey as validPianoKey,validPiano} from './piano.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
@@ -58,7 +59,7 @@ const encode=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
-const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw)
+const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw)&&validPiano(p.piano)
   && (p.tableRound===undefined||validRound(p.tableRound,p)) && (p.activity!=='tablegame'||typeof p.using?.lot==='string');
 function linkFor(pub,home){const u=new URL(location.href);u.search='';u.hash='';
   u.searchParams.set('view','street');u.searchParams.set('visit',pub);if(home)u.searchParams.set('home',home);
@@ -493,6 +494,19 @@ export class StreetSession {
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
   }
   applyCommand(actor,cmd){
+    if(cmd.type==='free-play')return setFreePlay(actor,cmd.enabled);
+    if(cmd.type==='join-band'){
+      const club=this.plots.find(p=>p.kind==='club');
+      if(!club||actor.activity==='piano')return;
+      const seat=stationsFor(club).find(p=>p.part&&this.available(actor,club,p));
+      const previous=actor.travelSeq;
+      teleport(this,actor,{place:club.id});
+      if(previous!==actor.travelSeq){
+        if(seat)this.activities.command(actor,{type:'furniture',lot:club.id,index:seat.index});
+        else actor.feedback='Both keyboards are in use. You can listen here.';
+      }
+      return;
+    }
     if(cmd.type==='new-canvas'){
       const station=actor.using;
       if(this.space==='public'&&actor.activity==='admire'&&station?.lot===this.studioLot&&
@@ -551,7 +565,27 @@ export class StreetSession {
     this.keys={x,z};this.motion++;
     if(!this.owner&&this.connected)this.sendInput();
   }
+  strikeKey(key){
+    const a=this.actors.get(this.id),piano=a?.piano;
+    if(!validPianoKey(key)||a?.activity!=='piano'||!piano||(!this.owner&&!this.connected))return false;
+    if(this.playingId!==piano.id){this.playingId=piano.id;this.noteSeq=piano.seq;this.pendingNotes=[];}
+    const seq=++this.noteSeq;
+    if(this.owner){
+      acceptNotes(a,{id:piano.id,notes:[[seq,key,0]]},this.time);
+      if(piano.notes.at(-1)?.[0]!==seq)return false;
+    }
+    else{
+      this.pendingNotes.push([seq,key,performance.now()]);this.pendingNotes=this.pendingNotes.slice(-16);
+      this.sendInput();
+    }
+    return true;
+  }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
+    if(this.pendingNotes?.length){
+      const piano=this.actors.get(this.id)?.piano,now=performance.now();
+      this.pendingNotes=this.pendingNotes.filter(([seq,,at])=>piano?.id===this.playingId&&seq>piano.seq&&now-at<650);
+      if(this.pendingNotes.length)m.piano={id:this.playingId,notes:this.pendingNotes.map(([seq,key,at])=>[seq,key,(now-at)/1000])};
+    }
     if(!this.connected||!sameProfile(this.profile,this.actors.get(this.id)?.profile))m.profile=this.profile;
     if(this.lobby){
       m.authority=this.pub;
@@ -609,10 +643,11 @@ export class StreetSession {
       }
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['gesture','ride','dismount','teleport','tv-channel','table-game','visit-table','new-canvas','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['gesture','ride','dismount','teleport','tv-channel','table-game','visit-table','join-band','free-play','new-canvas','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
+      if(m.piano)acceptNotes(actor,m.piano,this.time);
     }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<131072&&typeof m.sig==='string'&&m.sig.length<140){
       try{
         const epoch=this.boot;
@@ -731,6 +766,7 @@ export class StreetSession {
           a.activity='';a.part='';moveWalker(this.island,this.plots,this.layout,a,input,dt);
         }else this.activities?.advance(a,dt);
         if(a.tableRound)practiceTurn(this,a.tableRound);
+        if(a.piano?.notes.length&&this.time-a.piano.notes.at(-1)[2]>.8)a.piano.notes.length=0;
         a.motion=id===this.id?this.motion:remote?.motion??0;
         if(a.gesture&&gesturePhase(a,this.time)===null){delete a.gesture;delete a.gestureAt;}
         a.vx=(a.x-oldX)/Math.max(.001,dt);a.vz=(a.z-oldZ)/Math.max(.001,dt);

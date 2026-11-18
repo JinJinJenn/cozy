@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.17.0 lets two visitors play the Moon Room keyboards live. Open
+**Travel → Join the Moon Room band**, then choose **Play freely**. Use the
+on-screen keyboard, the letter shortcuts printed on its keys, or the keys on
+the stage instrument. The octave selector covers two octaves per instrument.
+The melody and bass players can each switch back to the house tune. When both
+benches are occupied, another visitor can join the audience and mute their own
+stage audio. Run `npm run test:lobby -- --band` for the three-player playtest.
+
 Version 0.16.0 gives private street owners a doorbell. From **Multiplayer**, open
 **My private street**, then select **Ask me before admitting visitors** and invite
 a guest. Copying the link from inside a house includes its address. **Answer the

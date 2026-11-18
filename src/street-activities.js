@@ -1,4 +1,4 @@
-import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
+import {gardenSeats,moveWalker,toWorld,walkable,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
 import {homeAt,homeWalkableLocal} from './home-plan.js';
 import {homeAction,entrySwitchPosition,lamps,paintingStage,setFixtureValue,setPaintingStage,switchEntryLights,tuneTelevision} from './home-fixtures.js';
@@ -54,6 +54,19 @@ export class StreetActivities {
     actor.feedback=spot.object==='flower-box'?'The flower box is busy. Try another box.':'The entry switch is busy. Try again when there is room.';
   }
   leaveFurniture(actor){
+    delete actor.piano;
+    if(actor.activity==='piano'){
+      const s=this.s,club=s.plots.find(b=>b.kind==='club'),x=actor.part==='bass'?1.7:-1.7;
+      if(club){
+        for(const [dx,z] of [[0,-.12],[.78,-.25],[-.78,-.25],[0,.64]]){
+          const p=toWorld(club,x+dx,z);
+          if(walkable(s.island,s.plots,s.layout,p)&&s.available(actor,club,{...p,index:-1})){
+            Object.assign(actor,p);break;
+          }
+        }
+      }
+      actor.activity='';actor.part='';
+    }
     if(!actor.using)return;
     if(actor.activity==='tablegame')leaveBoard(this.s,actor);
     Object.assign(actor,{x:actor.using.exit.x,z:actor.using.exit.z,activity:'',part:''});
