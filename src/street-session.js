@@ -3,7 +3,7 @@ import {chairs,maxTables,tableFeet,tableFit} from './terrace.js';
 import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.js';
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {PrivateRoutes} from './private-routes.js';
-import {VisitAdmission} from './visit-admission.js';
+import {VisitAdmission,privateReconnectMs} from './visit-admission.js';
 import {acceptNotes,setFreePlay,validKey as validPianoKey,validPiano} from './piano.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
@@ -748,7 +748,9 @@ export class StreetSession {
           continue;
         }
         const remote=this.controls.get(id);
-        if(remote&&now-remote.at>(this.lobby?7000:20000)){
+        // Private visitors can change WebRTC routes during the life of their
+        // admission ticket. Retain the actor and its seat over that same gap.
+        if(remote&&now-remote.at>(this.lobby?7000:privateReconnectMs)){
           // A slow but still linked browser can miss input frames while loading
           // the island. Keep its car or seat while the input below goes idle.
           const linked=this.lobby&&now-remote.at<30000&&[...this.peers.values()].includes(id);

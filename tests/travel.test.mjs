@@ -45,6 +45,22 @@ test('a connected public driver keeps the car through an input stall and stale t
   s.actors.set(a.id,a);s.controls.set(a.id,remote);remote.at=now-8500;
   s.peers.clear();tick();assert.equal(s.actors.has(a.id),false);
 });
+test('a private seat survives a 30 second relay outage and is freed when the visit expires',()=>{
+  const {s,a}=street(),seat={lot:'l103',object:'chair-front'};
+  a.activity='sit';a.using=seat;
+  const remote={x:0,z:1,at:performance.now()-30000};
+  s.activities.advance=()=>false;s.activities.finish=actor=>{delete actor.using;};
+  s.town.advance=()=>{};
+  Object.assign(s,{owner:true,ready:true,id:'host',time:0,lastSent:Infinity,
+    controls:new Map([[a.id,remote]]),peers:new Map()});
+  const tick=()=>StreetSession.prototype.tick.call(s,.1);
+  tick();assert.equal(s.actors.get(a.id)?.using,seat);assert.equal(a.z,0);
+  remote.at=performance.now();remote.z=0;s.peers.set('trystero-nostr/guest',a.id);
+  tick();assert.equal(s.actors.get(a.id)?.using,seat);
+  remote.at=performance.now()-61000;tick();
+  assert.equal(a.using,undefined);assert.equal(s.actors.has(a.id),false);
+  assert.equal(s.controls.size,0);assert.equal(s.peers.size,0);
+});
 test('bikes cross grass but stop before water and people',()=>{
   const {s,a}=street();takeVehicle(s,a,'bike');a.yaw=Math.PI/2;
   for(let i=0;i<75;i++)moveVehicle(s,a,{x:0,z:1},.05);

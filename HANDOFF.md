@@ -4,6 +4,10 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.17.4 keeps a private visitor's chair and activity reserved for the
+same one-minute reconnect window as their admission. The owner releases the
+seat if the visitor does not return during that window.
+
 Version 0.17.3 fixes a cross-browser multiplayer bug. Chromium and Firefox now
 share 590 parcels and 459 resident slots in the same order. The release keeps
 every address previously issued by either browser, including the three

@@ -103,8 +103,19 @@ export async function playPlayers({host,guest,paired,ready,wait,navigate,profile
       await visitor.locator('#directions-open').click();await visitor.locator('#visit-table').click();
       await visitor.locator('#harbor-practice').waitFor();
       const seat=await host.evaluate(id=>window.__cozy.street.session.actors.get(id).using,actor);
-      signalling=true;
-      await visitor.evaluate(()=>window.__cozy.street.session.privateRoutes.routes.get('torrent').connection.leave());
+      assert.ok(seat?.lot&&seat.object,'the visitor has a reserved tabletop seat');
+      // Stall the uplink before dropping it. A local transport handoff alone
+      // usually finishes before the old 20-second actor timeout.
+      await visitor.evaluate(()=>{window.__cozy.street.session.sendInput=()=>{};});
+      try{
+        await wait(host,id=>{
+          const last=window.__cozy.street.session.controls.get(id)?.at;
+          return last===undefined||performance.now()-last>=23000;
+        },actor);
+        assert.deepEqual(await host.evaluate(id=>window.__cozy.street.session.actors.get(id)?.using,actor),seat);
+        signalling=true;
+        await visitor.evaluate(()=>window.__cozy.street.session.privateRoutes.routes.get('torrent').connection.leave());
+      }finally{await visitor.evaluate(()=>{delete window.__cozy.street.session.sendInput;});}
       await wait(visitor,()=>window.__cozy.street.session.privateRoutes.active==='trystero-nostr'&&window.__cozy.street.session.connected);
       assert.ok(await guest.evaluate(()=>window.__cozy.street.session.verifiedSeq)>before);
       assert.equal(await route(guest),'trystero-nostr');

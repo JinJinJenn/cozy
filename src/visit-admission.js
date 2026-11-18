@@ -1,6 +1,7 @@
 import {defaultProfile,readProfile} from './player-profile.js';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const privateReconnectMs=60000;
 
 // A visitor keeps one random ticket for the lifetime of the page, including
 // a switch between signalling routes. Only the verified owner receives it.
@@ -13,7 +14,7 @@ export class VisitAdmission {
   sweep(now){
     if(now>=this.nextSweep){
       this.nextSweep=now+5000;
-      for(const [key,v] of this.visits)if(now-v.last>60000)this.visits.delete(key);
+      for(const [key,v] of this.visits)if(now-v.last>privateReconnectMs)this.visits.delete(key);
     }
   }
   leave(sender){
