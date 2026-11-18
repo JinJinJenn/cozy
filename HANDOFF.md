@@ -42,6 +42,17 @@ Harbor Green is across the road from the café. Both pavilion benches use the sh
 
 Walking zoom now reaches 420 rather than 45. The top-right Graphics control offers Auto, Low, Balanced and High, retaining the same building geometry. Auto reduces resolution under sustained slow frames and then turns off shadows. Low caps the drawing buffer at one million pixels and disables shadows. The ocean, fog and sky share a consistent horizon treatment. Lighting and home materials have been revised.
 
+## Current acceptance targets
+
+Town parity and Sky Lounge parity are required, with functional props and appropriate
+animation throughout. Read the expanded [parity checklist](docs/REFERENCE-PARITY.md)
+and [prop behavior contract](docs/PROP-BEHAVIORS.md). A decorative component remains
+an unfinished item even if its parent furniture has an action.
+
+The [rendering review](docs/RENDERING-REVIEW.md) records terrain/scenery isolation,
+CPU/GPU measurements and the Rust/WASM decision. It recommends improving scene and
+asset representation before a whole-game port; backend comparisons remain experiments.
+
 ## Version 0.3 verification and limits
 
 - 108 package/unit checks and the four-locale browser viewer passed.
@@ -80,7 +91,7 @@ Next, follow the connected-room editor acceptance slice in the working spec. Kee
 - [Jenn's Town](https://github.com/JinJinJenn/town) supplies neighbourhood-scale examples of resident routing, seat reservations, standing up and social groups.
 - Study the Sky Lounge Trystero port for ideas. Implement Cozy's own code. The first social feature to prototype is an ensemble where guests pick different parts of the same MML song and hear sampled instruments start together.
 - Support guest joining, listed rooms and invite-only rooms with shareable links from the first multiplayer slice. Additional candidates are adjustable sag on wall strings, tic-tac-toe, a guestbook, dancing pets and painted-texture clothing.
-- Use Cozy's own renderer, multiplayer and guest identity. Leave the donor backend, login, synth voices, arcade games and needs/economy systems outside this project.
+- Use Cozy's own rendering, authority, identity and original assets. The newer full-parity target includes original object-game and music-tool equivalents; the earlier selective-extraction scope is superseded. Do not transplant the donor backend or its assets. Needs/economy systems require a separate design because prop activity alone does not establish those systems in the references.
 
 ## Packages and checks
 

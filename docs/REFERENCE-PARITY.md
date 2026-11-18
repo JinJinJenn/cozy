@@ -1,7 +1,13 @@
 # Social play reference checklist
 
-17 November 2026. These are selected behavior comparisons from local source study,
-not a claim of complete Sky Lounge parity or permission to reuse its assets.
+17 November 2026. Town parity and Sky Lounge parity are explicit acceptance targets.
+This checklist records gaps rather than claiming that Cozy already meets them.
+Implement original behavior and art; reference access does not authorize asset or
+source transplantation. Every Cozy prop must meet the [prop contract](PROP-BEHAVIORS.md).
+
+The reviewed Town checkout is `fb7148b`, Cafe is `014bbc4`, and the local Sky Lounge
+port is `2c6dca2`. Sky Lounge's captured client and reconstructed/port-added server
+behavior are distinct references; its unavailable original backend is not verified.
 
 | Area | Useful reference | Cozy 0.3 | Remaining work |
 | --- | --- | --- | --- |
@@ -12,6 +18,43 @@ not a claim of complete Sky Lounge parity or permission to reuse its assets.
 | Multiplayer arrival | Sky Lounge public lobby | Owner invitations and optional listing | Automatic public joining, convergence, explicit home access and host migration |
 | Personal homes | Owner-specific room saves | Existing browser-local venue layout saves preserved | Stable personal home IDs, recoverable backup, session parcel leases and migrations |
 | Performance | Cozy's island and simulator | Resident simulation worker, full-detail shared avatar batches, compact whole-population frames | Named low-end hardware measurements, continued entry and wide-view profiling |
+
+## Full-system coverage
+
+Partial means an existing behavior needs expansion or acceptance testing. Missing
+means the reference use case is not yet implemented in Cozy. A passing local test
+does not establish independent-network acceptance or broad catalog coverage.
+
+| System | Reference target | Cozy status and remaining acceptance |
+| --- | --- | --- |
+| Resident control | Town: select residents, queue/cancel commands, simulation speeds | Missing selected-NPC command queue and speed controls; player movement and autonomous residents exist |
+| Social groups | Town: directed chat, joining/leaving multi-person conversations | Partial: two-person hosted visits; flexible conversation groups missing |
+| Household activities | Town: seating, drinks, TV and transition animation | Partial: seating, coffee and domestic uses; TV and blended approach/use/exit animations missing |
+| Public/outdoor seating | Town: usable benches, loungers, picnic and game seats | Partial: roadside and venue benches; all furnished outdoor lots need an object-by-object audit |
+| Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
+| Room discovery | Sky Lounge port: automatic common lobby and roster | Missing automatic join and duplicate-host convergence |
+| Private access | Sky Lounge: invitation, closed/listed rooms, admission and owner controls | Partial street invites/listing; private home capabilities and moderation missing |
+| Recovery | Sky Lounge port: backups, import/export, identity migration and restore | Partial browser-local saves; recoverable identity/home export and migration missing |
+| Host departure | Sky Lounge port: successor host and retained layout | Missing authority handover; preserve full city epoch and personal home revisions |
+| Room creation | Sky Lounge: templates, entrances, named rooms and navigation | Missing general personal-home creation and connected-room editing |
+| Build catalog | Sky Lounge: broad catalog, coordinated sets and configuration | Partial venue-specific terrace placement; reusable catalog and set placement missing |
+| Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Partial wall and terrace controls; whole-home transactional editor missing |
+| Surface placement | Sky Lounge: floor/wall/shelf support and attached children | Missing reusable support graph, height/headroom and carried-child validation |
+| Parametric construction | Sky Lounge: cabinet runs and configurable strings | Missing cabinet-span and anchored-strand tools |
+| Linked controls | Sky Lounge: switches, remotes, screens and speakers | Missing persistent object links and functional household lighting |
+| Instruments | Sky Lounge: multiple live instruments and note feedback | Partial two-part Moon Room performance; instrument catalog and free performance UI missing |
+| Music tools | Sky Lounge: import/library, part selection, ready/start, late joining | Partial existing score playback; full import/library and ensemble workflow missing |
+| Shared audio queue | Sky Lounge: editable stereo queue and repeat | Missing |
+| Object games | Sky Lounge: multiplayer table game and playable electronic props | Missing original equivalents with object occupancy and replicated game state |
+| Pets | Sky Lounge: named/configurable pets, pet/call/fetch | Missing |
+| Friends and presence | Sky Lounge: contacts, requests, blocks and joinable locations | Missing persistent social records and delivery rules |
+| Guestbooks | Sky Lounge: room messages and author/owner deletion | Missing |
+| Ambience | Sky Lounge: room finishes, time/weather choices and settings | Partial graphics presets; coherent shared time/weather, finish editing and broader audio controls missing |
+
+Sky Lounge's active catalog has 117 definitions. Matching only a few chairs and
+appliances is not catalog parity. Its prop activities do not establish a needs,
+careers or economy simulation; those systems need their own explicit design if
+added. Count behavior coverage and acceptance cases, not copied models or labels.
 
 The existing Sky Lounge port is a room-oriented reference. Its transient-session
 host election is not proof of durable land ownership or a continuously saved city.

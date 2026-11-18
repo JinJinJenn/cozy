@@ -16,6 +16,29 @@ landmarks and deliberate public space. Populate both sides where the terrain and
 parcels permit. Preserve parks, water and the countryside between neighborhoods.
 More parcels alone will not resolve repetitive architecture or empty scenery.
 
+## Acceptance targets: Town and Sky Lounge parity
+
+Town parity and Sky Lounge parity are explicit targets, not loose inspiration.
+Track their user-visible systems and object behaviors in a versioned checklist,
+with implemented, partial, missing and verified states. Cozy retains its continuous
+city and NPC population while adding the richer interiors and social systems.
+Reference study does not authorize copying third-party code, models or textures.
+
+Every prop needs a defined function and observable response. Add animation where
+it makes sense: switches change lights, taps produce water, instruments perform,
+storage opens and objects support the activities their appearance promises.
+An action label or completion message alone is not finished parity. A temporary
+decorative prop remains a tracked gap, rather than becoming an exempt category.
+
+Object acceptance includes discovery by click, a valid approach, reservation where
+needed, an appropriate pose/animation, a visible state or useful outcome, safe
+interruption and exit, multiplayer replication, save behavior where state persists,
+and an explicit CPU/GPU budget. Room editing must preserve those contracts.
+
+Rendering and terrain need an evidence-based architecture review, including the
+current Three.js/WebGL path, Three.js/WebGPU and Rust/WASM with a GPU backend.
+Choose migration work from measured bottlenecks and preserved gameplay behavior.
+
 ## What 0.3 adds
 
 The public-town and private-home direction is selected. Read the
@@ -69,7 +92,7 @@ These are design references, not source to transplant.
 | Reference | Useful pattern | Application here |
 | --- | --- | --- |
 | [Jenn's Town](https://github.com/JinJinJenn/town) | Furniture footprint and movement share a home plan; reservations and standing transitions are explicit | Generated homes use one descriptor for visible objects, collision and seating |
-| Sky Lounge | Catalog objects have specific activities, supports and occupancy rules | Every advertised action must have a working interaction and host reservation; decorative props are labeled honestly |
+| Sky Lounge | Catalog objects have specific activities, supports and occupancy rules | Every prop needs a meaningful function; unfinished decorative props remain explicit gaps |
 | [Jenn's Cafe](https://github.com/TrentSterling/jenns-cafe) connected-room work | Preview a candidate room edit, validate it, then commit once against a revision | Use the same candidate plan for preview, rendering, movement and multiplayer acceptance when the general editor is built |
 
 ## Next coherent slice: editable inhabited homes
@@ -81,8 +104,8 @@ editor should replace duplicated geometry rules with a committed home plan:
 2. Connected room regions and shared walls. Door and window ownership survives a
    room move or resize. Furniture moves with its room where appropriate.
 3. Catalog entries carry dimensions, collision, support surfaces, seat/activity
-   approaches and permitted transforms. The catalog must distinguish decorative
-   objects from usable ones.
+   approaches and permitted transforms, plus interaction, animation and persistent
+   state contracts. Track unfinished behavior explicitly for every prop.
 4. An edit starts from a revision, produces a candidate, and validates parcel fit,
    connected doors, usable floor area, objects and current/reserved occupants.
    The owner commits one transaction with undo. Guests never commit edits.
