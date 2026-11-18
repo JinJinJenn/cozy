@@ -42,6 +42,7 @@ async function monitor(page){
 
 export async function playBand({host,guest,profile,ready,wait}){
   const travel=async page=>{
+    await page.bringToFront();
     await page.locator('#directions-open').click();await page.locator('#join-band').click();
   };
   const part=page=>page.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).part;});

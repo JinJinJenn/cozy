@@ -16,6 +16,7 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const live=process.argv.includes('--live'),relay=process.argv.includes('--relay');
 const software=process.argv.includes('--software');
+const band=process.argv.includes('--band');
 // Hosted-code verification uses isolated signalling. CI public-relay runs use
 // a unique deployment origin so playtest avatars never enter a player's lobby.
 assert.ok(!(live&&relay));
@@ -39,6 +40,12 @@ async function profile(signalGate){
   // while sharing the hosted runner's software renderer across all three.
   const viewport=process.env.COZY_FLOWER_SHOT?{width:1320,height:790}:{width:960,height:580};
   const ctx=await browser.newContext({viewport,deviceScaleFactor:process.env.CI ? .45 : 1});
+  if(software&&band)await ctx.addInitScript(()=>{
+    // Three independent towns share one software GPU on the hosted runner.
+    // Pace their presentation. WebRTC, Web Audio and town timers run normally.
+    const raf=window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame=callback=>setTimeout(()=>raf(callback),90);
+  });
   await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
   if(!relay)await installRelay(ctx,signalGate);
   await ctx.route('**/*',async route=>{
@@ -75,7 +82,7 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
-  if(process.argv.includes('--band')){
+  if(band){
     await playBand({host,guest,profile,ready,wait});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--door')){
     await playAdmission({host,guest,wait,ready,navigate,profile});assert.deepEqual(errors,[]);
