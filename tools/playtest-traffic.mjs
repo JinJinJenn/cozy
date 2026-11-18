@@ -20,7 +20,7 @@ export async function playtestTraffic(page, origin) {
     });
     const drivers = new Set(), crossStreet = new Set(), returning = new Set(), returned = new Set();
     const waits = new Map(), shifted = new Set();
-    let previous = [], longestWait = 0, peakDrivers = 0;
+    let previous = [], longestWait = 0, peakDrivers = 0, stoppedDriver;
     try {
       await send(window.trafficInit);
       for (let second = 0; second < 360; second++) {
@@ -41,15 +41,22 @@ export async function playtestTraffic(page, origin) {
           }
           const stopped = p.driving && prev?.driving && p.destination === prev.destination && Math.hypot(p.x-prev.x, p.z-prev.z) < .01;
           const seconds = stopped ? (waits.get(i) || 0) + 1 : 0;
-          waits.set(i, seconds);longestWait = Math.max(longestWait, seconds);
+          waits.set(i,seconds);
+          if(seconds>longestWait){
+            longestWait=seconds;
+            if(seconds>30)stoppedDriver={id:p.id,x:p.x,z:p.z,destination:p.destination,heading:p.heading,
+              nearby:positions.filter(q=>q.id!==p.id&&Math.hypot(q.x-p.x,q.z-p.z)<12)
+                .map(q=>({id:q.id,x:q.x,z:q.z,driving:q.driving,heading:q.heading}))};
+          }
         });
         peakDrivers = Math.max(peakDrivers, onRoad);previous = positions;
       }
       return {population: previous.length, benches: island.streetBenches.size, drivers: drivers.size,
-        crossStreet: crossStreet.size, returned: returned.size, peakDrivers, longestWait, shifted: shifted.size};
+        crossStreet: crossStreet.size, returned: returned.size, peakDrivers, longestWait, shifted: shifted.size, ...(stoppedDriver?{stoppedDriver}:{})};
     } finally { worker.terminate(); }
   });
   assert.equal(result.population, 459);
+  assert.equal(result.returned,result.drivers,'all resident drivers returned by the end of the Harbor Town replay: '+JSON.stringify(result));
   assert.ok(result.shifted>=50,'resident trips accelerated in second gear: '+result.shifted);
   assert.ok(result.benches > 0 && result.crossStreet >= 50 && result.returned >= 50 && result.longestWait < 60, JSON.stringify(result));
   console.log('PASS six minutes of Harbor Town traffic', result);

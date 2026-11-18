@@ -1,6 +1,7 @@
 import {roadsOf,project} from './street-road-index.js';
 import {homeAt} from './home-plan.js';
 import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
+import {trafficContact} from '../packages/sim/src/traffic-footprint.js';
 import {stepRoadster,wheelbase} from '../packages/sim/src/roadster.js';
 
 const specifications={
@@ -15,14 +16,13 @@ function nearbyPeople(s,actor,x,z){
   const people=[];
   for(const other of s.actors.values())if(other.id!==actor.id&&Math.abs(other.x-x)<9&&Math.abs(other.z-z)<9)people.push(other);
   for(const p of s.town.people)if(p.visible&&Math.abs(p.position.x-x)<9&&Math.abs(p.position.z-z)<9)
-    people.push(p.userData?.driving?{x:p.position.x,z:p.position.z,vehicle:'car'}:p.position);
+    people.push(p.userData?.driving?{x:p.position.x,z:p.position.z,vehicle:'car',yaw:p.userData.heading}:p.position);
   return people;
 }
 function fits(s,kind,x,z,yaw,people){
   const spec=specifications[kind],sin=Math.sin(yaw),cos=Math.cos(yaw);
   for(const p of people){
-    const dx=p.x-x,dz=p.z-z,padding=p.vehicle==='car'?1.5:p.vehicle==='bike'?.72:.29;
-    if(Math.abs(dx*cos-dz*sin)<spec.halfWidth+padding&&Math.abs(dx*sin+dz*cos)<spec.halfLength+padding)return false;
+    if(trafficContact(kind,sin,cos,0,p.x-x,p.z-z,p.vehicle,p.yaw))return false;
   }
   for(const fore of [-spec.halfLength,0,spec.halfLength]){
     const cx=x+fore*sin,cz=z+fore*cos;

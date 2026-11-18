@@ -4,6 +4,15 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.24.0 uses oriented car and bicycle bodies for player movement and
+resident traffic checks. Drivers leave standing room behind vehicles and increase
+their following distance at speed. Signed town frames carry the residents'
+brake states. Older hosts still work with the local deceleration estimate.
+
+Run `npm run test:travel -- --queue` to park a visiting player in front of an
+active resident. The test checks the stop on the host, the two lit lenses in
+the visitor's rendered town, and the resident moving again when the guest drives off.
+
 Version 0.23.1 preserves the original pressed and released states for touch and
 keyboard brakes over WebRTC. Controller triggers still send intermediate pressures.
 Replacing an island during shader warm-up now completes both load requests. The

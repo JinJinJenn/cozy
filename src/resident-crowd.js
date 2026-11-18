@@ -130,7 +130,7 @@ export class ResidentCrowd {
         rig.rotation.x=state.roadPitch||0;this.car.position.copy(p);this.car.rotation.copy(rig.rotation);
         state.wheelPhase=(state.wheelPhase||0)+(distance<8?distance/.28:0);
         const frontAngle=distance>.001?THREE.MathUtils.clamp(Math.atan2(turn*wheelbase,distance),-.60,.60):0;
-        const speed=dt>0?distance/dt:0,braking=(state.carSpeed||0)-speed>dt*3;
+        const speed=dt>0?distance/dt:0,braking=state.braking??((state.carSpeed||0)-speed>dt*3);
         const accel=dt>0&&state.carSpeed!==undefined?(speed-state.carSpeed)/dt:0;
         settleChassis(state,dt>0?speed*turn/dt:0,accel,dt);
         rig.setRide('car',0,state.roll,state.pitch);

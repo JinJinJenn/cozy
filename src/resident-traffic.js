@@ -1,3 +1,4 @@
+import {trafficContact} from '../packages/sim/src/traffic-footprint.js';
 import {planResidentVisits} from './resident-car-routes.js';
 
 // A household borrows the town car at the kerb and returns it at the other
@@ -41,14 +42,25 @@ export function bindResidentTraffic(ctx,street){
     }
     // The lookup was built at the start of this tick. Include the cells a
     // resident could have left before this driver's turn.
-    const range=distance+4+Math.max(3,9*sim.cfg.stepDt);
+    // Leave a standing gap at the bumper and more room at street speed.
+    // Boarding checks only need the swept body to fit at the pickup point.
+    const headway=distance>0?1.35+Math.min(2.25,(n.action?.speed||0)*.27):0;
+    const reach=distance+headway;
+    const range=reach+4+Math.max(3,9*sim.cfg.stepDt);
     for(let ix=Math.floor((x-range)/8);ix<=Math.floor((x+range)/8);ix++){
       for(let iz=Math.floor((z-range)/8);iz<=Math.floor((z+range)/8);iz++){
         for(const p of cells.get(ix+','+iz)||[]){
           if(p===n)continue;
           const rx=(p.pos?p.pos[0]:p.x)-x,rz=(p.pos?p.pos[1]:p.z)-z,along=rx*dx+rz*dz;
-          const a=p.action,car=p.vehicle==='car'||(a?.driveStart!==undefined&&a.i>=a.driveStart&&a.i<a.driveEnd);
-          if(along>-.1&&along<distance+(car?3.35:1.85)&&Math.abs(rx*dz-rz*dx)<(car?1.68:1.05))return false;
+          if(along<=-.1)continue;
+          const a=p.action,driving=a?.driveStart!==undefined&&a.i>=a.driveStart&&a.i<a.driveEnd;
+          let yaw=p.yaw;
+          if(driving){
+            const target=a.pts[a.i];
+            yaw=Number.isFinite(p.heading)?Math.PI/2-p.heading:Math.atan2(target[0]-p.pos[0],target[1]-p.pos[1]);
+          }
+          const vehicle=driving?'car':p.vehicle;
+          if(trafficContact('car',dx,dz,vehicle?reach:distance,rx,rz,vehicle,yaw,.12))return false;
         }
       }
     }

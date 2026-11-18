@@ -48,6 +48,7 @@ on:
       - 'src/settlement-view.js'
       - 'tools/test-travel.mjs'
       - 'tools/playtest-gamepad.mjs'
+      - 'tools/playtest-traffic-queue.mjs'
       - 'src/drive-gamepad.js'
       - 'tests/bridge.test.mjs'
       - 'tests/travel.test.mjs'
@@ -148,6 +149,7 @@ jobs:
           npm run test:travel -- --software
           npm run test:travel -- --software --touch
           npm run test:travel -- --software --gamepad
+          npm run test:travel -- --software --queue
           node tools/test-viewer.mjs --traffic
           node tools/test-viewer.mjs --residents
       - name: Transfer a private street between browser profiles

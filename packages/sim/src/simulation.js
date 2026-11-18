@@ -557,7 +557,7 @@ export class Simulation {
         if(a.driveStart!==undefined){
           let time=this.cfg.stepDt;
           let accelerated;
-          a.waitingForTraffic=false;
+          a.waitingForTraffic=false;a.braking=false;
           while(time>1e-7&&a.i<a.pts.length){
             const to=a.pts[a.i],dx=to[0]-n.pos[0],dz=to[1]-n.pos[1],len=Math.hypot(dx,dz);
             const pickup=a.i+1===a.driveStart,boarding=pickup&&a.curbPickup;
@@ -585,9 +585,9 @@ export class Simulation {
                 speed=Math.min(speed,Math.max(1,previous-3.5*time));
               }
               if(this.ctx.trafficClear&&!this.ctx.trafficClear(this,n,...n.pos,dx/len,dz/len,Math.min(len,speed*time))){
-                a.speed=0;a.engineLoad=0;a.waitingForTraffic=true;break;
+                a.speed=0;a.engineLoad=0;a.braking=true;a.waitingForTraffic=true;break;
               }
-              if(speed<previous)a.engineLoad=0;
+              if(speed<previous){a.engineLoad=0;if(previous-speed>time*.6)a.braking=true;}
               a.speed=speed;
             }
             const distance=boarding?len:Math.min(len,speed*time);
@@ -718,7 +718,7 @@ export class Simulation {
     return this.npcs.map((n) => ({
       id: n.id, who: npcWho(n.id), name: n.name, x: n.pos[0], z: n.pos[1], y: r2(this.ctx.nav.height(n.pos[0], n.pos[1])),
       heading: n.heading, driving:n.action?.driveStart!==undefined&&n.action.i>=n.action.driveStart&&n.action.i<n.action.driveEnd,
-      ...(n.action?.gear&&n.action.i<n.action.driveEnd?{gear:n.action.gear,engineLoad:n.action.engineLoad}:{}),
+      ...(n.action?.gear&&n.action.i<n.action.driveEnd?{gear:n.action.gear,engineLoad:n.action.engineLoad,braking:!!n.action.braking}:{}),
       destination: n.action?.destination,
       action: n.action ? n.action.kind : 'none', purpose: n.action && n.action.purpose ? n.action.purpose : null,
       asleep: n.sleeping, seat: n.seat ? n.seat.objectId : null, mood: r2(n.mood), moodLabel: MOODS.find((m) => n.mood >= m[0])[1], homeLotId: n.home.lotId,

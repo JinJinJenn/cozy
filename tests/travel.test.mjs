@@ -7,6 +7,7 @@ import {bindResidentTraffic} from '../src/resident-traffic.js';
 import {planResidentVisits} from '../src/resident-car-routes.js';
 import {carriagewayAt,sidewalkStop} from '../src/street-road-index.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
+import {trafficContact} from '../packages/sim/src/traffic-footprint.js';
 import {driveGamepad} from '../src/drive-gamepad.js';
 import {stepRoadster,cornerSpeeds} from '../packages/sim/src/roadster.js';
 
@@ -34,6 +35,36 @@ test('cars accelerate, turn, coast, brake and reverse within the carriageway',()
   Object.assign(a,{x:0,z:0,yaw:Math.PI/2,speed:12});
   for(let i=0;i<20;i++)moveVehicle(s,a,{x:0,z:1},.1);
   assert.ok(a.x<3&&a.speed===0);
+});
+test('oncoming cars with mirror clearance pass and broadside cars block their full length',()=>{
+  for(const resident of [false,true]){
+    const {s,a}=street();Object.assign(a,{vehicle:'car',z:-8,speed:5});
+    const other={id:'other',vehicle:'car',x:2.1,z:0,yaw:Math.PI};
+    if(resident)s.town.people.push({visible:true,position:other,userData:{driving:true,heading:other.yaw}});
+    else s.actors.set(other.id,other);
+    const drive=()=>{for(let i=0;i<120;i++)moveVehicle(s,a,{x:0,z:.28},1/60);};
+    drive();assert.ok(a.z>2&&a.speed>5,'passed in the adjoining lane');
+    Object.assign(a,{z:-8,speed:5});other.yaw=Math.PI/2;
+    if(resident)s.town.people[0].userData.heading=other.yaw;
+    drive();assert.ok(a.z< -2.49&&a.speed===0,'stopped short of the side-on bumper');
+  }
+  assert.equal(trafficContact('car',0,1,0,2.5,2.8,'car',Math.PI/4),false,'diagonal corners miss');
+  assert.equal(trafficContact('bike',0,1,0,1.6,0,'car',Math.PI/2),true);
+});
+test('a resident brakes and holds its lamps behind a sideways player, then proceeds once the lane clears',()=>{
+  const ctx={plan:{roads:[]}},player={id:'visitor',vehicle:'car',x:2.1,z:16,yaw:Math.PI/2};
+  const actors=new Map([[player.id,player]]);
+  bindResidentTraffic(ctx,{island:{homes:[]},session:{actors}});
+  const a={kind:'move',pts:[[0,100],[0,102]],driveStart:0,driveEnd:1,i:0,speed:8};
+  const n={id:'resident',pos:[0,0],pace:1,heading:Math.PI/2,action:a};
+  const sim=Object.assign(Object.create(Simulation.prototype),{ctx,npcs:[n],tick:0,cfg:{stepDt:.5,walkSpeed:1.5}});
+  const step=()=>{sim.tick++;sim._advance(n);};
+  let slowed=false;
+  for(let i=0;i<20;i++){step();if(a.speed>0&&a.braking)slowed=true;}
+  assert.ok(slowed&&a.waitingForTraffic&&a.braking&&a.speed===0&&n.pos[1]<12.1);
+  const atStop=n.pos[1];step();assert.ok(a.braking&&n.pos[1]===atStop);
+  player.yaw=0;step();assert.ok(!a.braking&&!a.waitingForTraffic&&n.pos[1]>atStop);
+  for(let i=0;i<8;i++)step();assert.ok(n.pos[1]>19);
 });
 test('a connected public driver keeps the car through an input stall and stale throttle stops',()=>{
   const {s,a}=street(),now=performance.now();

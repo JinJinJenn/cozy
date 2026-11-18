@@ -710,7 +710,7 @@ export class StreetSession {
         }
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
         if(Array.isArray(residents)&&residents.length===this.town.people.length){
-          const drivers=new Map();
+          const drivers=new Map(),braking=Array.isArray(f.brakingDrivers)?new Set(f.brakingDrivers):null;
           if(Array.isArray(f.drivers))f.drivers.forEach((id,index)=>{
             if(Number.isInteger(id)&&id>=0&&id<residents.length)drivers.set(id,f.driverPower?.[index]);
           });
@@ -718,6 +718,7 @@ export class StreetSession {
             if(!Array.isArray(r)||![5,6].includes(r.length)||!r.every(Number.isFinite))return null;
             const m=this.town.people[i],p=m.position,visible=!!r[3];
             m.userData.driving=drivers.has(i);
+            m.userData.braking=braking?.has(i);
             const power=drivers.get(i);
             const powered=Number.isInteger(power)&&power>=16&&power<=63;
             m.userData.gear=powered?power>>4:undefined;
@@ -739,10 +740,11 @@ export class StreetSession {
     try{const residents=encodeResidents(this.town.people);
       const layout=this.layout?.furnishings?{...this.layout,furnishings:wireFurnishings(this.layout.furnishings)}:this.layout;
       const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout,actors:[...this.actors.values()],residents};
-      frame.drivers=[];frame.driverHomes={};frame.driverPower=[];
+      frame.drivers=[];frame.driverHomes={};frame.driverPower=[];frame.brakingDrivers=[];
       this.town.people.forEach((p,i)=>{
         if(!p.userData?.driving)return;
         frame.drivers.push(i);
+        if(p.userData.braking)frame.brakingDrivers.push(i);
         const {gear,engineLoad}=p.userData;
         frame.driverPower.push(gear>0?(gear<<4)+Math.round(15*(engineLoad||0)):0);
         if(p.userData.destination)frame.driverHomes[i]=p.userData.destination;

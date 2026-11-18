@@ -3,6 +3,7 @@ import {Pieces} from './street-pieces.js';
 import {carSteerAngle,wheelbase} from '../packages/sim/src/roadster.js';
 
 const hoop=new THREE.TorusGeometry(1,.075,6,22),tire=new THREE.TorusGeometry(1,.18,7,20);
+const litLens=new THREE.MeshBasicMaterial({toneMapped:false});
 const rubber='#313738',cream='#f4e7c2',chrome='#b4c7c0',paint='#4e9589',leather='#8a5842';
 export function settleChassis(state,lateral,longitudinal,dt){
   const step=Math.min(.15,dt),spring=12,decay=Math.exp(-spring*step);
@@ -95,10 +96,12 @@ export function vehicleArt(kind){
     for(const y of [.49,.55,.61])p.box(0,y,1.558,.72,.017,.022,chrome);
     for(const z of [-1.55,1.55])p.box(0,.38,z,1.71,.085,.13,cream);
     p.put(hoop,.34,.92,.23,.175,.175,.18,rubber,0,0,-.4);
-    brakeLights=new THREE.Group();chassis.add(brakeLights);
+    brakeLights=new THREE.Group();brakeLights.name='brake-lamps';chassis.add(brakeLights);
     const lamps=new Pieces(brakeLights);
-    for(const side of [-1,1])lamps.ball(side*.65,.63,-1.53,.17,.14,.065,'#ff5c42');
-    lamps.finish();brakeLights.visible=false;
+    for(const side of [-1,1])lamps.ball(side*.65,.63,-1.55,.17,.12,.055,'#ff614a');
+    lamps.finish();
+    for(const mesh of brakeLights.children){mesh.material=litLens;mesh.castShadow=false;}
+    brakeLights.visible=false;
   }
   p.finish();let phase=0,previousSpeed=0;
   root.updateRide=(speed,dt,steer,wheelPhase,braking,roll=0,pitch=0,frontAngle)=>{

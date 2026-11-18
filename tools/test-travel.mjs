@@ -56,7 +56,10 @@ try{
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
-  if(process.argv.includes('--gamepad')){
+  if(process.argv.includes('--queue')){
+    const {testTrafficQueue}=await import('./playtest-traffic-queue.mjs');
+    await testTrafficQueue({visitor,owner,actor,synced,until});
+  }else if(process.argv.includes('--gamepad')){
     const {testGamepad}=await import('./playtest-gamepad.mjs');
     await testGamepad({visitor,owner,actor,synced,until});
   }else if(touch)await testTouchDriving({visitor,owner,actor,synced,until});
