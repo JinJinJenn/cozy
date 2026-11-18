@@ -52,7 +52,9 @@ export function buildTerrainChunk(island,cx,cz,res=33,{skirts=true}={}){
 }
 
 // Water surface chunk. Returns null when the chunk holds no water at all.
-export function buildWaterChunk(island,cx,cz,res=49){
+export function buildWaterChunk(island,cx,cz,res=49,{patchCells=res-1}={}){
+  if(res<2)return null;
+  if(!Number.isInteger(patchCells)||patchCells<1)throw new RangeError('Water patches must span at least one cell');
   const S=island.chunkSize,x0=cx*S,z0=cz*S,step=S/(res-1);
   const positions=new Float32Array(res*res*3),depth=new Float32Array(res*res);
   let any=false;
@@ -98,7 +100,14 @@ export function buildWaterChunk(island,cx,cz,res=49){
       idx.push(a,c,b,b,c,d);
     }
   }
-  emitPatch(0,0,res-1,res-1);
+  // Keep the original offshore fans when several water tiles share a draw.
+  // A wholly dry subtile can still border shallow water in the same mesh.
+  for(let z=0;z<res-1;z+=patchCells)for(let x=0;x<res-1;x+=patchCells){
+    const x1=Math.min(x+patchCells,res-1),z1=Math.min(z+patchCells,res-1);
+    let wet=patchCells>=res-1;
+    for(let j=z;!wet&&j<=z1;j++)for(let i=x;i<=x1;i++)if(depth[j*res+i]>-.15){wet=true;break;}
+    if(wet)emitPatch(x,z,x1,z1);
+  }
   if(!idx.length) return null;
   const IndexArray=res*res<=65536?Uint16Array:Uint32Array;
   return {cx,cz,res,positions,depth,indices:IndexArray.from(idx)};

@@ -5,6 +5,32 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Full-island terrain in v0.15.1
+
+We repeated the 360-frame Petalwood orbit at 1,800 m and 1280 × 720 on Intel Graphics
+0x7D67, D3D11. All 457 residents were visible at the peak. The old build was `39d3d2b`.
+
+| Preset | v0.15.0 completed FPS | v0.15.1 completed FPS | p95 interval before | p95 interval after |
+| --- | ---: | ---: | ---: | ---: |
+| Low | 43.1 | 55.2 | 25.1 ms | 19.6 ms |
+| Balanced | 42.1 | 55.0 | 25.5 ms | 19.3 ms |
+
+Peak draw calls fell from 2,609 to 922. The larger bounds submitted 5.73 million
+triangles at peak, up from 5.72 million. The same 24 m street and 180 m town orbits
+ran at 59.8 FPS on both presets. Reproduce the wide orbit with
+`node tools/benchmark.mjs --wide-street --orbit --720p --gpu-completion`.
+
+The viewer builds the whole island in 256 m regions when the island dimensions permit.
+Petalwood takes 64 regions. Ground samples and shoreline triangles retain their original
+spacing. The worker drops water vertices unused by any triangle before transferring the mesh.
+A fixed-camera comparison measured terrain and water attribute and index buffers at 22.3 MB.
+The old build used 12.0 MB at the initial street camera and 30.6 MB once the whole island was in view.
+These counts exclude textures, scenery, the simulation and driver overhead.
+
+The worker test compares ground positions, normals and colors, and each emitted water triangle's
+positions and depths, against the 64 m source tiles. The browser test checks the complete surface
+after loading each locale and after two overlapping island loads.
+
 ### Roadside flowers in v0.15.0
 
 At 1280 × 720 on Intel Graphics 0x7D67, a close view of watering and regrowth

@@ -105,12 +105,9 @@ function buildOcean(island){
   geometry.setAttribute('depth',new THREE.Float32BufferAttribute(depth,1));
   geometry.setIndex(indices);ocean.geometry.dispose();ocean.geometry=geometry;
 }
-let island=null,chunkMap=new Map(),group=new THREE.Group();scene.add(group);
+const group=new THREE.Group();scene.add(group);
+let island=null,loadGen=0,chunkCount=0,terrainReady=Promise.resolve();
 let town=null, street=null, captureTime=0;
-let streamRadius=4200;
-
-function chunkKey(cx,cz){return cx+','+cz;}
-function disposeChunk(c){group.remove(c.terrain);c.terrain.geometry.dispose();if(c.water){group.remove(c.water);c.water.geometry.dispose();}}
 function makeMesh(data,isWater){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.BufferAttribute(data.positions,3));
@@ -126,54 +123,27 @@ function makeMesh(data,isWater){
   }
   return m;
 }
-function wanted(){
-  if(!island) return [];
-  const S=island.chunkSize,max=Math.floor(island.half/S),list=[];
-  const tx=controls.target.x,tz=controls.target.z,cp=camera.position;
-  for(let cz=-max;cz<max;cz++)for(let cx=-max;cx<max;cx++){
-    const mx=(cx+.5)*S,mz=(cz+.5)*S;
-    const d=Math.min(Math.hypot(mx-tx,mz-tz),Math.hypot(mx-cp.x,mz-cp.z)*.9);
-    if(d>streamRadius) continue;
-    list.push({cx,cz,d});
+// Keep the full island resident. Moving the camera or teleporting only changes
+// which mesh bounds pass the frustum test. Limit queued work on a superseded load.
+async function buildIslandSurface(generation){
+  const halfTiles=Math.floor(island.half/island.chunkSize),width=halfTiles*2;
+  const cells=island.chunkCells??Math.ceil(island.chunkSize/island.cell);
+  const res=cells+1,waterRes=2*cells+1;
+  let next=0,failed=false;
+  async function buildTiles(){
+    while(!failed&&generation===loadGen&&next<width*width){
+      const index=next++,cx=index%width-halfTiles,cz=Math.floor(index/width)-halfTiles;
+      const data=await client.chunk(cx,cz,res,waterRes);
+      if(failed||!data||generation!==loadGen)return;
+      group.add(makeMesh(data.terrain,false));
+      if(data.water)group.add(makeMesh(data.water,true));
+      chunkCount++;
+    }
   }
-  list.sort((a,b)=>a.d-b.d);
-  return list;
+  try{await Promise.all(Array.from({length:4},buildTiles));}
+  catch(error){failed=true;throw error;}
 }
-const inflight=new Set();let loadGen=0;
-function updateChunks(budget=6){
-  const want=wanted(),keep=new Set();
-  // Every visible tile samples at least once per source heightfield cell.
-  // Orbiting, walking and switching modes never exchange its mesh for a coarser one.
-  const res=Math.ceil(island.chunkSize/island.cell)+1, waterRes=2*(res-1)+1;
-  let pending=0;
-  for(const w of want){
-    const k=chunkKey(w.cx,w.cz);keep.add(k);
-    if(chunkMap.has(k))continue;
-    const fk=loadGen+'|'+k;
-    if(inflight.has(fk)) continue;
-    if(inflight.size>=budget){pending++;continue;}
-    inflight.add(fk);const myGen=loadGen;
-    client.chunk(w.cx,w.cz,res,waterRes).then(r=>{
-      inflight.delete(fk);
-      if(!r||myGen!==loadGen) return;
-      const old=chunkMap.get(k);if(old) disposeChunk(old);
-      const tm=makeMesh(r.terrain,false);group.add(tm);
-      let wm=null;if(r.water){wm=makeMesh(r.water,true);group.add(wm);}
-      chunkMap.set(k,{terrain:tm,water:wm});
-    }).catch(err=>{inflight.delete(fk);console.error(err);});
-  }
-  for(const [k,c] of chunkMap) if(!keep.has(k)){disposeChunk(c);chunkMap.delete(k);}
-  return pending+inflight.size;
-}
-async function flushChunks(){
-  const generation=loadGen;
-  for(let i=0;i<4000;i++){
-    if(generation!==loadGen) return;
-    const left=updateChunks(24);
-    if(left===0) return;
-    await new Promise(r=>setTimeout(r,16));
-  }
-}
+function flushChunks(){return terrainReady;}
 function applyPalette(p){
   sky.material.uniforms.zenith.value.set(p.sky);sky.material.uniforms.haze.value.set(p.fog);
   scene.fog=new THREE.Fog(new THREE.Color(p.fog),900,3600);scene.background=new THREE.Color(p.fog);oceanMat.color.set(p.deep).lerp(new THREE.Color('#8fb9b4'),.22).multiplyScalar(.82);floorMat.color.copy(oceanMat.color);
@@ -183,7 +153,6 @@ function streetLighting(){
   const walking=!!street?.active;
   const distance=camera.position.distanceTo(controls.target);
   const near=walking?Math.max(210,distance*1.4):900,far=walking?Math.max(1150,distance*4):3600;
-  if(walking)streamRadius=Math.max(900,distance*4);
   scene.fog.near=waterMat.uniforms.uFogNear.value=near;
   scene.fog.far=waterMat.uniforms.uFogFar.value=far;
   // Fully fogged geometry contributes nothing. Keep the clip beyond that fade,
@@ -230,8 +199,7 @@ function clampCamera(){
 }
 function setView(name,opts={}){
   if(!island) return;
-  if(name==='street' && street?.activate()){streamRadius=680;return;}
-  streamRadius=4200;
+  if(name==='street' && street?.activate())return;
   street?.deactivate();
   const pc=island.preset.camera,half=island.half;
   const dir=(az,el)=>new THREE.Vector3(Math.cos(el)*Math.sin(az),Math.sin(el),Math.cos(el)*Math.cos(az));
@@ -276,8 +244,8 @@ async function load(presetId,seed,view='oblique',viewOpts){
   $('busy').textContent='Generating island...';
   window.__cozy.ready=false;
   const generation=++loadGen;
-  inflight.clear();
-  for(const c of chunkMap.values())disposeChunk(c);chunkMap.clear();
+  for(const child of group.children)child.geometry.dispose();
+  group.clear();chunkCount=0;terrainReady=Promise.resolve();
   street?.dispose();street=null;
   if(town){scene.remove(town.group);town.dispose();town=null;}
   island=null;
@@ -291,12 +259,13 @@ async function load(presetId,seed,view='oblique',viewOpts){
     scene.add(town.group);
     street=new Street(island,scene,camera,controls,town);
     await town.bindStreet(street,!params.has('shot'));
+    if(generation!==loadGen)return;
     $('centre-view').hidden=!island.townSquare;
     captureTime=0;
     const tGen=performance.now()-t0;
     applyPalette(island.preset.palette);buildOcean(island);
     setView(view,viewOpts);
-    const t1=performance.now();await flushChunks();
+    const t1=performance.now();terrainReady=buildIslandSurface(generation);await terrainReady;
     if(generation!==loadGen) return;
     $('busy').textContent='Preparing town materials...';
     await town.crowd.warm(renderer,scene,camera);
@@ -354,13 +323,12 @@ window.__cozy={ready:false,load,setView,flushChunks,
     street?.render();
     waterMat.uniforms.uTime.value=time;controls.update();clampCamera();renderScene();
   },
-  info(){return {chunks:chunkMap.size,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
+  info(){return {chunks:chunkCount,calls:renderer.info.render.calls,tris:renderer.info.render.triangles,
     roads:island?.plan.roads.length,plots:island?.plan.lots.length,homes:island?.homes?.length,graphics:graphics.info(),residents:town?.current,tick:town?.sim?.tick,
     simulation:{worker:!!town?.worker,lastWorkMs:town?.workerMs,backlogSeconds:town?.elapsed,visible:town?.crowd.visible,error:town?.workerError}};},
   get island(){return island;},get street(){return street;},get camera(){return camera;},get controls(){return controls;},set orbit(v){autoOrbit=v;}};
 
-const streamedAt=new THREE.Vector3(Infinity,Infinity,Infinity),streamedEye=streamedAt.clone();
-let last=performance.now(),frames=0,streamPending=true;
+let last=performance.now(),frames=0;
 function loop(now){
   requestAnimationFrame(loop);
   if(params.has('shot')) return; // headless capture drives render() itself
@@ -372,10 +340,7 @@ function loop(now){
   if(autoOrbit){const o=camera.position.clone().sub(controls.target);o.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.12);camera.position.copy(controls.target).add(o);}
   waterMat.uniforms.uTime.value=now/1000;
   controls.update();clampCamera();
-  if(++frames%4===0&&(streamPending||streamedAt.distanceToSquared(controls.target)>25||streamedEye.distanceToSquared(camera.position)>25)){
-    streamPending=updateChunks(8)>0;streamedAt.copy(controls.target);streamedEye.copy(camera.position);
-  }
-  if(frames%20===0&&!street?.active) updateMarker();
+  if(++frames%20===0&&!street?.active)updateMarker();
   renderScene();
 }
 export const startup=load(startPreset,$('seed').value,params.get('view')||(!params.has('preset')&&!params.has('seed')?'street':'oblique'));

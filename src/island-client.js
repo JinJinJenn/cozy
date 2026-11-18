@@ -1,17 +1,16 @@
 // Main-thread proxy for the generator worker. Exposes the light queries the viewer needs
 // (sample/slope/waterAt/shoreAt over the transferred field) and async chunk/minimap requests.
-// Built chunk data is kept in an LRU cache so revisiting an area costs nothing.
 const SEA_LEVEL=0;
 export class IslandClient{
   constructor(){
     this.worker=new Worker(new URL('./gen-worker.js',import.meta.url),{type:'module'});
-    this.pending=new Map();this.nextId=1;this.cache=new Map();this.cacheMax=360;this.gen=0;
+    this.pending=new Map();this.nextId=1;this.gen=0;
     this.worker.onmessage=e=>{const m=e.data,p=this.pending.get(m.id);if(!p) return;this.pending.delete(m.id);m.type==='error'?p.reject(new Error(m.message)):p.resolve(m);};
     this.worker.onerror=e=>{for(const p of this.pending.values())p.reject(new Error(e.message));this.pending.clear();};
   }
   _req(msg,transfer){return new Promise((resolve,reject)=>{const id=this.nextId++;this.pending.set(id,{resolve,reject});this.worker.postMessage({...msg,id},transfer||[]);});}
   async load(seed,preset,opts){
-    const gen=++this.gen;this.cache.clear();
+    const gen=++this.gen;
     const m=await this._req({type:'load',seed,preset,opts});
     if(gen!==this.gen) return null;
     this.plan=m.plan;
@@ -25,14 +24,9 @@ export class IslandClient{
     return this;
   }
   async chunk(cx,cz,res,wres){
-    const key=`${this.gen}|${cx},${cz},${res},${wres}`,hit=this.cache.get(key);
-    if(hit){this.cache.delete(key);this.cache.set(key,hit);return hit;}
     const gen=this.gen,m=await this._req({type:'chunk',cx,cz,res,wres});
     if(gen!==this.gen) return null;
-    const out={terrain:m.terrain,water:m.water};
-    this.cache.set(key,out);
-    if(this.cache.size>this.cacheMax) this.cache.delete(this.cache.keys().next().value);
-    return out;
+    return {terrain:m.terrain,water:m.water};
   }
   async minimap(w,h){return (await this._req({type:'minimap',w,h})).px;}
 }

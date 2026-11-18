@@ -4,6 +4,12 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.15.1 loads the complete terrain and water surface before the island opens.
+Travel, orbit and zoom reuse those meshes. In a 1,800 m orbit on Intel integrated graphics
+at 720p Low, the release improved from 43.1 to 55.2 GPU-completed FPS with all 457
+Petalwood residents visible. The close street and town cameras measured 59.8 FPS.
+See the [rendering measurements](docs/RENDERING-REVIEW.md) for mesh memory and frame intervals.
+
 Version 0.15.0 turns Petalwood's 52 roadside flower boxes into places to stop together.
 Open **Travel → Nearest flower box → Teleport there**. Click the flowers to pin a bloom to your shirt.
 A second player can water the cut stems while the picker watches. Both players see the bed reopen.

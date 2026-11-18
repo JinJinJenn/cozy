@@ -117,6 +117,8 @@ try {
     }
     const i = await info();
     assert.ok(i.roads > 0 && i.plots > 0 && i.residents.length > 8);
+    const expected=await page.evaluate(()=>{const {size,chunkSize}=window.__cozy.island;return (size/chunkSize)**2;});
+    assert.equal(i.chunks,expected,preset+' entire surface resident');
     console.log(preset, i.roads, 'road pieces,', i.plots, 'plots,', i.residents.length, 'residents');
   }
   await page.evaluate(async () => {
@@ -124,6 +126,7 @@ try {
     await Promise.all([c.load('meadowCove', 'cozy-1'), c.load('harborTown', 'petalwood', 'town')]);
   });
   assert.equal(await page.evaluate(() => window.__cozy.island.presetId), 'harborTown');
+  assert.equal((await info()).chunks,initial.chunks,'overlapping loads retain exactly one complete island');
 
   await page.goto(origin + '?preset=harborTown&seed=cozy-1');
   await ready();
