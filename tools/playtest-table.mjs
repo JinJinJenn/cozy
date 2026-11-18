@@ -15,11 +15,16 @@ export async function playtestTable({host,guest,open,out}) {
       const {boardX,squareSize}=await import('./src/table-game.js'),{relativePoint}=await import('./src/furniture-pose.js');
       const where=(x,z)=>{const p=relativePoint({x,z},{x:0,z:0},table);return homeWorld(b,p.x,p.z);};
       const center=where(boardX,0),target=cell===null?center:where(boardX+(cell%3-1)*squareSize,(Math.floor(cell/3)-1)*squareSize);
-      const eye=where(-1.8,2.2);
+      // Look down from the far edge of the table. Both breakfast chairs are
+      // on the near edge, and a seated player's head can obscure a square.
+      const eye=where(-.65,-1.5);
       c.street.cameraFocus=center;
-      await c.setCamera([eye.x,b.y+4.1,eye.z],[center.x,b.y+.92,center.z]);c.render();
+      await c.setCamera([eye.x,b.y+4.4,eye.z],[center.x,b.y+1.48,center.z]);c.render();
       const r=c.street.controls.domElement.getBoundingClientRect(),v=new Vector3(target.x,b.y+.94,target.z).project(c.camera);
-      return {x:r.left+(v.x+1)*r.width/2,y:r.top+(1-v.y)*r.height/2};
+      const x=r.left+(v.x+1)*r.width/2,y=r.top+(1-v.y)*r.height/2;
+      const element=document.elementFromPoint(x,y);
+      if(element!==c.street.controls.domElement)throw Error('Table is covered by '+element?.id+' at '+[x,y]);
+      return {x,y};
     },{lot,cell});
   }
   async function pick(page,cell,button){

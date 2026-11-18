@@ -13,6 +13,7 @@ Three in a row wins. A guest can watch a round already in progress, and the
 players can swap the opening move on a rematch. Leaving a two-player game
 clears that round. Matches last for the visit. Run
 `npm run test:domestic -- --table` for the three-browser playtest.
+Version 0.12.1 keeps the controls beside the board on small landscape screens.
 
 Version 0.11.1 reconnects an invited guest when the private WebRTC link fails
 before admission or stops delivering signed frames. The guest stays on the same

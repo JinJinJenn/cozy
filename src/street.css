@@ -62,6 +62,9 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
 #street-panel #harbor-squares button[data-token=buoy]{color:#a53d2a}
 #street-panel #harbor-squares button[data-token="life ring"]{color:#175c66;font-size:21px;height:1.94em}
 #street-panel #harbor-squares button.winning{box-shadow:inset 0 0 0 3px #946719}
+@media(min-width:600px) and (max-width:1000px){
+  .street-actions:has(#harbor-game:not([hidden])){width:min(30vw,16em)}
+}
 #address-panel{border-block:1px solid #b9ac91;padding:8px 0}
 #address-status{margin:.3em 0 .55em}
 #address-private{display:inline-block;padding:.4em;color:#285d4d}
