@@ -1,6 +1,7 @@
 import {polyCentroid,pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {routeOnGrid} from './walk-grid.js';
+import {fixtureOutlet,lamps} from './home-fixtures.js';
 
 export const homeWorld=(b,x,z)=>({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export const homeLocal=(b,p)=>({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
@@ -10,8 +11,16 @@ export function homeAt(island,p,margin=0){return homesNear(island,p).find(b=>{co
 export function homeWalkable(b,p){
   const q=homeLocal(b,p),hw=b.w/2,hd=b.d/2;
   if(Math.abs(q.x)>hw+.6||Math.abs(q.z)>hd+.6)return null;
-  return !b.walls.some(r=>hit(q,r))&&!b.furniture.some(r=>r.solid&&(r.type==='sofa'?
-    hit(q,{x:r.x+(r.flip?1:-1)*r.w*.42,z:r.z,w:.12,d:r.d})||[-1,1].some(s=>hit(q,{x:r.x,z:r.z+s*(r.d/2-.05),w:r.w,d:.10})):hit(q,r)));
+  for(const r of b.walls)if(hit(q,r))return false;
+  for(const r of b.furniture){
+    if(!r.solid)continue;
+    if(r.type==='sofa'){
+      const x=q.x-r.x,z=Math.abs(q.z-r.z);
+      if(Math.abs(x-(r.flip?1:-1)*r.w*.42)<.37&&z<r.d/2+.31)return false;
+      if(Math.abs(x)<r.w/2+.31&&Math.abs(z-(r.d/2-.05))<.36)return false;
+    }else if(hit(q,r))return false;
+  }
+  return true;
 }
 // A use point is walkable; a pose may be on solid furniture. Never route a
 // walker to the centre of a bed or counter, and keep the exit point with the use.
@@ -20,8 +29,9 @@ function usesFor(b){
   const uses=[{...b.seats[0],object:'sofa',label:'Sit on the sofa',target:{x:sofa.x,z:sofa.z,y:.65}}];
   const kinds={bed:['rest','Rest on the bed'],kitchen:['cook','Cook a meal'],shelf:['read','Read a book'],desk:['write','Write at the desk'],
     shower:['shower','Take a shower'],toilet:['bathroom','Use the bathroom'],basin:['wash','Wash your hands'],dining:['eat','Have a meal'],rug:['stretch','Stretch on the rug']};
+  const switches=[];
   for(const f of b.furniture){
-    if(!kinds[f.type])continue;
+    if(!kinds[f.type]&&!lamps[f.type])continue;
     if(f.type==='shelf'){
       uses.push({...b.seats[0],object:'sofa',action:'read',label:'Read a book on the sofa',target:{x:f.x,z:f.z,y:1.9}});continue;
     }
@@ -31,15 +41,33 @@ function usesFor(b){
     const allowed=p=>{const q=homeLocal(b,p);return Math.abs(q.x)<b.w/2&&Math.abs(q.z)<b.d/2&&homeWalkable(b,p);};
     const point=candidates.find(p=>{const q=homeWorld(b,p.x,p.z);return allowed(q)&&routeOnGrid(allowed,b.inside,q);});
     if(!point)continue;
+    const lamp=lamps[f.type];
+    if(lamp){
+      const x=f.x+lamp.x,z=f.z+lamp.z;
+      switches.push({...point,object:f.id+'-lamp',action:'switch',lamp:f.type,label:'Switch '+lamp.name,
+        target:{x,z,y:lamp.shade},radius:.22,yaw:b.yaw+Math.atan2(x-point.x,z-point.z)});
+    }
+    if(!kinds[f.type])continue;
     const [action,label]=kinds[f.type];
     const use={...point,object:f.id,action,label,target:{x:f.x,z:f.z,y:f.type==='shelf'?1:.65},yaw:b.yaw+Math.atan2(f.x-point.x,f.z-point.z)};
     if(action==='rest')use.pose={x:f.x,z:f.z+f.d/2-.15,yaw:b.yaw,height:.82,scale:1};
     if(action==='bathroom')use.pose={x:f.x,z:f.z+.08,yaw:b.yaw};
+    if(action==='shower')use.pose={x:f.x,z:f.z-.07,yaw:b.yaw+Math.PI,height:.25};
     if(action==='eat')use.pose={x:f.x,z:f.z+.72,yaw:b.yaw+Math.PI};
-    uses.push(use);
-    if(f.type==='kitchen')uses.push({...use,action:'wash',label:'Wash up at the sink',target:{x:f.x,z:f.z-f.d*.24,y:1.1}});
+    if(['kitchen','basin','shower'].includes(f.type)){
+      const atFixture=(action,label)=>{
+        const outlet=fixtureOutlet(f,action),x=f.x+outlet.x,z=f.z+outlet.z;
+        // Stand alongside the actual working part of a long counter.
+        const aligned={x:point.x,z};
+        const work=point.x!==f.x&&routeOnGrid(allowed,homeWorld(b,point.x,point.z),homeWorld(b,aligned.x,z))?aligned:point;
+        return {...use,...work,action,label,target:{x,z,y:outlet.y},radius:f.type==='shower'?.40:.31,
+          yaw:b.yaw+Math.atan2(x-work.x,z-work.z)};
+      };
+      uses.push(atFixture(action,label));
+      if(f.type==='kitchen')uses.push(atFixture('wash','Wash up at the sink'));
+    }else uses.push(use);
   }
-  return uses;
+  return uses.concat(switches);
 }
 export function prepareHomes(island,exclude=[]){
   const skip=new Set(exclude.map(b=>b.id)),homes=[],cells=new Map();
@@ -47,7 +75,12 @@ export function prepareHomes(island,exclude=[]){
   for(const l of island.plan.lots){
     if(!l.buildable||skip.has(l.id)||['square','hall','orchard','shop'].includes(l.use))continue;
     const random=rng(island.seed+':home-plan:'+l.id),variant=Math.floor(random()*4);
-    const [x,z]=polyCentroid(l.poly),yaw=Math.PI/2-l.facing,b={id:l.id,kind:'home',name:'Home '+(homes.length+1),x,z,yaw,c:Math.cos(yaw),s:Math.sin(yaw),parcel:l.poly,road:l.frontageRoadId,variant};
+    const [x,z]=polyCentroid(l.poly),yaw=Math.PI/2-l.facing;
+    // The city needs every footprint for collision. Only an interaction needs
+    // routed furniture approaches. Keep stable indices when the same home reopens.
+    let uses;
+    const b={id:l.id,kind:'home',name:'Home '+(homes.length+1),x,z,yaw,c:Math.cos(yaw),s:Math.sin(yaw),
+      parcel:l.poly,road:l.frontageRoadId,variant,get uses(){return uses??=usesFor(this);}};
     let w=Math.min(12,Math.sqrt(l.area)*(.68+random()*.12)),d=w*(variant===1?1.1:variant===2?.74:.89);
     while(w>=3.5&&![-1,1].every(s=>[-1,1].every(t=>{const p=homeWorld(b,s*(w/2+.6),t*(d/2+.9));return pointInPoly(p.x,p.z,l.poly);}))) {w*=.9;d*=.9;}
     if(w<3.5)continue;
@@ -98,7 +131,6 @@ export function prepareHomes(island,exclude=[]){
       Object.assign(b.furniture.find(f=>f.type==='shelf'),{x:hw-.22,z:hd-.85,flip:true});
       b.seats=[{x:hw-.85,z:hd-.85,yaw:b.yaw-Math.PI/2,action:'sit'}];
     }
-    b.uses=usesFor(b);
     const road=roadMap.get(b.road);let nearest;
     for(let n=1;road&&n<road.pts.length;n++){const q=distSeg(b.entry.x,b.entry.z,...road.pts[n-1],...road.pts[n]);if(!nearest||q.d<nearest.d)nearest=q;}
     if(nearest){const start=homeWorld(b,0,hd),dx=nearest.x-start.x,dz=nearest.z-start.z,length=Math.hypot(dx,dz);b.approach={x:nearest.x-dx/length*(road.width/2+1),z:nearest.z-dz/length*(road.width/2+1)};}

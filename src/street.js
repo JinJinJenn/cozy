@@ -195,7 +195,7 @@ export class Street {
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
       }
       const label=q.label||(q.part?'Play '+q.part:q.action==='dance'?'Dance':names[place.kind]);
-      offer(q.target?this.point.set(q.target.x,q.target.y,q.target.z):this.point.set(q.x,y+.55,q.z),.55,{type:'furniture',lot:place.id,index:q.index},label);
+      offer(q.target?this.point.set(q.target.x,q.target.y,q.target.z):this.point.set(q.x,y+.55,q.z),q.radius??.55,{type:'furniture',lot:place.id,index:q.index},label);
     }
     return best;
   }

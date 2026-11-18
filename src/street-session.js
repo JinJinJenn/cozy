@@ -283,7 +283,7 @@ export class StreetSession {
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.activities.command(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
-    }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<18000&&typeof m.sig==='string'&&m.sig.length<140){
+    }else if(m.kind==='frame'&&typeof m.body==='string'&&m.body.length<32768&&typeof m.sig==='string'&&m.sig.length<140){
       try{
         if(!await crypto.subtle.verify(signature,this.publicKey,decode(m.sig),utf8.encode(m.body)))return;
         const f=JSON.parse(m.body);

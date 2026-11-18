@@ -29,8 +29,16 @@ export function readLayout(s) {
     }
   }
   if(s.club!==undefined&&!validFront(s.club)||s.restaurant!==undefined&&!validFront(s.restaurant))return null;
+  let homeLights;
+  if(s.homeLights!==undefined){
+    if(!s.homeLights||typeof s.homeLights!=='object'||Array.isArray(s.homeLights))return null;
+    const entries=Object.entries(s.homeLights);
+    if(entries.length>1024||entries.some(([id,bits])=>!/^(?:l\d{1,5}|frontage-r\d{1,5}-\d{1,5}-[lr])$/.test(id)||
+      !Number.isInteger(bits)||bits<1||bits>3))return null;
+    if(entries.length)homeLights=Object.fromEntries(entries);
+  }
   const terrace=readTerrace(s.terrace);if(!terrace)return null;
-  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,
+  return {wall:s.wall,lights:s.lights,revision:s.revision,undo:[...s.undo],homes,...(homeLights?{homeLights}:{}),
     club:s.club?{wall:s.club.wall,undo:[...s.club.undo]}:emptyFront(),terrace,
     ...(s.restaurant?{restaurant:{wall:s.restaurant.wall,undo:[...s.restaurant.undo]}}:{})};
 }

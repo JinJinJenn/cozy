@@ -25,17 +25,17 @@ Use action for a wall or floor merely to inflate prop coverage.
 | Sofa | Exclusive seat; shared reservation with reading | Sit/stand transitions, cushion response and seating variants |
 | Bookshelf/books | Read a visible book on the sofa | Select/return book, shelf reach animation, reading page motion |
 | Stove/oven/pot | Timed cook pose, steam and completion text | Distinct controls, stirring/heat states and a visible prepared result |
-| Kitchen sink/tap | Timed washing and water effect | Correct sink-local water origin, tap control and hand animation |
+| Kitchen sink/tap | Sink-specific approach and picking, water flows from the tap, hands move together | Animate the handle and hands at the actual controls |
 | Rug | Reserved stretching spot and arm motion | Coherent whole-body routine and transitions |
 | Desk/paper | Timed writing pose with book/paper feedback | Desk-specific writing pose, pen motion and a retained visible page/result |
-| Desk lamp | Decorative | Switchable light, visible switch response and replicated state |
+| Desk lamp | Click shade to switch, reach motion, glowing shade and tabletop light. State replicates and survives host reload | Add linked room switches and placement in the room editor |
 | Dining table/chairs/plates | One generated dining activity and seated pose | Independent seats, actual meal state and appropriate hand/utensil motion |
 | Table planter | Decorative | Water/tend response and inspectable plant state |
-| Shower | Timed activity with water effect | Valve control, body/hand routine and correct overhead water origin |
+| Shower | Enter tray, wash under spray from shower head, return to clear floor | Animate the valve and entry transition |
 | Toilet | Reserved seated use | Sit/stand, flush control and visible flush/reset state |
-| Basin/mirror | Timed handwashing on basin | Faucet/hand animation; mirror function and bounded rendering cost |
+| Basin/mirror | Handwashing at a separate basin spout with animated stream | Valve animation and mirror function with bounded rendering cost |
 | Nightstand/drawer | Decorative | Open/close drawer, supported contents and saved configuration |
-| Bedside lamp | Decorative | Toggle light with animation/state, independent from drawer use |
+| Bedside lamp | Independently saved switch, glowing shade and light pool | Add linked switches and placement in the room editor |
 | Shelf planter | Decorative | Reachable tending interaction and visible response |
 | Front door | Open doorway and Enter action | Door leaf interaction/animation without blocking routes or guests |
 | Windows | Decorative glazing and cutaway visibility | Functional opening/blinds/curtains where modeled; correct room-edit behavior |

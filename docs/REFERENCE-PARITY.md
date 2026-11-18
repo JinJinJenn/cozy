@@ -41,7 +41,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | Editing operations | Sky Lounge: move, rotate, duplicate, delete, draft/commit | Partial wall and terrace controls; whole-home transactional editor missing |
 | Surface placement | Sky Lounge: floor/wall/shelf support and attached children | Missing reusable support graph, height/headroom and carried-child validation |
 | Parametric construction | Sky Lounge: cabinet runs and configurable strings | Missing cabinet-span and anchored-strand tools |
-| Linked controls | Sky Lounge: switches, remotes, screens and speakers | Missing persistent object links and functional household lighting |
+| Linked controls | Sky Lounge: switches, remotes, screens and speakers | Desk and bedside lamps have independent host-saved switches. Cross-object wiring, remotes and room-wide control remain open |
 | Instruments | Sky Lounge: multiple live instruments and note feedback | Partial two-part Moon Room performance; instrument catalog and free performance UI missing |
 | Music tools | Sky Lounge: import/library, part selection, ready/start, late joining | Partial existing score playback; full import/library and ensemble workflow missing |
 | Shared audio queue | Sky Lounge: editable stereo queue and repeat | Missing |

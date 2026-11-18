@@ -1,5 +1,6 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
+import {lamps} from './home-fixtures.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
 
@@ -221,10 +222,18 @@ export class StreetActivities {
       const target=s.furnitureAt(arrival.lot,arrival.index);
       if(target&&s.available(a,target.b,target.spot)){
         const {spot}=target;Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
+        if(spot.lamp){
+          const lights=s.layout.homeLights??={},lot=target.b.id,lamp=lamps[spot.lamp];
+          const next=(lights[lot]||0)^lamp.bit;
+          if(next)lights[lot]=next;else delete lights[lot];
+          if(!Object.keys(lights).length)delete s.layout.homeLights;
+          s.persist();
+          a.feedback='The '+lamp.name+' is '+(next&lamp.bit?'on.':'off.');
+        }
         if(spot.object){
           a.using={lot:target.b.id,object:spot.object,index:spot.index,exit:{x:spot.x,z:spot.z},height:spot.pose?.height||0,scale:spot.pose?.scale||1};
           if(spot.pose)Object.assign(a,{x:spot.pose.x,z:spot.pose.z,yaw:spot.pose.yaw});
-          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6}[spot.action];
+          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55}[spot.action];
           if(duration)a.useUntil=s.time+duration;
         }
         if(a.dinnerSeat!==undefined)a.outing='menu';
@@ -259,7 +268,7 @@ export class StreetActivities {
   advance(a,dt){
     if(a.useUntil!==undefined&&this.s.time>=a.useUntil){
       const action=a.activity;this.leaveFurniture(a);
-      a.feedback={cook:'Your meal is ready.',wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',eat:'That hit the spot.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
+      if(action!=='switch')a.feedback={cook:'Your meal is ready.',wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',eat:'That hit the spot.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';
     }
     if(a.outing==='ordered')this.startOrder(a);
     if(a.cookUntil!==undefined&&this.s.time>=a.cookUntil){

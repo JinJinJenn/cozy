@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {Pieces,roof,setPieceVisibility} from './street-pieces.js';
 import {homeAt,homeLocal} from './home-plan.js';
+import {HomeAppliances} from './home-appliances.js';
 
 const cream='#f0e5cf',wood='#92704e',metal='#465d58';
 const palette=[['#e4cbb0','#596f75','#668574'],['#c99680','#71534d','#4d7773'],['#a2b8a3','#4c6471','#a97955'],['#d6bd83','#665b6c','#48777b'],['#a7bac5','#506578','#758265'],['#d1b2af','#675a6e','#547165']];
@@ -90,12 +91,14 @@ function furnish(a,b){
       p.box(0,.15,0,f.w,.18,f.d,cream);p.box(0,.25,0,f.w-.13,.03,f.d-.13,'#9baea9');
       p.round(-.3,1.2,-.30,.04,1.9,.04,metal);p.box(-.15,2.14,-.3,.35,.04,.04,metal);
       p.round(0,2.08,-.3,.21,.05,.21,metal);
+      p.round(-.30,1.13,-.27,.13,.06,.13,'#c9b18a');
     }else if(f.type==='toilet'){
       p.ball(0,.31,0,.44,.53,.52,cream);p.ball(0,.53,.15,.57,.12,.68,'#f4eee1');
       p.box(0,.70,-.30,.52,.70,.22,cream);p.box(.14,.95,-.16,.11,.04,.035,metal);
     }else if(f.type==='basin'){
       p.box(0,.47,0,f.w,.88,f.d,accent);p.box(0,.95,0,f.w+.06,.10,f.d+.05,cream);
       p.ball(0,1.0,0,.34,.035,.40,'#88a19d');p.round(.12,1.14,0,.04,.28,.04,metal);
+      p.box(.057,1.27,0,.17,.045,.045,metal);
       p.box(.26,1.61,0,.04,.64,.48,'#abc6c2');
     }else if(f.type==='dining'){
       p.box(0,.81,0,f.w,.12,1.0,wood);
@@ -108,7 +111,8 @@ function furnish(a,b){
       p.round(.36,1.02,0,.16,.27,.16,'#bb8a6c');p.ball(.36,1.23,0,.34,.30,.33,'#6a8853');
     }else if(f.type==='nightstand'){
       p.box(0,.30,0,f.w,.60,f.d,wood);p.box(0,.44,f.d/2+.01,.38,.22,.02,accent);
-      p.round(0,.82,0,.07,.42,.07,metal);p.round(0,1.04,0,.35,.27,.35,cream);
+      p.round(0,.625,0,.23,.035,.23,'#a48254');p.ball(0,.77,0,.16,.26,.16,'#81988d');
+      p.round(0,.96,0,.045,.30,.045,metal);p.ball(0,1.22,0,.055,.065,.055,'#b79863');
     }else if(f.type==='rug'){
       p.box(0,.066,0,f.w,.014,f.d,'#c4a38a');p.box(0,.078,0,f.w-.15,.012,f.d-.15,accent);
       for(const s of [-1,1])p.box(0,.087,s*(f.d/2-.24),f.w-.30,.008,.055,'#d8c3a2');
@@ -128,8 +132,15 @@ function furnish(a,b){
         const z=-f.d/2+(i+.5)*f.d/units;
         p.box(-f.w/2-.025,.48,z,.035,.72,f.d/units-.07,'#9daf97');p.box(-f.w/2-.06,.70,z+.12,.035,.13,.035,'#ba9f70');
       }
-      p.box(0,1.04,-f.d*.23,f.w*.7,.03,.54,'#526e70');
+      const sink=-f.d*.23;
+      p.box(0,1.035,sink,f.w*.72,.024,.54,'#526e70');p.box(0,1.051,sink,f.w*.52,.014,.38,'#859f9f');
+      for(const side of [-1,1]){
+        p.box(side*f.w*.36,1.056,sink,.034,.035,.56,'#b9c8bc');
+        p.box(0,1.056,sink+side*.27,f.w*.72,.035,.035,'#b9c8bc');
+      }
+      p.round(-.04,1.062,sink,.066,.012,.066,metal);
       p.round(.20,1.22,-f.d*.23,.045,.36,.045,metal);p.box(.05,1.40,-f.d*.23,.33,.04,.04,metal);
+      p.round(.20,1.075,sink+.18,.10,.09,.10,metal);p.box(.15,1.13,sink+.18,.16,.03,.04,'#b9c8bc');
       p.box(0,1.035,f.d*.28,f.w*.83,.03,.65,'#454d49');
       for(const x of [-.20,.20])for(const z of [-.17,.17])p.round(x,1.06,f.d*.28+z,.19,.025,.19,'#2e3b3b');
       // Working kitchen detail is allocated only in the occupied home.
@@ -140,6 +151,7 @@ function furnish(a,b){
       for(let z=-f.d/2+.2;z<f.d/2;z+=.2)p.box(f.w/2-.025,1.43,z,.008,.78,.01,'#aebdb4');
       p.box(.16,2.0,f.d*.28,.64,.12,.84,'#9cafa7');p.box(.28,2.24,f.d*.28,.30,.45,.42,'#abbab1');
       p.round(-.05,1.18,f.d*.28,.30,.25,.30,'#986f54');
+      p.round(-.05,1.30,f.d*.28,.32,.023,.32,'#c49b7d');p.round(-.05,1.315,f.d*.28,.274,.014,.274,'#664b39');
       for(const x of [-.26,.16])p.box(x,1.22,f.d*.28,.14,.05,.055,metal);
       p.box(-.06,1.055,-f.d/2+.10,.48,.035,.20,'#bb9667');
     }else if(f.type==='sofa'){
@@ -154,37 +166,34 @@ function furnish(a,b){
       p.round(0,2.10,.15,.19,.27,.19,cream);p.ball(0,2.28,.15,.30,.27,.30,'#6c8c55');
     }else if(f.type==='desk'){
       p.box(0,.76,0,f.w,.11,f.d,wood);for(const s of [-1,1])p.box(s*f.w*.4,.36,0,.08,.72,.08,metal);
-      p.box(.12,.84,0,.38,.04,.28,'#e7d8bb');p.round(-.36,1.03,0,.10,.42,.10,metal);p.ball(-.36,1.23,0,.34,.16,.33,cream);
+      p.box(.12,.84,0,.38,.04,.28,'#e7d8bb');p.round(-.36,.84,0,.24,.045,.24,'#b38b59');
+      p.round(-.36,1.03,0,.045,.40,.045,metal);p.round(-.36,1.33,0,.08,.035,.08,'#b38b59');
     }
   }
 }
 export class HomeInteriors {
   constructor(island,parent){this.island=island;this.parent=parent;this.open=null;this.group=null;}
+  close(){
+    if(!this.open)return;
+    for(const handle of Object.values(this.open.renderHandles))setPieceVisibility(handle,true);
+    this.appliances.dispose();this.appliances=null;
+    this.group.removeFromParent();this.group.traverse(m=>{if(m.isInstancedMesh)m.dispose();});
+    this.group=null;this.open=null;
+  }
   update(pos,eye,session){
     const home=homeAt(this.island,pos,.16);
     if(home!==this.open){
-      if(this.open)for(const handle of Object.values(this.open.renderHandles))setPieceVisibility(handle,true);
-      if(this.group){this.parent.remove(this.group);this.group.traverse(m=>{if(m.isInstancedMesh)m.dispose();});this.group=null;}
+      this.close();
       this.open=home;
       if(home){
         this.group=new THREE.Group();const a=new Pieces(this.group).frame(home.x,home.y,home.z,home.yaw);furnish(a,home);a.finish();this.parent.add(this.group);
-        this.effects=new Map();
-        for(const f of home.furniture.filter(f=>['kitchen','shower','basin'].includes(f.type))){
-          const fx=new THREE.Group(),p=new Pieces(fx);this.group.add(fx);fx.rotation.y=home.yaw;
-          fx.position.set(home.x+home.c*f.x+home.s*f.z,home.y,home.z-home.s*f.x+home.c*f.z);
-          for(let n=0;n<6;n++)p.ball((n%2-.5)*.18,1.43+n*.08,f.type==='kitchen'?f.d*.28:0,.07,.12,.07,f.type==='kitchen'?'#f2e5cc':'#a5d6dc');
-          p.finish();this.effects.set(f.id,fx);
-        }
+        this.appliances=new HomeAppliances(this.group,home);
       }
     }
     if(!home)return;
     const p=homeLocal(home,eye);setPieceVisibility(home.renderHandles.roof,false);
     for(const [side,hide] of [['left',p.x<0],['right',p.x>0],['back',p.z<0],['front',p.z>0]])setPieceVisibility(home.renderHandles[side],!hide);
-    for(const [id,fx] of this.effects||[]){
-      const actor=session&&[...session.actors.values()].find(a=>a.using?.lot===home.id&&a.using.object===id);
-      fx.visible=!!actor&&['cook','wash','shower'].includes(actor.activity);
-      fx.position.y=home.y+.035*Math.sin((session?.time||0)*7);
-    }
+    this.appliances.update(session);
     return home.id;
   }
 }

@@ -609,15 +609,19 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
   bookArt.box(0,1.09,.42,.015,.018,.26,'#bfa988');bookArt.finish();book.visible=false;
   g.setDomestic=(action,time,use)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
-    body.rotation.x=lying?-Math.PI/2:0;body.position.y=lying?(use?.height||.82):0;
+    body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
     if(action==='read'){
       restingArms.visible=false;for(const arm of hands){arm.visible=true;arm.rotation.x=0;}
     }
-    if(lying||!['read','write','cook','wash','shower','eat','stretch','bathroom'].includes(action))return;
+    if(lying||!['read','write','cook','wash','shower','eat','stretch','bathroom','switch'].includes(action))return;
     for(const limb of limbs){
       limb.arm.rotation.x=reading?-.9:action==='stretch'?-2.3+.25*Math.sin(time*2):-.75+.17*Math.sin(time*5+limb.side);
       limb.arm.rotation.z=action==='stretch'?limb.side*.45:0;
+      if(action==='shower')limb.arm.rotation.x=-2.52+.18*Math.sin(time*5+limb.side);
+      if(action==='wash')limb.arm.rotation.z=-limb.side*(.38+.07*Math.sin(time*9));
+      if(action==='cook'&&limb.side>0)limb.arm.rotation.z=.12+.23*Math.cos(time*5);
+      if(action==='switch')limb.arm.rotation.x=limb.side>0?-1.34+.16*Math.cos(time*8):0;
     }
     torso.rotation.x=action==='bathroom'?.12:action==='write'?.08:0;
   };
@@ -727,7 +731,7 @@ export function townExteriors(island,detail,scene){
         const k=x+','+z;if(!island.footprintCells.has(k))island.footprintCells.set(k,[]);island.footprintCells.get(k).push(b);
       }}
   const interiors=new HomeInteriors(island,parent);
-  const dispose=()=>{scene.remove(parent);disposeGroup(parent);};
+  const dispose=()=>{interiors.close();scene.remove(parent);disposeGroup(parent);};
   dispose.update=(pos,eye,session)=>interiors.update(pos,eye,session);
   dispose.interiors=interiors;
   return dispose;

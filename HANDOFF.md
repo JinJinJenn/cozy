@@ -4,6 +4,21 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.3.3 adds switches to desk and bedside lamps in generated homes.
+Click a shade to walk to the switch. Visitors can operate it, everyone in that
+street sees the change, and the host saves each lamp independently. Cooking,
+washing and showering now use the pot, taps and shower head as their effect
+origins. The worker still simulates all 457 residents. Each home finds and
+caches reachable furniture use points when first needed. Every home and solid
+object remains available for collision from startup. In six alternating desktop
+browser starts, median time to a playable town went from 2.81 to 1.71 seconds.
+
+All 112 unit checks and the four-locale viewer passed. Two isolated browsers
+connected by native WebRTC with local signalling saw one guest switch on a desk
+lamp. The host reloaded and recovered its state. The same run exercised both
+sinks, the stove, shower and occupied bed. All 457 residents moved in its
+120-step simulation check and zero occupied a blocked position.
+
 Version 0.3.2 lights the graded terrain with the same sun as the houses. Open
 sea uses fewer triangles and the minimap paints roads into its 208-pixel map.
 All 111 unit checks and the four-locale viewer passed. With 457 residents

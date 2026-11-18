@@ -121,6 +121,14 @@ Use `--full-only` to sample the whole renderer without isolation variants.
 
 ## Work order
 
+Version 0.3.3 moves furniture station routing out of city startup. Full home
+geometry data for collision and the resident worker are available at startup.
+Each home computes its interaction points on first use and reuses them later.
+Six alternating headless desktop Chrome loads used 1280 × 720 Low, localhost,
+fresh browser contexts and local networking. Navigation to the ready viewer and
+street session took 2.889, 2.811 and 2.619 seconds on v0.3.2 and 1.712, 1.744
+and 1.697 seconds on v0.3.3. Every sample had 457 residents and the worker.
+
 The v0.3.2 terrain pass supplies packed slope normals and unlit albedo, removes
 skirts from equal-resolution viewer tiles and simplifies nearly uniform offshore
 water. Drawing the minimap at its display resolution eliminated a retained
