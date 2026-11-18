@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {bridgeDecks} from './bridge-decks.js';
 import {createRoadSurface} from './road-surface.js';
 import {sunlight} from './daylight.js';
 import {ResidentCrowd} from './resident-crowd.js';
@@ -23,7 +24,7 @@ function paintMapRoads(ctx,roads) {
   // Paint all footways before the carriageways so junction mouths stay open.
   for(const layer of ['verge','footway','kerb','carriageway']){
     for(const road of roads){
-      if(road.bridge||road.class==='path'&&layer!=='carriageway')continue;
+      if(road.class==='path'&&layer!=='carriageway')continue;
       const extra={verge:3.25,footway:2.85,kerb:.42,carriageway:0}[layer];
       trace(ctx,road.xz);
       ctx.lineWidth=road.width+extra;
@@ -36,58 +37,11 @@ function paintMapRoads(ctx,roads) {
   ctx.lineWidth = 0.19;
   ctx.strokeStyle = '#e2d6b8';
   for (const road of roads) {
-    if (road.class !== 'main' || road.bridge) continue;
+    if (road.class !== 'main') continue;
     trace(ctx, road.xz);
     ctx.stroke();
   }
 
-}
-
-function bridgeDecks(island, roads) {
-  const verts = [], indices = [], spans = [];
-  for (const road of roads.filter(r => r.bridge)) {
-    const points = road.pts;
-    let peak = -Infinity;
-    for (let i = 1; i < points.length; i++) {
-      const [ax, az] = points[i - 1], [bx, bz] = points[i];
-      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 2));
-      for (let j = 0; j <= n; j++) {
-        const x = ax + (bx - ax) * j / n, z = az + (bz - az) * j / n;
-        peak = Math.max(peak, island.waterAt(x, z));
-      }
-    }
-    const deckY = peak + 0.22, radius = road.width / 2;
-    // Keep each cross-section above the water and either bank.
-    const rows = [];
-    for (let i = 0; i < points.length; i++) {
-      const [x, z] = points[i];
-      const before = points[Math.max(0, i - 1)], after = points[Math.min(points.length - 1, i + 1)];
-      const dx = after[0] - before[0], dz = after[1] - before[1], len = Math.hypot(dx, dz) || 1;
-      const y = Math.max(deckY, island.sample(x, z) + 0.09);
-      rows.push([x,z,y]);
-      verts.push(x - dz / len * radius, y, z + dx / len * radius, x + dz / len * radius, y, z - dx / len * radius);
-      const k = verts.length / 3 - 2;
-      if (i > 0) {
-        indices.push(k - 2, k, k - 1, k - 1, k, k + 1);
-        spans.push({ a: rows[i - 1], b: rows[i], radius });
-      }
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  geometry.setIndex(indices);
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: '#b98c62', side: THREE.DoubleSide }));
-  function heightAt(x, z) {
-    let y = island.sample(x, z);
-    for (const { a, b, radius } of spans) {
-      const dx = b[0] - a[0], dz = b[1] - a[1], lengthSq = dx * dx + dz * dz;
-      if (!lengthSq) continue;
-      const t = ((x-a[0])*dx + (z-a[1])*dz) / lengthSq;
-      if (t >= 0 && t <= 1 && Math.hypot(x-a[0]-dx*t, z-a[1]-dz*t) <= radius) y = Math.max(y, a[2] + (b[2]-a[2])*t);
-    }
-    return y;
-  }
-  return { mesh, heightAt, spans };
 }
 
 export class SettlementView {

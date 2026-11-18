@@ -44,7 +44,7 @@ async function profile(signalGate,engine=browser){
   // while sharing the hosted runner's software renderer across all three.
   const viewport=process.env.COZY_FLOWER_SHOT?{width:1320,height:790}:{width:960,height:580};
   const ctx=await engine.newContext({viewport,deviceScaleFactor:process.env.CI ? .45 : 1});
-  if(software&&band)await ctx.addInitScript(()=>{
+  if(software)await ctx.addInitScript(()=>{
     // Three independent towns share one software GPU on the hosted runner.
     // Pace their presentation. WebRTC, Web Audio and town timers run normally.
     const raf=window.requestAnimationFrame.bind(window);

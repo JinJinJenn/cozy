@@ -1,3 +1,4 @@
+import {bridgeHeightAt} from './bridge-profile.js';
 import {contextFromPlan} from '../packages/sim/src/context.js';
 import {Simulation} from '../packages/sim/src/simulation.js';
 import {prepareHomes} from './home-plan.js';
@@ -18,15 +19,7 @@ self.onmessage=e=>{
       };
       island.sample=(x,z)=>bil(h,x,z);island.waterAt=(x,z)=>Math.max(0,bil(water,x,z));
       island.slope=(x,z,e=cell)=>Math.hypot((island.sample(x+e,z)-island.sample(x-e,z))/(2*e),(island.sample(x,z+e)-island.sample(x,z-e))/(2*e));
-      island.deckHeight=(x,z)=>{
-        let y=island.sample(x,z);
-        for(const {a,b,radius} of island.bridgeSpans){
-          const dx=b[0]-a[0],dz=b[1]-a[1],length=dx*dx+dz*dz;if(!length)continue;
-          const t=((x-a[0])*dx+(z-a[1])*dz)/length;
-          if(t>=0&&t<=1&&Math.hypot(x-a[0]-dx*t,z-a[1]-dz*t)<=radius)y=Math.max(y,a[2]+(b[2]-a[2])*t);
-        }
-        return y;
-      };
+      island.deckHeight=bridgeHeightAt(island.sample,island.bridgeSpans);
       const plots=plotsForStreet(island);prepareHomes(island,plots);
       street={island,plots,session:{layout:defaultLayout(),actors:new Map(),activities:{routes:new Map()}}};
       const ctx=contextFromPlan({seed:island.seed,presetId:island.presetId,island},island.plan);

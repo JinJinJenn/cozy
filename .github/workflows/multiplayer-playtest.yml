@@ -44,7 +44,11 @@ on:
       - 'src/harbor-garden.js'
       - 'src/mesh-index.js'
       - 'src/vehicle-art.js'
+      - 'src/bridge-*.js'
+      - 'src/settlement-view.js'
       - 'tools/test-travel.mjs'
+      - 'tests/bridge.test.mjs'
+      - 'tests/travel.test.mjs'
       - 'tools/playtest-touch-driving.mjs'
       - 'tools/playtest-residents.mjs'
       - 'src/street.css'
@@ -137,6 +141,8 @@ jobs:
         env:
           PLAYWRIGHT_FROM: ${{ runner.temp }}/cozy-browser/package.json
         run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test tests/bridge.test.mjs tests/travel.test.mjs
           npm run test:travel -- --software
           npm run test:travel -- --software --touch
           node tools/test-viewer.mjs --traffic
@@ -167,7 +173,7 @@ jobs:
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --players
       - name: Admit one visitor while another waits outside
         if: matrix.signalling == 'door'
-        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --door
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --door --software
       - name: Play a live duet and listen from the Moon Room
         if: matrix.signalling == 'band'
         run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:lobby -- --band --software

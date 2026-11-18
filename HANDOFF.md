@@ -4,6 +4,8 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.21.2 raises both lanes and footways on the harbor bridge above the river. The roadster, pedestrians and resident drivers sample the same deck triangles. The approaches follow the adjoining streets onto both banks.
+
 Version 0.21.1 fixes a stop against the outside curb where two curved road
 segments meet. The roadster can ease back onto the carriageway and pull away.
 The travel tests retain the Harbor Town position that reproduced the issue.
