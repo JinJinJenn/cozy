@@ -1,8 +1,8 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
 import {homeAt,homeWalkableLocal} from './home-plan.js';
-import {entrySwitchPosition,lamps,setFixtureValue,switchEntryLights,tuneTelevision} from './home-fixtures.js';
-import {finishHomeMeal,mealStation} from './home-meals.js';
+import {homeAction,entrySwitchPosition,lamps,paintingStage,setFixtureValue,setPaintingStage,switchEntryLights,tuneTelevision} from './home-fixtures.js';
+import {finishHomeMeal} from './home-meals.js';
 import {leaveBoard,sitAtBoard} from './table-game.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
@@ -207,7 +207,7 @@ export class StreetActivities {
       const target=this.s.furnitureAt(cmd.lot,cmd.index);
       if(!target)return;
       const {b}=target;
-      let spot=mealStation(this.s,b.id,target.spot,actor);
+      let spot=homeAction(this.s,b.id,target.spot,actor);
       if(!spot){actor.feedback='That serving is no longer available.';return;}
       if(spot.object==='entry-switch')return this.walkToEntrySwitch(actor,b,spot);
       if(spot.action==='tablegame'&&actor.bowlFrom){actor.feedback='Finish or return your soup before playing.';return;}
@@ -250,7 +250,7 @@ export class StreetActivities {
     }
     if(typeof arrival==='object'){
       const target=s.furnitureAt(arrival.lot,arrival.index);
-      let spot=target&&mealStation(s,target.b.id,target.spot,a);
+      let spot=target&&homeAction(s,target.b.id,target.spot,a);
       if(spot?.object==='entry-switch'&&arrival.switchPose)spot={...spot,...arrival.switchPose};
       if(target&&!spot){a.feedback='That serving is no longer available.';return;}
       if(spot&&s.available(a,target.b,spot)){
@@ -278,7 +278,7 @@ export class StreetActivities {
           a.using={lot:target.b.id,object:spot.object,index:spot.index,exit:{x:spot.x,z:spot.z},height:spot.pose?.height||0,scale:spot.pose?.scale||1};
           if(spot.pose)Object.assign(a,{x:spot.pose.x,z:spot.pose.z,yaw:spot.pose.yaw});
           if(spot.action==='tablegame')sitAtBoard(s,a);
-          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55}[spot.action];
+          const duration={cook:7,wash:4,shower:8,bathroom:5,eat:7,write:8,stretch:6,switch:.55,paint:2.4}[spot.action];
           if(duration)a.useUntil=s.time+duration;
         }
         if(a.dinnerSeat!==undefined)a.outing='menu';
@@ -311,6 +311,15 @@ export class StreetActivities {
     }
   }
   advance(a,dt){
+    if(a.activity==='paint'&&this.s.time>=a.useUntil){
+      const {lot,object}=a.using,stage=Math.min(4,paintingStage(this.s.layout,lot,object)+1);
+      setPaintingStage(this.s,lot,object,stage);
+      if(stage<4)a.useUntil=this.s.time+2.4;
+      else{
+        a.activity='admire';delete a.useUntil;
+        a.feedback='The painting is finished.';
+      }
+    }
     if(a.useUntil!==undefined&&this.s.time>=a.useUntil){
       const action=a.activity,meal=finishHomeMeal(this.s,a);this.leaveFurniture(a);
       if(action!=='switch')a.feedback=meal||{wash:'All washed up.',shower:'Feeling refreshed.',bathroom:'All done.',write:'A page for your journal.',stretch:'Feeling limber.'}[action]||'';

@@ -4,6 +4,15 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.14.0 opens a painting studio in public Harbor Town. Choose **Travel → Visit art studio**.
+Two players can paint at separate easels and download a finished 640 × 480 print.
+Public canvases belong to the current lobby. The visitor at a finished easel can choose **Paint another**.
+
+In a private home, choose **Build → Edit → Furniture** and select a club chair or easel from **In storage**.
+Visitors can sit in a placed chair and paint in four stages. Packing an easel preserves its canvas.
+Private canvases are included in the owner's saves and encrypted backups. Only the owner can replace one.
+Run `npm run test:lobby -- --studio` for the public outing and `npm run test:domestic -- --studio` for an invited visit and restore.
+
 Version 0.13.0 puts a working entry lantern in each of Petalwood's 457 homes.
 Use **Travel → Home 5 → Teleport there** and click the rocker beside the door
 or the lantern glass. By default it switches the desk and bedside lamps too.

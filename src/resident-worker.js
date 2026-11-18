@@ -4,11 +4,12 @@ import {prepareHomes} from './home-plan.js';
 import {syncInteriors} from './home-furnishing.js';
 import {plotsForStreet,defaultLayout} from './street-world.js';
 import {bindResidentWorld,rerouteResidents} from './resident-world.js';
-let sim,street;
+let sim,street,firstLayout;
 self.onmessage=e=>{
   const m=e.data;
   try{
     if(m.type==='init'){
+      firstLayout=true;
       const island=m.island,{grid:N,half,cell,h,water}=island;
       const bil=(a,x,z)=>{
         const fi=Math.min(N-1.0001,Math.max(0,(x+half)/cell)),fj=Math.min(N-1.0001,Math.max(0,(z+half)/cell));
@@ -35,7 +36,8 @@ self.onmessage=e=>{
       const start=performance.now(),session=street.session;
       const previous=session.layout;
       session.layout=m.layout;session.actors=new Map(m.actors.map(a=>[a.id,a]));session.activities.routes=new Map(m.routes);
-      if(previous.revision!==m.layout.revision){
+      if(firstLayout||previous.revision!==m.layout.revision){
+        firstLayout=false;
         const homes=[];
         if(!syncInteriors(street.island,previous,m.layout,false,homes))throw Error('The resident worker could not apply the room layout.');
         rerouteResidents(sim,homes);

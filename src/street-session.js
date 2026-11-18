@@ -7,9 +7,8 @@ import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEd
 import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
 import {editedItems,installFurniture,occupantLimit,planInterior,syncInteriors} from './home-furnishing.js';
-import {furnishings,originalPose,samePose,supportFor,validPose} from './furniture-pose.js';
-import {installedLampMask,setFixtureValue,tuneTelevision} from './home-fixtures.js';
-import {mealStation} from './home-meals.js';
+import {catalog,furnishings,samePose,storedPose,supportFor,validPose,wireFurnishings} from './furniture-pose.js';
+import {homeAction,installedLampMask,paintingStage,setFixtureValue,setPaintingStage,tuneTelevision} from './home-fixtures.js';
 import {boardCommand,practiceTurn,validRound} from './table-game.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {rerouteResidents} from './resident-world.js';
@@ -37,7 +36,7 @@ export function stationsFor(b){
       spots=uses.map((p,index)=>({...p,...toWorld(b,p.x,p.z),
         target:p.target?{...toWorld(b,p.target.x,p.target.z),y:b.y+p.target.y}:null,
         ...(p.secondaryTarget?{secondaryTarget:{...toWorld(b,p.secondaryTarget.x,p.secondaryTarget.z),y:b.y+p.secondaryTarget.y}}:{}),
-        pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index,part:''}));
+        pose:p.pose?{...p.pose,...toWorld(b,p.pose.x,p.pose.z)}:null,index:p.stationIndex??index,part:''}));
       homeStations.set(uses,spots);
     }
     return spots;
@@ -86,6 +85,12 @@ export class StreetSession {
   async init(){
     try{
       if(this.space==='public'){
+        const studio=this.island.homes.find(home=>home.name==='Home 5');
+        if(studio){
+          const items={'easel-1':[-6,-4,0],'armchair-1':[4,6,1],'easel-2':[6,0,1],'armchair-2':[0,6,2]};
+          const furnished={...this.layout,furnishings:{v:1,lots:{[studio.id]:items}}};
+          if(syncInteriors(this.island,null,furnished)){this.layout=furnished;this.studioLot=studio.id;}
+        }
         const id=await lobbyIdentity();if(this.closed)return;
         const room=publicWorld+'@'+new URL('.',location.href).href;
         const avatar=this.actors.get(this.id);this.id=id.actor;avatar.id=this.id;this.actors=new Map([[this.id,avatar]]);
@@ -236,7 +241,7 @@ export class StreetSession {
       .concat((this.town.current||[]).filter(nearby),[...this.activities.routes.values()].map(r=>r.goal).filter(nearby));
   }
   furnitureInUse(home,item){
-    const using=index=>home.uses[index]&&supportFor(home.uses[index])===item;
+    const using=index=>{const spot=this.furnitureAt(home.id,index)?.spot;return spot&&supportFor(spot)===item;};
     for(const a of this.actors.values())if(a.using?.lot===home.id&&using(a.using.index))return true;
     for(const r of this.activities.routes.values())if(r.arrival?.lot===home.id&&using(r.arrival.index))return true;
     return false;
@@ -251,6 +256,11 @@ export class StreetSession {
     }
     return true;
   }
+  replaceCanvas(home,id){
+    if(!this.ready||!this.canBuild||!home||homeAt(this.island,this.actors.get(this.id))!==home||
+      !home.furniture.some(f=>f.id===id&&f.type==='easel')||!paintingStage(this.layout,home.id,id)||this.furnitureInUse(home,id))return false;
+    setPaintingStage(this,home.id,id,0);return true;
+  }
   editFurniture(lot,id,draft,revision,undo=false){
     const home=this.island.homesById?.get(lot),state=this.layout.furnishings||{v:1,lots:{}};
     if(!this.ready||!this.canBuild||!home||homeAt(this.island,this.actors.get(this.id))!==home)return false;
@@ -259,8 +269,10 @@ export class StreetSession {
       if(state.last?.[0]!==lot)return false;
       [,id,draft]=state.last;
     }
-    if(!Object.hasOwn(furnishings,id)||!validPose(draft)||!home.furniture.some(f=>f.id===id))return false;
-    const previous=state.lots[lot]?.[id]||originalPose;
+    const added=Object.hasOwn(catalog,id);
+    if(!(added||Object.hasOwn(furnishings,id)&&home.furniture.some(f=>f.id===id))||
+      !(validPose(draft)||added&&draft===null))return false;
+    const previous=storedPose(state.lots[lot],id);
     if(samePose(previous,draft))return false;
     if(this.furnitureInUse(home,id)){this.notice('Someone is using this item or walking to it.');return false;}
     const items=editedItems(state.lots[lot],id,draft),{next,reason}=planInterior(home,items,home.divider);
@@ -269,7 +281,7 @@ export class StreetSession {
     const lots={...state.lots};
     if(Object.keys(items).length)lots[lot]=items;else delete lots[lot];
     installFurniture(home,items,next);
-    this.layout.furnishings={v:1,lots,...(undo?{}:{last:[lot,id,[...previous]]})};
+    this.layout.furnishings={v:1,lots,...(undo?{}:{last:[lot,id,previous&&[...previous]]})};
     this.layout.revision++;if(!this.town.worker)rerouteResidents(this.town.sim,[home]);this.persist();return true;
   }
   editRoom(id,draft,revision,undo=false){
@@ -378,7 +390,7 @@ export class StreetSession {
     for(const base of stationsFor(b)){
       const distance=Math.hypot(base.x-actor.x,base.z-actor.z);
       if(distance>bestDistance||(best&&distance===bestDistance))continue;
-      const spot=mealStation(this,b.id,base,actor);
+      const spot=homeAction(this,b.id,base,actor);
       if(spot&&this.available(actor,b,spot)){best=spot;bestDistance=distance;}
     }
     return best&&{...best,dist:bestDistance};
@@ -397,7 +409,8 @@ export class StreetSession {
   furnitureAt(lot,index){
     const b=lot===this.garden?.id?this.garden:this.island?.streetBenches?.get(lot)||this.island?.homesById?.get(lot)||this.plots.find(p=>p.id===lot)||this.terraceLots().find(p=>p.id===lot);
     if(!b||!Number.isInteger(index))return null;
-    const spot=stationsFor(b)[index];return spot?{b,spot}:null;
+    const spots=stationsFor(b),spot=spots[index]?.index===index?spots[index]:spots.find(p=>p.index===index);
+    return spot?{b,spot}:null;
   }
   waysideNear(actor,distance){
     const benches=[];
@@ -434,6 +447,15 @@ export class StreetSession {
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
   }
   applyCommand(actor,cmd){
+    if(cmd.type==='new-canvas'){
+      const station=actor.using;
+      if(this.space==='public'&&actor.activity==='admire'&&station?.lot===this.studioLot&&
+        catalog[station.object]?.type==='easel'&&paintingStage(this.layout,station.lot,station.object)===4){
+        setPaintingStage(this,station.lot,station.object,0);
+        actor.activity='paint';actor.useUntil=this.time+2.4;actor.feedback='';
+      }
+      return;
+    }
     if(cmd.type==='table-game')return boardCommand(this,actor,cmd);
     if(cmd.type==='visit-table'){
       if(actor.activity==='tablegame')return;
@@ -523,7 +545,7 @@ export class StreetSession {
       }
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['gesture','ride','dismount','teleport','tv-channel','table-game','visit-table','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['gesture','ride','dismount','teleport','tv-channel','table-game','visit-table','new-canvas','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}
@@ -579,7 +601,8 @@ export class StreetSession {
     if(this.sending||!this.peers.size||!this.connections.length||!this.privateKey)return;
     this.sending=true;
     try{const residents=encodeResidents(this.town.people);
-      const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout:this.layout,actors:[...this.actors.values()],residents};
+      const layout=this.layout?.furnishings?{...this.layout,furnishings:wireFurnishings(this.layout.furnishings)}:this.layout;
+      const frame={room:this.pub,boot:this.boot,seq:++this.seq,t:this.time,layout,actors:[...this.actors.values()],residents};
       if(this.addresses){
         const book=this.addresses.book;frame.parcelRevision=book.revision;frame.confirmedRevision=this.addresses.confirmedRevision;
         if([...this.controls.values()].some(c=>c.parcelRevision!==book.revision))frame.parcels=book.entries;

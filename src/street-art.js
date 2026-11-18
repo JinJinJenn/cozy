@@ -626,9 +626,17 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     spoon.box(-.052,-.12,.29,.022,.024,.22,'#d1c8ad',-.55);
     spoon.ball(-.105,-.118,.38,.065,.025,.09,'#d1c8ad');spoon.finish();
   }
-  let remoteArm,floorPose,lastChannel,pressedAt;
+  let remoteArm,floorPose,lastChannel,pressedAt,brush;
   g.setDomestic=(action,time,use,hasBowl,channel)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
+    if(action==='paint'&&!brush){
+      brush=new THREE.Group();limbs.find(l=>l.side===1).arm.add(brush);
+      const bristles=new Pieces(brush);
+      bristles.round(.052,-.50,.032,.025,.22,.025,'#a16e43');
+      bristles.round(.052,-.63,.032,.030,.05,.030,'#c3c1a9');
+      bristles.ball(.052,-.686,.032,.032,.077,.028,'#698778');bristles.finish();
+    }
+    if(brush)brush.visible=action==='paint';
     body.position.x=body.position.z=0;
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
     body.scale.setScalar(lying?(use?.scale||1):1);book.visible=reading;shadow.visible=!lying;
@@ -683,6 +691,12 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     }
     if(action==='read'){
       restingArms.visible=false;for(const arm of hands){arm.visible=true;arm.rotation.x=0;}
+    }
+    if(action==='paint'){
+      const arm=limbs.find(l=>l.side===1).arm;
+      arm.rotation.x=-1.66-.24*Math.sin(time*3.7);
+      arm.rotation.z=.15+.30*Math.sin(time*2.5);
+      torso.rotation.x=.06;return;
     }
     if(lying||!['read','write','cook','wash','shower','eat','stretch','bathroom','switch'].includes(action))return;
     for(const limb of limbs){

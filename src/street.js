@@ -1,6 +1,5 @@
 import {neighborName} from './street-activities.js';
-import {mealStation} from './home-meals.js';
-import {tvChannels} from './home-fixtures.js';
+import {homeAction,tvChannels} from './home-fixtures.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
@@ -15,6 +14,8 @@ import {SaveMenu} from './save-menu.js';
 import {AddressMenu} from './address-menu.js';
 import {PlayerMenu} from './player-menu.js';
 import {TableMenu,pickBoardSquare} from './table-menu.js';
+import {drawPainting} from './easel-art.js';
+import {catalog} from './furniture-pose.js';
 import {canGreet,gesturePhase,shirts} from './player-profile.js';
 
 const $=id=>document.getElementById(id);
@@ -53,6 +54,11 @@ export class Street {
     this.addressMenu=new AddressMenu(this,listen);
     this.playerMenu=new PlayerMenu(this,listen);
     this.tableMenu=new TableMenu(this,listen);
+    listen($('easel-save'),'click',()=>{
+      if(!this.printId)return;
+      const link=document.createElement('a');link.download=catalog[this.printId].subject+'.png';
+      link.href=$('easel-paper').toDataURL('image/png');link.click();
+    });
     // After a captured wall drag, Chromium can suppress the next compatibility
     // click. Complete a stationary single-finger tap once, on its original button.
     const panel=$('street-panel');let tap=null;
@@ -116,6 +122,8 @@ export class Street {
     listen($('home-invite'),'click',()=>{this.session.command({type:'visit-bluebell'});this.closePanels();});
     const travel=cmd=>{this.cameraFocus=null;this.clearInput();this.session.command(cmd);this.closePanels();};
     listen($('visit-table'),'click',()=>travel({type:'visit-table'}));
+    listen($('visit-studio'),'click',()=>travel({type:'teleport',place:this.session.studioLot}));
+    listen($('easel-new'),'click',()=>this.session.command({type:'new-canvas'}));
     listen($('jump-place'),'click',()=>{if(this.destination)travel({type:'teleport',place:this.destination.id});});
     for(const kind of ['car','bike'])listen($('take-'+kind),'click',()=>travel({type:'ride',vehicle:kind}));
     listen($('go-place'),'click',()=>{
@@ -334,7 +342,7 @@ export class Street {
       }
     }
     for(const place of [b,...s.terraceLots(),...s.waysideNear(local,30)].filter(Boolean))for(const base of stationsFor(place)){
-      const q=mealStation(s,place.id,base,local);if(!q||q.alternate||q.action==='tablegame'&&local.activity==='tablegame')continue;
+      const q=homeAction(s,place.id,base,local);if(!q||q.alternate||q.action==='tablegame'&&local.activity==='tablegame')continue;
       const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
       if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
@@ -644,12 +652,23 @@ export class Street {
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
     $('tv-remote').hidden=local.activity!=='watch'||!!this.buildLot;
     this.tableMenu.refresh(s,local,!!this.buildLot);
+    const printId=local.activity==='admire'&&!this.buildLot?local.using?.object:null;
+    $('easel-print').hidden=catalog[printId]?.type!=='easel';
+    $('easel-new').hidden=!printId||s.space!=='public'||local.using?.lot!==s.studioLot;
+    $('visit-studio').hidden=!s.studioLot||!s.layout.furnishings?.lots[s.studioLot]?.['easel-1'];
+    if(!$('easel-print').hidden&&printId!==this.printId){
+      const paper=$('easel-paper'),title=catalog[printId].subject;
+      drawPainting(paper,printId,4);paper.setAttribute('aria-label',title);$('easel-title').textContent=title;
+    }
+    this.printId=printId;
     if(!$('tv-remote').hidden)$('tv-channel').value=String(s.layout.homeTV?.[local.using.lot]||0);
     if(near)use.textContent=local.activity==='eat'?'Pause meal':local.activity==='cook'?'Stop cooking':local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',wash:'washing',shower:'showering',bathroom:'bathroom visit',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(local.vehicle){use.hidden=false;use.textContent=local.vehicle==='car'?'Get out of car':'Get off bike';}
     if(local.activity==='watch')use.textContent='Stop watching';
     if(local.activity==='switch')use.textContent='Release switch';
+    if(local.activity==='paint')use.textContent='Put brush down';
+    if(local.activity==='admire')use.textContent='Leave painting';
     if(local.activity==='tablegame')use.textContent='Leave game';
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }

@@ -14,7 +14,9 @@ const software=process.argv.includes('--software'),cache=new Map(),results=[];
 const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')?4:1;
 const television=process.argv.includes('--television');
 const entryLight=process.argv.includes('--entry-light');
+const studio=process.argv.includes('--studio');
 const wideStreet=process.argv.includes('--wide-street');
+if(studio&&(entryLight||television||wideStreet||orbit||baseline))throw Error('The art studio uses a fixed interior camera.');
 if(entryLight&&(television||wideStreet||orbit||baseline))throw Error('The entry light comparison uses a fixed camera in the current build.');
 if(wideStreet&&(television||baseline))throw Error('The island-scale street camera requires the current street view.');
 if(television&&(orbit||baseline))throw Error('The television comparison uses a fixed camera on the current build.');
@@ -66,7 +68,19 @@ try{
       const eye=homeWorld(b,2.55,b.d/2-5),aim=c.street.cameraFocus=homeWorld(b,-.45,b.d/2-.75);
       await c.setCamera([eye.x,b.y+2.8,eye.z],[aim.x,b.y+1.48,aim.z]);await c.flushChunks();
     });
-    const scenes=entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
+    if(studio){
+      await page.locator('#directions-open').click();await page.locator('#visit-studio').click();
+      await page.waitForFunction(()=>window.__cozy.street.clearExteriors.interiors.appliances?.easels.length===2);
+      await page.evaluate(async()=>{
+        const c=window.__cozy,s=c.street.session,b=c.island.homesById.get(s.studioLot);
+        const {homeWorld}=await import('./src/home-plan.js'),{stationsFor}=await import('./src/street-session.js');
+        const eye=homeWorld(b,2.8,3.75),aim=c.street.cameraFocus=homeWorld(b,-.9,-.2);
+        await c.setCamera([eye.x,b.y+3,eye.z],[aim.x,b.y+1.3,aim.z]);await c.flushChunks();
+        s.command({type:'furniture',lot:b.id,index:stationsFor(b).find(u=>u.object==='easel-1').index});
+      });
+      await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='paint';});
+    }
+    const scenes=studio?[{room:'public art studio'}]:entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
     for(const scene of scenes){
       const {distance,channel}=scene;
       if(entryLight){
@@ -81,7 +95,7 @@ try{
       }else if(television){
         await page.locator('#tv-channel').selectOption(String(channel));
         await page.waitForFunction(n=>window.__cozy.street.clearExteriors.interiors.appliances?.tv.channel===n,channel);
-      }else await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;
+      }else if(!studio)await page.evaluate(async ({distance:d,wideStreet})=>{const c=window.__cozy,t=c.controls.target;
         if(d>100&&!wideStreet)c.setView('centre');
         await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();
         if(wideStreet&&(!c.street.active||c.controls.getDistance()<d*.96))throw Error('Street camera did not reach island scale');

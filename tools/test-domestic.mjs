@@ -7,6 +7,7 @@ import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playtestRoom} from './playtest-room.mjs';
 import {playtestFurnishing} from './playtest-furnishing.mjs';
 import {playtestLighting} from './playtest-lighting.mjs';
+import {playtestStudio} from './playtest-studio.mjs';
 import {playtestRecovery} from './playtest-recovery.mjs';
 import {playtestTable} from './playtest-table.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),out=process.env.COZY_DOMESTIC_REPORT||path.join(root,'test-results/domestic');
@@ -41,7 +42,9 @@ try{
  assert.ok(report.peerKinds.some(k=>/^trystero-(nostr|torrent)\//.test(k)));
  const guestId=await guest.evaluate(()=>window.__cozy.street.session.id);
  report.population=await host.evaluate(()=>window.__cozy.street.town.people.length);assert.ok(report.population>400);
- if(process.argv.includes('--lighting')){
+ if(process.argv.includes('--studio')){
+   report.studio=await playtestStudio({host,guest,open,out});
+ }else if(process.argv.includes('--lighting')){
    report.lighting=await playtestLighting({host,guest,open,out});
  }else if(process.argv.includes('--table')){
    report.table=await playtestTable({host,guest,open,out,blockSpectatorPrimary:realTrackers});

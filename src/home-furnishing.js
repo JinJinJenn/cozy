@@ -1,19 +1,25 @@
 import {entrySwitchStation,homeLocal,homeWorld,homeWalkableLocal} from './home-plan.js';
 import {dividerLimit,dividerParts,sameDivider} from './room-divider.js';
 import {televisionIn} from './home-fixtures.js';
-import {footprint,originalPose,placeItem,relativePoint,samePose,supportFor} from './furniture-pose.js';
+import {catalog,catalogItem,footprint,originalPose,placeItem,relativePoint,samePose,supportFor} from './furniture-pose.js';
 import {routeOnGrid} from './walk-grid.js';
 
 const overlaps=(a,b,pad=0)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+pad&&Math.abs(a.z-b.z)<(a.d+b.d)/2+pad;
-const sameItems=(a={},b={})=>Object.keys(a).length===Object.keys(b).length&&Object.keys(a).every(id=>samePose(a[id],b[id]));
+const sameItems=(a={},b={})=>Object.keys(a).length===Object.keys(b).length&&Object.keys(a).every(id=>Object.hasOwn(b,id)&&samePose(a[id],b[id]));
 export function editedItems(items,id,pose){
   const next={...items};
-  if(samePose(pose,originalPose))delete next[id];else next[id]=[...pose];
+  if(pose===null||!Object.hasOwn(catalog,id)&&samePose(pose,originalPose))delete next[id];else next[id]=[...pose];
   return next;
 }
 function candidate(home,items,divider){
   const originals=home.generatedFurniture||home.furniture,baseUses=home.generatedUses||home.uses;
   const furniture=originals.map(f=>items[f.id]?placeItem(f,items[f.id]):f);
+  const additions=[];
+  for(const id of Object.keys(items)){
+    const source=catalogItem(id);
+    if(source)additions.push(placeItem(source,items[id]));
+  }
+  furniture.push(...additions);
   const walls=home.walls.filter(w=>!w.divider).concat(dividerParts(home,divider));
   const uses=baseUses.map(u=>{
     if(u.object==='entry-switch')return entrySwitchStation({w:home.w,d:home.d,yaw:home.yaw,walls,furniture},u.target);
@@ -29,6 +35,15 @@ function candidate(home,items,divider){
     }
     return result;
   });
+  for(const f of additions){
+    const chair=f.type==='armchair',source=catalogItem(f.id);
+    const turn=p=>relativePoint(p,source,f);
+    const standing=turn({x:0,z:f.d/2+.37,yaw:home.yaw+Math.PI});
+    uses.push({...standing,object:f.id,stationIndex:baseUses.length+f.slot,action:chair?'sit':'paint',
+      label:chair?'Sit in the '+f.name.toLowerCase():'Paint '+f.subject,mealSeat:chair,
+      target:turn({x:0,z:chair?.05:.10,y:chair?.57:1.37}),radius:chair?.47:.40,
+      ...(chair?{pose:turn({x:0,z:.02,yaw:home.yaw})}:{})});
+  }
   return {id:home.id,x:home.x,z:home.z,yaw:home.yaw,c:home.c,s:home.s,w:home.w,d:home.d,inside:home.inside,
     furniture,uses,walls,generatedFurniture:originals,generatedUses:baseUses,divider};
 }
@@ -57,13 +72,15 @@ function fit(h,items){
   return '';
 }
 export function planInterior(home,items={},divider=null){
-  if(Object.keys(items).some(id=>!(home.generatedFurniture||home.furniture).some(f=>f.id===id)))return {reason:'This furniture is unavailable in this house.'};
+  if(Object.keys(items).some(id=>!Object.hasOwn(catalog,id)&&!(home.generatedFurniture||home.furniture).some(f=>f.id===id)))return {reason:'This furniture is unavailable in this house.'};
   const next=candidate(home,items,divider);
   const reason=(Object.keys(items).length?fit(next,items):'')||(divider?dividerLimit(next,divider):'');
   return {next,reason};
 }
 export function occupantLimit(home,next,item,people,checkRoutes=false){
-  const moved=footprint(next.furniture.find(f=>f.id===item));
+  const placed=next.furniture.find(f=>f.id===item);
+  if(!placed)return '';
+  const moved=footprint(placed);
   for(const person of people){
     const p=homeLocal(next,person);
     if(moved.solid&&overlaps(moved,{...p,w:0,d:0},.34))return 'Someone is standing here or has reserved this spot.';

@@ -19,6 +19,12 @@ Use action for a wall or floor merely to inflate prop coverage.
 
 ## Generated-home inventory
 
+The teal and rose club chairs seat one person each and can be used for a meal.
+Each easel holds one guided painting. Four animated brushwork stages change the visible canvas.
+Either player can finish an interrupted picture. A completed canvas opens a printable image.
+Owners can turn, pack or restore these four pieces while visitors stay in the room.
+An occupied or reserved piece stays in place. Packed easels retain their paintings in the private save.
+
 In v0.10.0, moving a sofa, bed, rug, desk, bedside table or dining set preserves
 its activity slots. Dining chairs turn with the table. A lamp's shade, switch
 target and light pool move with its support. A visitor can switch the relocated

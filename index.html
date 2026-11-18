@@ -40,12 +40,13 @@ body.shot #ui,body.shot #mini{display:none}
       <div id="harbor-squares" role="group" aria-label="Game board"></div>
       <button id="harbor-practice">Practice solo</button> <button id="harbor-together">Play together</button>
     </section>
+    <figure id="easel-print" hidden><canvas id="easel-paper" width="640" height="480" role="img"></canvas><figcaption><span id="easel-title"></span> <button id="easel-save">Save print</button> <button id="easel-new" hidden>Paint another</button></figcaption></figure>
     <label id="tv-remote" hidden>TV channel <select id="tv-channel"></select></label>
     <div id="live-action" hidden><span></span> <button id="order-chowder" hidden>Order chowder</button> <button id="order-fish" hidden>Order grilled fish</button> <button id="cancel-action">Cancel</button></div>
     <button id="reconnect-street" hidden>Reconnect to owner</button>
     <button id="address-open" hidden>Home address</button>
     <div class="street-buttons"><select id="patio-destination" aria-label="Terrace table for coffee" hidden></select><button class="primary" id="patio-coffee" hidden>Coffee on the terrace</button><button class="primary" id="beach-action" hidden>Walk to the beach</button><button class="primary" id="coffee-action" hidden>Coffee with a neighbor</button><button id="use-place" hidden>Interact</button><button id="directions-open">Travel</button><button id="build-open">Build</button><button id="social-open">Multiplayer</button><button id="island-map">Island map</button></div>
-    <div id="directions-pane" class="street-drawer" hidden><label>Destination <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button> <button id="jump-place" disabled>Teleport there</button> <button id="home-invite" class="primary" hidden>Visit Bea for tea</button> <button id="dinner-visit" class="primary" hidden>Take a table</button><div><button id="take-car">Drive a car</button> <button id="take-bike">Ride a bike</button> <button id="visit-table">Find a game table</button></div></div>
+    <div id="directions-pane" class="street-drawer" hidden><label>Destination <select id="destination"></select></label> <button id="go-place" disabled>Walk there</button> <button id="jump-place" disabled>Teleport there</button> <button id="home-invite" class="primary" hidden>Visit Bea for tea</button> <button id="dinner-visit" class="primary" hidden>Take a table</button><div><button id="take-car">Drive a car</button> <button id="take-bike">Ride a bike</button> <button id="visit-table">Find a game table</button> <button id="visit-studio" hidden>Visit art studio</button></div></div>
     <div id="build-pane" class="street-drawer" hidden><label>Renovate <select id="build-lot"></select></label><div id="wall-tools"><label><span id="wall-label">Partition</span><input type="range" id="wall-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="wall-readout">0.0 m</output></label>
       <label id="side-tools" hidden>Right wall <input type="range" id="side-offset" min="-1.5" max="1.5" step=".5" value="0"><output id="side-readout">0.0 m</output></label>
       <p id="wall-limit" role="status" hidden></p>
@@ -65,11 +66,11 @@ body.shot #ui,body.shot #mini{display:none}
         <div><button id="room-rotate">Rotate 90°</button> <button id="room-apply" class="primary">Apply divider</button> <button id="room-remove">Remove divider</button> <button id="room-undo">Undo room edit</button></div>
         </div>
         <div id="furniture-tools" hidden>
-          <label>Item <select id="furniture-item"></select></label>
+          <label>Room and storage <select id="furniture-item"></select></label>
           <label>Across <input id="furniture-x" type="range" step="1"><output id="furniture-x-value"></output></label>
           <label>Depth <input id="furniture-z" type="range" step="1"><output id="furniture-z-value"></output></label>
           <p id="furniture-status" role="status"></p>
-          <div><button id="furniture-rotate" title="Turn left with comma or right with period" aria-keyshortcuts=", .">Rotate 90°</button> <button id="furniture-apply" class="primary">Place item</button> <button id="furniture-undo">Undo move</button></div>
+          <div><button id="furniture-rotate" title="Turn left with comma or right with period" aria-keyshortcuts=", .">Rotate 90°</button> <button id="furniture-apply" class="primary">Place item</button> <button id="furniture-pack" hidden>Put away</button> <button id="furniture-canvas" hidden>Replace painting with blank canvas</button> <button id="furniture-undo">Undo furniture edit</button></div>
         </div>
       </div>
       <div id="terrace-tools" hidden><label>Furniture <select id="terrace-slot"></select></label>

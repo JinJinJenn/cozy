@@ -4,6 +4,7 @@ import {potServings} from './home-meals.js';
 import {TelevisionScreen} from './television.js';
 import {roundAt} from './table-game.js';
 import {TablePieces} from './table-pieces.js';
+import {EaselCanvas} from './easel-art.js';
 
 function addSoup(parent,f){
   const surface=new THREE.Mesh(new THREE.CylinderGeometry(.136,.133,.012,16),new THREE.MeshLambertMaterial({color:'#ce803c'}));
@@ -71,11 +72,12 @@ function addEntryLight(frame,home){
 
 export class HomeAppliances {
   constructor(parent,home){
-    this.home=home;this.lamps=[];this.flows=new Map();this.drop=new THREE.Object3D();
+    this.home=home;this.lamps=[];this.easels=[];this.flows=new Map();this.drop=new THREE.Object3D();
     const frame=this.frame=new THREE.Group();frame.position.set(home.x,home.y,home.z);frame.rotation.y=home.yaw;parent.add(frame);
     this.entry=addEntryLight(frame,home);
     this.tv=new TelevisionScreen(frame,home);
     for(const f of home.furniture){
+      if(f.type==='easel')this.easels.push(new EaselCanvas(frame,f));
       if(f.type==='kitchen')this.soup=addSoup(frame,f);
       if(f.type==='dining')this.dining=f;
       if(lamps[f.type])this.lamps.push(addLamp(frame,f,lamps[f.type]));
@@ -86,6 +88,7 @@ export class HomeAppliances {
   dispose(){
     this.frame.removeFromParent();
     this.tv.texture?.dispose();
+    for(const easel of this.easels)easel.texture.dispose();
     this.frame.traverse(mesh=>{
       if(!mesh.isMesh)return;
       if(mesh.isInstancedMesh)mesh.dispose();
@@ -95,6 +98,7 @@ export class HomeAppliances {
   update(session){
     const time=session?.time||0,dt=Math.min(.1,Math.max(0,time-(this.lastTime??time)));
     this.lastTime=time;
+    if(session)for(const easel of this.easels)easel.update(session.layout,this.home.id);
     const entry=this.entry,target=session?.layout.entryLights?.[this.home.id]||0;
     entry.level=entry.level===null?target:THREE.MathUtils.damp(entry.level,target,20,dt);
     entry.rocker.rotation.x=(entry.level-.5)*.64;

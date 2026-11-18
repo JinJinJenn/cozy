@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {testNostrRelay} from './test-nostr-relay.mjs';
 import {playAddresses} from './playtest-addresses.mjs';
 import {playPlayers} from './playtest-players.mjs';
+import {playPublicStudio} from './playtest-studio.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
@@ -68,7 +69,9 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
-  if(process.argv.includes('--players')){
+  if(process.argv.includes('--studio')){
+    await playPublicStudio({host,guest,wait});assert.deepEqual(errors,[]);
+  }else if(process.argv.includes('--players')){
     await playPlayers({host,guest,paired,ready,wait,navigate,profile,isolatedRelay:!relay});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--addresses')){
     await playAddresses({host,guest,paired,ready,wait,navigate,profile});assert.deepEqual(errors,[]);

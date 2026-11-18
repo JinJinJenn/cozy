@@ -109,7 +109,34 @@ function furnish(a,b){
 }
 function drawItem(a,f,accent){
     const p=a.frame(f.x,0,f.z,(f.turn||0)*Math.PI/2+(f.flip?Math.PI:0));
-    if(f.type==='tile'){
+    if(f.type==='armchair'){
+      const leather=f.color,welt=f.slot===0?'#8ab2a2':'#d39a80';
+      for(const x of [-.36,.36])for(const z of [-.33,.33]){
+        p.box(x,.16,z,.085,.27,.09,wood,0,x*.15);
+        p.round(x,.052,z,.094,.044,.094,'#b69a66');
+      }
+      p.box(0,.37,0,.88,.23,.78,leather);p.box(0,.285,.37,.82,.047,.055,wood);
+      p.ball(0,.51,.035,.82,.22,.76,leather);
+      p.ball(0,.86,-.33,.87,.77,.23,leather,0,0,.08);
+      for(const x of [-.425,.425]){
+        p.ball(x,.66,0,.18,.39,.88,leather);p.ball(x,.72,.32,.16,.18,.16,welt);
+        for(let n=0;n<4;n++)p.ball(x,.62-n*.06,.405,.025,.025,.025,'#c2a479');
+      }
+      for(const x of [-.21,0,.21])for(const y of [.85,1.02])p.ball(x,y,-.218,.035,.035,.022,welt);
+    }else if(f.type==='easel'){
+      for(const side of [-1,1]){
+        p.box(side*.24,.87,.025,.052,1.73,.065,wood,0,side*.15);
+        p.round(side*.35,.055,.025,.072,.07,.075,'#876c51');
+      }
+      p.box(0,.80,-.105,.055,1.52,.06,wood,0,0,.16);
+      p.box(0,.45,-.02,.59,.052,.07,wood);
+      p.box(0,1.48,.015,.068,.87,.085,wood);
+      p.box(0,1.37,.083,.84,.64,.066,'#d6c29e');
+      p.box(0,1.025,.087,.88,.055,.20,wood);
+      p.box(0,1.716,.085,.18,.066,.09,wood);p.ball(0,1.716,.14,.034,.034,.022,'#c5a060');
+      p.box(.20,.965,.14,.34,.052,.20,'#bc9262');
+      for(const [i,c] of ['#c56149','#e4bf75','#4d8490','#799268'].entries())p.round(.09+.067*i,1.0,.18,.043,.012,.04,c);
+    }else if(f.type==='tile'){
       p.box(0,.07,0,f.w,.025,f.d,'#d6d7c3');
       for(let x=-f.w/2+.4;x<f.w/2;x+=.4)p.box(x,.085,0,.016,.008,f.d,'#a4b2aa');
       for(let z=-f.d/2+.4;z<f.d/2;z+=.4)p.box(0,.085,z,f.w,.008,.016,'#a4b2aa');

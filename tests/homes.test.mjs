@@ -12,13 +12,22 @@ import {StreetSession} from '../src/street-session.js';
 import {StreetActivities} from '../src/street-activities.js';
 import {applyRoomPlans,dividerLimit,dividerParts} from '../src/room-divider.js';
 import {planInterior,syncInteriors} from '../src/home-furnishing.js';
-import {footprint,readFurnishings} from '../src/furniture-pose.js';
+import {footprint,readFurnishings,wireFurnishings} from '../src/furniture-pose.js';
 import {rerouteResidents} from '../src/resident-world.js';
 
 const generated=generate({preset:'harborTown',seed:'petalwood'}),world=generated.island;
 world.plan=generateSettlement(generated);
 generated.heightfield.set(createFlattenHook(world.plan)(generated));
 const plots=plotsForStreet(world),homes=prepareHomes(world,plots),layout=defaultLayout();
+
+test('older room readers receive generated poses while studio visitors recover added pieces and packing history',()=>{
+  const state={v:1,lots:{l10:{desk:[1,0,0],'easel-1':[0,0,0]},l93:{'armchair-1':[2,3,1]}},last:['l10','easel-2',null]};
+  const wire=wireFurnishings(state);
+  assert.equal(wireFurnishings(state),wire);
+  assert.deepEqual(wire.lots,{l10:{desk:[1,0,0]}});assert.equal(wire.last,undefined);
+  assert.deepEqual(readFurnishings(JSON.parse(JSON.stringify(wire))),state);
+  assert.equal(readFurnishings({...wire,studio:{v:1,lots:{l10:{desk:[1,2,0]}}}}),null);
+});
 
 test('resident worker applies the same desk collision on commit and undo before stepping the population',async()=>{
   const island=structuredClone(Object.fromEntries(['seed','presetId','size','half','grid','cell','plan'].map(k=>[k,world[k]])));
@@ -256,6 +265,41 @@ test('the entry circuit keeps individual switches independent and only its owner
   assert.equal(s.linkEntryLamp(b,3,false),false);
   assert.equal(readLayout({...restored,entryLights:{[b.id]:2}}),null);
   assert.equal(readLayout({...restored,unlinkedLamps:{[b.id]:4}}),null);
+});
+
+test('stored furniture keeps a stable interaction across other edits, packing, undo and save restore',()=>{
+  const h=homes.find(h=>h.name==='Home 5'),lot=h.id;
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,layout:defaultLayout(),actors:new Map(),
+    id:'owner',ready:true,owner:true,space:'personal',time:0,town:{people:[],current:[],worker:true},notice(){},persist(){}});
+  const acts=s.activities=new StreetActivities(s),owner={id:s.id,...h.inside},guest={id:'guest',...h.inside};
+  s.actors.set(owner.id,owner);s.actors.set(guest.id,guest);
+  const before=h.uses.map(u=>[u.object,u.action]);
+  const edit=(id,pose,undo=false)=>s.editFurniture(lot,id,pose,s.layout.revision,undo);
+  try{
+    assert.equal(readLayout({...defaultLayout(),furnishings:{v:1,lots:{[lot]:{'armchair-1':[0,0,0]}}}}).furnishings.lots[lot]['armchair-1'][0],0);
+    assert.equal(edit('easel-1',[64,64,0]),false);
+    s.owner=false;assert.equal(edit('easel-1',[-6,-4,0]),false);s.owner=true;
+    assert.ok(edit('armchair-1',[4,6,1]));assert.ok(edit('easel-1',[-6,-4,0]));
+    assert.deepEqual(h.uses.slice(0,before.length).map(u=>[u.object,u.action]),before);
+    const index=h.uses.find(u=>u.object==='easel-1').stationIndex;
+    acts.command(guest,{type:'furniture',lot,index});
+    assert.ok(guest.walking);assert.equal(edit('easel-1',null),false);
+    assert.ok(edit('armchair-1',null));assert.equal(s.furnitureAt(lot,index).spot.object,'easel-1');
+    for(let i=0;i<600&&guest.walking;i++)acts.advance(guest,.05);
+    assert.equal(guest.activity,'paint');assert.equal(edit('easel-1',null),false);
+    assert.equal(s.replaceCanvas(h,'easel-1'),false);
+    s.time+=2.5;acts.advance(guest,.05);assert.equal(s.layout.homePaintings[lot],1);
+    acts.finish(guest);
+    assert.ok(edit('easel-1',null));assert.equal(s.furnitureAt(lot,index),null);
+    assert.ok(edit('easel-1',null,true));assert.equal(s.furnitureAt(lot,index).spot.object,'easel-1');
+    const restored=readLayout(JSON.parse(JSON.stringify(s.layout)));
+    assert.deepEqual(restored.furnishings.lots[lot]['easel-1'],[-6,-4,0]);assert.equal(restored.homePaintings[lot],1);
+    acts.command(guest,{type:'furniture',lot,index});for(let i=0;i<600&&guest.walking;i++)acts.advance(guest,.05);
+    for(let i=0;i<3;i++){s.time+=2.5;acts.advance(guest,.05);}
+    assert.equal(guest.activity,'admire');assert.equal(s.layout.homePaintings[lot],4);
+    acts.finish(guest);s.owner=false;assert.equal(s.replaceCanvas(h,'easel-1'),false);s.owner=true;
+    assert.ok(s.replaceCanvas(h,'easel-1'));assert.equal(s.layout.homePaintings,undefined);
+  }finally{syncInteriors(world,s.layout,defaultLayout());}
 });
 
 test('all generated floor plans have a walkable entry switch independent of desk or bedside furniture',()=>{

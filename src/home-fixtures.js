@@ -1,3 +1,6 @@
+import {catalog} from './furniture-pose.js';
+import {mealStation} from './home-meals.js';
+
 // Metres from the centre of the furniture, before the home transform.
 export function fixtureOutlet(f,action){
   if(action==='cook')return {x:-.05,y:1.31,z:f.d*.28};
@@ -37,6 +40,24 @@ export function switchEntryLights(session,home){
   setFixtureValue(layout,'homeLights',id,on?current|linked:current&~linked);
   session.persist();
   return on;
+}
+
+// Each house stores two independent canvases, with five possible stages apiece.
+const canvasPlace={'easel-1':1,'easel-2':5};
+export function paintingStage(layout,lot,id){
+  return Math.floor((layout.homePaintings?.[lot]||0)/canvasPlace[id])%5;
+}
+export function setPaintingStage(session,lot,id,stage){
+  const value=session.layout.homePaintings?.[lot]||0;
+  setFixtureValue(session.layout,'homePaintings',lot,value+(stage-paintingStage(session.layout,lot,id))*canvasPlace[id]);
+  session.persist();
+}
+export function homeAction(session,lot,spot,actor){
+  if(spot.action!=='paint')return mealStation(session,lot,spot,actor);
+  if(actor.bowlFrom)return null;
+  const stage=paintingStage(session.layout,lot,spot.object),title=catalog[spot.object].subject;
+  if(stage===4)return {...spot,action:'admire',label:'View '+title};
+  return stage?{...spot,label:'Continue '+title}:spot;
 }
 
 export const tvChannels=['Off','Harbor Ferry','The Kitchen Window','Night Sky'];

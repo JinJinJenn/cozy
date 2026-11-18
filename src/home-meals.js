@@ -1,3 +1,5 @@
+import {catalog} from './furniture-pose.js';
+
 // The host saves uneaten portions. A carried bowl reserves one of them for
 // the life of its actor, so a dropped connection returns it to the pot.
 export function potServings(session,lot){
@@ -12,7 +14,7 @@ export function mealStation(session,lot,spot,actor){
   if(spot.action==='cook')return !actor.bowlFrom&&!session.layout.homeMeals?.[lot]?spot:null;
   if(spot.action==='serveSoup')return !actor.bowlFrom&&potServings(session,lot)>0?spot:null;
   if(spot.action==='returnSoup')return actor.bowlFrom===lot?spot:null;
-  if(spot.mealSeat&&actor.bowlFrom)return {...spot,action:'eat',label:'Eat soup '+(spot.object==='sofa'?'on the sofa':'at the table')};
+  if(spot.mealSeat&&actor.bowlFrom)return {...spot,action:'eat',label:'Eat soup '+(catalog[spot.object]?.type==='armchair'?'in the club chair':spot.object==='sofa'?'on the sofa':'at the table')};
   return spot;
 }
 
