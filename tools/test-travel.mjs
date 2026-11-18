@@ -66,7 +66,13 @@ try{
   assert.ok(wide.radius>3000,'street zoom reached the island scale');
   await visitor.keyboard.press('Equal');
   const keyboardZoom=(await cameraPose()).radius;assert.ok(keyboardZoom<wide.radius*.83);
-  await visitor.locator('#gl').hover({position:{x:525,y:320}});
+  const wheelPoint=await visitor.evaluate(()=>{
+    const canvas=document.querySelector('#gl'),r=canvas.getBoundingClientRect();
+    const x=r.left+r.width*.5,y=r.top+r.height*.48;
+    if(document.elementFromPoint(x,y)!==canvas)throw Error('World zoom point is covered');
+    return {x,y};
+  });
+  await visitor.mouse.move(wheelPoint.x,wheelPoint.y);
   await visitor.mouse.wheel(0,-160);
   await until(visitor,d=>window.__cozy.street.controls.getDistance()<d*.99,keyboardZoom);
   await visitor.evaluate(async()=>{await window.__cozy.flushChunks();});

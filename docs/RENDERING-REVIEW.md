@@ -5,6 +5,16 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Framed art in v0.18.0
+
+With 459 simulated residents, the wall in Home 9 took 309 draw calls on its own
+and 310 with a framed painting. An Intel Graphics 0x7D67 running D3D11 completed
+59.8 FPS at 1280 × 720 with or without the picture on Balanced and Low.
+Each sample covered 360 frames at the same camera position. The frame texture is
+created when a decorated room opens and released when the player leaves.
+Reproduce the empty wall, framed painting and empty wall sequence with
+`node tools/benchmark.mjs --gallery --720p --gpu-completion`.
+
 ### Full-island terrain in v0.15.1
 
 We repeated the 360-frame Petalwood orbit at 1,800 m and 1280 × 720 on Intel Graphics

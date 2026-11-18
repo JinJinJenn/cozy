@@ -15,8 +15,10 @@ const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')
 const television=process.argv.includes('--television');
 const entryLight=process.argv.includes('--entry-light');
 const studio=process.argv.includes('--studio');
+const gallery=process.argv.includes('--gallery');
 const flowers=process.argv.includes('--flowers');
 const wideStreet=process.argv.includes('--wide-street');
+if(gallery&&(studio||flowers||entryLight||television||wideStreet||orbit||baseline))throw Error('The framed print uses a fixed private home camera.');
 if(flowers&&(studio||entryLight||television||wideStreet||orbit||baseline))throw Error('The flower box uses a fixed street camera.');
 if(studio&&(entryLight||television||wideStreet||orbit||baseline))throw Error('The art studio uses a fixed interior camera.');
 if(entryLight&&(television||wideStreet||orbit||baseline))throw Error('The entry light comparison uses a fixed camera in the current build.');
@@ -47,7 +49,7 @@ try{
       }else body=await readFile(file);
       await route.fulfill({body,contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});
     });
-    await page.goto('https://cozy.test/cozy/?net=local&view=street');
+    await page.goto('https://cozy.test/cozy/?net=local&view=street'+(gallery?'&space=personal':''));
     await page.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});
     const gpu=await page.evaluate(()=>{const gl=document.querySelector('canvas').getContext('webgl2'),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown';});
     if(expectedGpu&&!gpu.toLowerCase().includes(expectedGpu.toLowerCase()))throw Error('Unexpected WebGL adapter: '+gpu);
@@ -70,6 +72,16 @@ try{
       const eye=homeWorld(b,2.55,b.d/2-5),aim=c.street.cameraFocus=homeWorld(b,-.45,b.d/2-.75);
       await c.setCamera([eye.x,b.y+2.8,eye.z],[aim.x,b.y+1.48,aim.z]);await c.flushChunks();
     });
+    if(gallery){
+      await page.evaluate(async()=>{
+        const c=window.__cozy,s=c.street.session,home=c.island.homes.find(h=>h.name==='Home 9');
+        const {homeWorld}=await import('./src/home-plan.js'),{keepPrint}=await import('./src/private-saves.js');
+        if(!keepPrint(s.localSlot,'easel-1'))throw Error('Could not prepare the print collection');
+        s.command({type:'teleport',place:home.id});
+        const eye=homeWorld(home,.3,-home.d/2+3.2),aim=c.street.cameraFocus=homeWorld(home,0,-home.d/2+.16);
+        await c.setCamera([eye.x,home.y+2.05,eye.z],[aim.x,home.y+1.82,aim.z]);await c.flushChunks();
+      });
+    }
     if(studio){
       await page.locator('#directions-open').click();await page.locator('#visit-studio').click();
       await page.waitForFunction(()=>window.__cozy.street.clearExteriors.interiors.appliances?.easels.length===2);
@@ -98,10 +110,19 @@ try{
       await page.evaluate(()=>{const st=window.__cozy.street;st.session.command({type:'furniture',lot:st.destination.id,index:2});});
       await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='water';});
     }
-    const scenes=flowers?[{location:'roadside flower box'}]:studio?[{room:'public art studio'}]:entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
+    const scenes=gallery?[false,true,false].map(framed=>({framed})):flowers?[{location:'roadside flower box'}]:studio?[{room:'public art studio'}]:entryLight?[{lit:false},{lit:true},{lit:false}]:television?[0,1,2,3,0].map(channel=>({channel})):(wideStreet?[1800]:[24,180]).map(distance=>({distance}));
     for(const scene of scenes){
       const {distance,channel}=scene;
-      if(entryLight){
+      if(gallery){
+        await page.evaluate(on=>{
+          const s=window.__cozy.street.session,home=s.island.homes.find(h=>h.name==='Home 9');
+          if(!s.hangPrint(home,on?3:0))throw Error('Could not change the displayed print');
+        },scene.framed);
+        await page.waitForFunction(on=>{
+          const art=window.__cozy.street.clearExteriors.interiors.appliances;
+          return art?.home.name==='Home 9'&&Boolean(art.gallery?.panel.visible)===on;
+        },scene.framed);
+      }else if(entryLight){
         await page.evaluate(async on=>{
           const s=window.__cozy.street.session,b=s.island.homes.find(h=>h.name==='Home 5');
           if(!!s.layout.entryLights?.[b.id]!==on)(await import('./src/home-fixtures.js')).switchEntryLights(s,b);

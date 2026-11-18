@@ -15,7 +15,7 @@ await mkdir(out,{recursive:true});
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const software=process.argv.includes('--software');
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
-  args:['--mute-audio','--disable-background-timer-throttling',...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
+  args:['--mute-audio','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows',...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[])]});
 const live=process.env.COZY_DOMESTIC_LIVE==='1',origin=live?'https://jinjinjenn.github.io/cozy/':'https://cozy.test/cozy/';
 const realTrackers=process.argv.includes('--public-trackers');
 const report={errors:[],origin,transport:realTrackers?'Native RTCDataChannel, public signalling':'Native RTCDataChannel, local signalling fixture'},relay=testNostrRelay();
@@ -26,6 +26,10 @@ try{
  const context=async(blockPrimary)=>{const ctx=await browser.newContext({viewport,deviceScaleFactor});
    if(!realTrackers)await relay(ctx);
    if(software)await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
+   if(software&&process.env.CI==='true'&&process.argv.includes('--studio'))await ctx.addInitScript(()=>{
+     const raf=requestAnimationFrame.bind(window);
+     window.requestAnimationFrame=fn=>setTimeout(()=>raf(fn),90);
+   });
    if(!live)await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!=='https://cozy.test')return r.abort();
      const file=path.resolve(root,u.pathname.slice('/cozy/'.length)||'index.html');assert.ok(file.startsWith(root));
      await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});

@@ -53,8 +53,9 @@ export async function playtestStudio({host,guest,open,out}){
   await visit(host);await visit(guest);
   await host.locator('#build-open').click();await host.locator('#room-mode').selectOption('furniture');
   await setup('armchair-1',4,6,true);await setup('easel-1',-6,-4);
+  await guest.bringToFront();
   await clickItem(guest,lot,'armchair-1','Sit in the teal club chair');
-  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).using?.object==='armchair-1';});
+  await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).using?.object==='armchair-1';},null,{polling:125,timeout:60000});
   await host.locator('#furniture-item').selectOption('armchair-1');
   await host.waitForFunction(()=>document.querySelector('#furniture-pack').disabled);
   await guest.locator('#use-place').click();
@@ -96,10 +97,11 @@ export async function playtestStudio({host,guest,open,out}){
   await host.locator('#gallery-clear').click();await frame(guest,0);
   await host.locator('#gallery-frame').selectOption('1');await host.locator('#gallery-hang').click();await frame(guest,3);
   const view=async page=>{
+    await page.bringToFront();
     await page.evaluate(async id=>{
       const c=window.__cozy,st=c.street,h=c.island.homesById.get(id),{homeWorld}=await import('./src/home-plan.js');
       const aim=homeWorld(h,0,-h.d/2+.16),eye=homeWorld(h,.3,-h.d/2+3.2);
-      st.cameraFocus=aim;await c.setCamera([eye.x,h.y+2.05,eye.z],[aim.x,h.y+1.82,aim.z]);c.render();
+      st.cameraFocus=aim;await c.setCamera([eye.x,h.y+2.05,eye.z],[aim.x,h.y+1.48,aim.z]);st.render();c.render();
     },gallery);
     const getPoint=await page.waitForFunction(()=>{
       const c=window.__cozy,st=c.street,panel=st.clearExteriors.interiors.appliances?.gallery?.panel;
@@ -108,7 +110,7 @@ export async function playtestStudio({host,guest,open,out}){
       const r=st.controls.domElement.getBoundingClientRect(),{width,height}=panel.geometry.parameters;
       for(const fx of [0,.31,-.31])for(const fy of [0,.3,-.3]){
         const uv=panel.localToWorld(st.point.clone().set(width*fx,height*fy,0)).project(cam);
-        const x=r.left+(1+uv.x)*r.width/2,y=r.top+(1-uv.y)*r.height/2;
+        const x=Math.round(r.left+(1+uv.x)*r.width/2),y=Math.round(r.top+(1-uv.y)*r.height/2);
         if(document.elementFromPoint(x,y)!==st.controls.domElement)continue;
         const ray=st.pointerRay({clientX:x,clientY:y});
         if(st.pickAction(ray,true,st.floorPoint(ray,cam.far))?.command?.type==='view-print')return {x,y};
@@ -116,7 +118,13 @@ export async function playtestStudio({host,guest,open,out}){
     },null,{timeout:15000});
     const point=await getPoint.jsonValue();await getPoint.dispose();
     await page.mouse.click(point.x,point.y,{button:'right'});
-    await page.locator('#world-choice').getByRole('button',{name:'View Harbor at dawn',exact:true}).click({timeout:8000});
+    const pick=await page.locator('#world-action').textContent();
+    assert.equal(pick,'View Harbor at dawn',JSON.stringify(await page.evaluate(({x,y})=>{
+      const st=window.__cozy.street,ray=st.pointerRay({clientX:x,clientY:y});
+      return {worldChoice:document.querySelector('#world-choice').innerText,hit:st.pickAction(ray,true,st.floorPoint(ray,st.camera.far))?.label,
+        at:document.elementFromPoint(x,y)?.id,target:st.controls.target.toArray(),eye:st.camera.position.toArray(),roof:st.openRoof,x,y};
+    },point)));
+    await page.locator('#world-choice').getByRole('button',{name:'View Harbor at dawn',exact:true}).click();
     await page.locator('#print-close').waitFor({state:'visible'});
   };
   await view(guest);await guest.locator('#easel-keep').click();await guest.getByRole('button',{name:'In collection'}).waitFor();
