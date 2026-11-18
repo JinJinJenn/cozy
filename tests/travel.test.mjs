@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {takeVehicle,moveVehicle,dismount,teleport} from '../src/street-travel.js';
 import {cameraClearance,defaultLayout} from '../src/street-world.js';
+import {StreetSession} from '../src/street-session.js';
 
 function street(){
   const a={id:'player',x:0,z:0,yaw:0};
@@ -27,6 +28,22 @@ test('cars accelerate, turn, coast, brake and reverse within the carriageway',()
   Object.assign(a,{x:0,z:0,yaw:Math.PI/2,speed:12});
   for(let i=0;i<20;i++)moveVehicle(s,a,{x:0,z:1},.1);
   assert.ok(a.x<3&&a.speed===0);
+});
+test('a connected public driver keeps the car through an input stall and stale throttle stops',()=>{
+  const {s,a}=street(),now=performance.now();
+  takeVehicle(s,a,'car');
+  const remote={x:0,z:1,at:now-8500};
+  Object.assign(s,{owner:true,ready:true,id:'host',time:0,lastSent:Infinity,
+    lobby:{tick(){}},controls:new Map([[a.id,remote]]),peers:new Map([['rtc/guest',a.id]])});
+  s.town.advance=()=>{};
+  const tick=()=>StreetSession.prototype.tick.call(s,.1);
+  tick();
+  assert.equal(s.actors.get(a.id)?.vehicle,'car');
+  assert.equal(a.speed,0);
+  remote.at=performance.now();tick();assert.ok(a.speed>0);
+  remote.at=now-31000;tick();assert.equal(s.actors.has(a.id),false);
+  s.actors.set(a.id,a);s.controls.set(a.id,remote);remote.at=now-8500;
+  s.peers.clear();tick();assert.equal(s.actors.has(a.id),false);
 });
 test('bikes cross grass but stop before water and people',()=>{
   const {s,a}=street();takeVehicle(s,a,'bike');a.yaw=Math.PI/2;

@@ -1,6 +1,6 @@
 {
   "name": "cozy",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "private": true,
   "type": "module",
   "description": "Cozy island open world: seeded heightmap island generator and viewer.",

@@ -4,6 +4,11 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.12.5 keeps a linked public visitor's vehicle or seat through a brief
+input stall. Stale steering and throttle expire after 600 ms. The host gives
+the connection up to 30 seconds to resume sending input. The travel playtest
+pauses a guest's controls for eight seconds and then drives the same car.
+
 Version 0.12.4 improves the full-island orbit. With all 457 residents active,
 Low at 720p rose from 32.4 to 43.3 FPS on the tested Intel integrated GPU.
 Street and town orbits held 59.8 FPS. The [rendering review](docs/RENDERING-REVIEW.md)

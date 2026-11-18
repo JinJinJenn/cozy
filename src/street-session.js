@@ -607,8 +607,12 @@ export class StreetSession {
           continue;
         }
         const remote=this.controls.get(id);
-        // Private guests have time to re-establish WebRTC and keep their seat.
-        if(remote&&now-remote.at>(this.lobby?7000:20000)){this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);continue;}
+        if(remote&&now-remote.at>(this.lobby?7000:20000)){
+          // A slow but still linked browser can miss input frames while loading
+          // the island. Keep its car or seat while the input below goes idle.
+          const linked=this.lobby&&now-remote.at<30000&&[...this.peers.values()].includes(id);
+          if(!linked){this.activities?.finish(a);this.controls.delete(id);this.actors.delete(id);continue;}
+        }
         const input=id===this.id?this.keys:remote&&now-remote.at<600?remote:zero;
         const oldX=a.x,oldZ=a.z;
         if(a.vehicle)moveVehicle(this,a,input,dt);

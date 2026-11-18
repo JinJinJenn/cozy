@@ -94,6 +94,18 @@ try{
   const driver=(await actor(visitor)).id,cyclist=(await actor(owner)).id;
   await mount(visitor,'car');await Promise.all(pages.map(p=>synced(p,driver,'car')));
   await mount(owner,'bike');await Promise.all(pages.map(p=>synced(p,cyclist,'bike')));
+  // Leave the actual peer connected and pause only its outgoing controls.
+  // The host must preserve the ride once the former seven-second limit passes.
+  await visitor.evaluate(()=>{window.__cozy.street.session.sendInput=()=>{};});
+  try{
+    await until(owner,id=>{
+      const s=window.__cozy.street.session,last=s.controls.get(id)?.at;
+      return performance.now()-last>8000&&s.actors.get(id)?.vehicle==='car';
+    },driver);
+  }finally{
+    await visitor.evaluate(()=>{const s=window.__cozy.street.session;delete s.sendInput;s.sendInput();});
+  }
+  console.log('PASS driver kept the car through an eight-second input stall on an open connection.');
   if(process.env.COZY_TRAVEL_SHOT)await visitor.screenshot({path:process.env.COZY_TRAVEL_SHOT,type:'jpeg',quality:92});
   const start=await actor(visitor);
   await visitor.keyboard.down('w');
