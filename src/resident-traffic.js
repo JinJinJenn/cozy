@@ -54,13 +54,17 @@ export function bindResidentTraffic(ctx,street){
           const rx=(p.pos?p.pos[0]:p.x)-x,rz=(p.pos?p.pos[1]:p.z)-z,along=rx*dx+rz*dz;
           if(along<=-.1)continue;
           const a=p.action,driving=a?.driveStart!==undefined&&a.i>=a.driveStart&&a.i<a.driveEnd;
-          let yaw=p.yaw;
+          let yaw=p.yaw||0;
           if(driving){
             const target=a.pts[a.i];
             yaw=Number.isFinite(p.heading)?Math.PI/2-p.heading:Math.atan2(target[0]-p.pos[0],target[1]-p.pos[1]);
           }
           const vehicle=driving?'car':p.vehicle;
-          if(trafficContact('car',dx,dz,vehicle?reach:distance,rx,rz,vehicle,yaw,.12))return false;
+          // An oncoming driver yields at the junction line. Extending a turning
+          // car's following gap into the opposite lane can lock both in place.
+          const oncoming=vehicle&&dx*Math.sin(yaw)+dz*Math.cos(yaw)<-.45;
+          const sweep=vehicle&&!oncoming?reach:distance;
+          if(trafficContact('car',dx,dz,sweep,rx,rz,vehicle,yaw,.12))return false;
         }
       }
     }

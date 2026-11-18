@@ -8,10 +8,18 @@ export async function playtestTraffic(page, origin) {
       return send.call(this, packet, ...rest);
     };
   });
-  await page.goto(origin + '?net=local&view=street');
-  await page.waitForFunction(() => window.trafficInit && window.__cozy?.street?.session?.ready, null, {timeout: 120000});
+  for(const [seed,population] of [['petalwood',459],['clover-618',344]]){
+    await replayTown(page,origin,seed,population);
+  }
+}
+
+async function replayTown(page,origin,seed,population){
+  await page.goto(origin+'?net=local&view=street&preset=harborTown&seed='+seed);
+  await page.waitForFunction(()=>window.trafficInit&&window.__cozy?.ready,null,{timeout:120000});
   const result = await page.evaluate(async () => {
-    const {island, session} = window.__cozy.street;
+    const {island,session}=window.__cozy.street;
+    const {defaultLayout}=await import('./src/street-world.js');
+    const layout=session?.layout||defaultLayout();
     const worker = new Worker('./src/resident-worker.js', {type: 'module'});
     const send = packet => new Promise((resolve, reject) => {
       worker.onerror = e => reject(Error(e.message));
@@ -24,7 +32,7 @@ export async function playtestTraffic(page, origin) {
     try {
       await send(window.trafficInit);
       for (let second = 0; second < 360; second++) {
-        const {positions} = await send({type: 'step', steps: 2, actors: [], routes: [], layout: session.layout});
+        const {positions} = await send({type: 'step', steps: 2, actors: [], routes: [], layout});
         let onRoad = 0;
         positions.forEach((p, i) => {
           const prev = previous[i], home = island.homesById.get(p.homeLotId);
@@ -55,9 +63,9 @@ export async function playtestTraffic(page, origin) {
         crossStreet: crossStreet.size, returned: returned.size, peakDrivers, longestWait, shifted: shifted.size, ...(stoppedDriver?{stoppedDriver}:{})};
     } finally { worker.terminate(); }
   });
-  assert.equal(result.population, 459);
+  assert.equal(result.population,population);
   assert.equal(result.returned,result.drivers,'all resident drivers returned by the end of the Harbor Town replay: '+JSON.stringify(result));
   assert.ok(result.shifted>=50,'resident trips accelerated in second gear: '+result.shifted);
   assert.ok(result.benches > 0 && result.crossStreet >= 50 && result.returned >= 50 && result.longestWait < 60, JSON.stringify(result));
-  console.log('PASS six minutes of Harbor Town traffic', result);
+  console.log('PASS six minutes of Harbor Town traffic',seed,result);
 }

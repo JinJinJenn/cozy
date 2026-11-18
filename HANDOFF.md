@@ -12,6 +12,8 @@ brake states. Older hosts still work with the local deceleration estimate.
 Run `npm run test:travel -- --queue` to park a visiting player in front of an
 active resident. The test checks the stop on the host, the two lit lenses in
 the visitor's rendered town, and the resident moving again when the guest drives off.
+The six-minute worker test also replays a four-way junction on the clover-618
+seed. All 63 drivers there and all 73 on petalwood returned home.
 
 Version 0.23.1 preserves the original pressed and released states for touch and
 keyboard brakes over WebRTC. Controller triggers still send intermediate pressures.
