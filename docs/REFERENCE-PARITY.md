@@ -29,7 +29,7 @@ does not establish independent-network acceptance or broad catalog coverage.
 | --- | --- | --- |
 | Resident control | Town: select residents, queue/cancel commands, simulation speeds | Missing selected-NPC command queue and speed controls; player movement and autonomous residents exist |
 | Social groups | Town: directed chat, joining/leaving multi-person conversations | Partial: two-person hosted visits; flexible conversation groups missing |
-| Household activities | Town seating, drinks, TV and transition animation | Players can serve two bowls from one pot, eat together and leave leftovers. TV and blended approach/use/exit animations remain open. |
+| Household activities | Town seating, drinks, TV and transition animation | Players can share soup or tune a living-room television together. Every generated home has three animated programs and a saved channel. Furniture approach/use/exit blends remain open. |
 | Public/outdoor seating | Town: usable benches, loungers, picnic and game seats | Partial: roadside and venue benches; all furnished outdoor lots need an object-by-object audit |
 | Avatar identity and expression | Sky Lounge: editable appearance, name/motto, gestures | Partial avatar variation; profile/customization and gesture UI missing |
 | Room discovery | Sky Lounge port: automatic common lobby and roster | Two fresh profiles meet through the game URL. The HUD shows the player count. Named rosters remain open. |

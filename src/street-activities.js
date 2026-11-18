@@ -1,7 +1,7 @@
 import {gardenSeats,moveWalker,toWorld,within} from './street-world.js';
 import {walkingRoute} from './street-route.js';
 import {homeAt} from './home-plan.js';
-import {lamps} from './home-fixtures.js';
+import {lamps,tuneTelevision} from './home-fixtures.js';
 import {finishHomeMeal,mealStation} from './home-meals.js';
 
 export const neighborName=id=>id==='resident1'?'Bea':'Robin';
@@ -190,8 +190,13 @@ export class StreetActivities {
     if(cmd.type==='furniture'){
       const target=this.s.furnitureAt(cmd.lot,cmd.index);
       if(!target)return;
-      const {b}=target,spot=mealStation(this.s,b.id,target.spot,actor);
+      const {b}=target;
+      let spot=mealStation(this.s,b.id,target.spot,actor);
       if(!spot){actor.feedback='That serving is no longer available.';return;}
+      if(spot.action==='watch'&&!spot.alternate&&!this.s.available(actor,b,spot)){
+        const other=b.uses.findIndex(u=>u.action==='watch'&&u.alternate);
+        spot=this.s.furnitureAt(b.id,other)?.spot||spot;
+      }
       if(!this.s.available(actor,b,spot)){actor.feedback='Someone else is using that spot.';return;}
       if(actor.outing)this.finish(actor);
       if(b.kind==='restaurant'){this.bookDinner(actor,spot.index);return;}
@@ -231,6 +236,10 @@ export class StreetActivities {
       if(target&&!spot){a.feedback='That serving is no longer available.';return;}
       if(spot&&s.available(a,target.b,spot)){
         Object.assign(a,{x:spot.x,z:spot.z,yaw:spot.yaw,activity:spot.action,part:spot.part});
+        if(spot.action==='watch'){
+          if(!s.layout.homeTV?.[target.b.id])tuneTelevision(s,target.b.id,1);
+          a.feedback='';
+        }
         if(spot.action==='eat')a.feedback='Eating vegetable soup.';
         if(spot.action==='serveSoup'||spot.action==='returnSoup'){
           if(spot.action==='serveSoup'){

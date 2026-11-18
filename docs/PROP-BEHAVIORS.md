@@ -21,6 +21,7 @@ Use action for a wall or floor merely to inflate prop coverage.
 
 | Object or component | v0.3 behavior | Required next work |
 | --- | --- | --- |
+| Living-room television and remote (v0.6) | Two viewers share sofa cushions. A compact studio offers a second seat on the rug. Both viewers can tune or switch off the same animated picture. Each private home's channel survives owner reload. | More programs and room-editor placement |
 | Bed | Reserved lying pose, clear approach and exit | Smooth getting in/out, bedding response and better resting animation |
 | Sofa | A player can sit, read or eat a carried bowl of soup. The seat is exclusive across actions | Sit/stand transitions, cushion response and seating variants |
 | Bookshelf/books | Read a visible book on the sofa | Select/return book, shelf reach animation, reading page motion |

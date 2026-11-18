@@ -1,5 +1,6 @@
 import {neighborName} from './street-activities.js';
 import {mealStation} from './home-meals.js';
+import {tvChannels} from './home-fixtures.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
@@ -75,6 +76,11 @@ export class Street {
     });
     listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
     listen($('use-place'),'click',()=>this.use());
+    $('tv-channel').replaceChildren(...tvChannels.map((name,i)=>new Option(name,String(i))));
+    listen($('tv-channel'),'change',()=>{
+      const s=this.session,lot=s.actors.get(s.id)?.using?.lot;
+      if(lot)s.command({type:'tv-channel',lot,channel:Number($('tv-channel').value)});
+    });
     listen($('directions-open'),'click',()=>{const open=$('directions-pane').hidden;this.closePanels();$('directions-pane').hidden=!open;});
     listen($('destination'),'change',()=>{this.destination=this.destinations.find(b=>(b.kind==='home'?b.id:b.kind)===$('destination').value);$('go-place').disabled=$('jump-place').disabled=!this.destination;
       $('home-invite').hidden=this.destination?.kind!=='house';
@@ -274,7 +280,7 @@ export class Street {
       }
     }
     for(const place of [b,...s.terraceLots(),...s.waysideNear(local,30)].filter(Boolean))for(const base of stationsFor(place)){
-      const q=mealStation(s,place.id,base,local);if(!q)continue;
+      const q=mealStation(s,place.id,base,local);if(!q||q.alternate)continue;
       const y=floorAt(this.island,this.plots,q.x,q.z,s.layout);
       if(place.kind==='terrace'&&local?.outing==='carry'&&!local.meetingTable){
         offer(this.point.set(q.x,y+.55,q.z),.78,{type:'terrace-coffee',lot:place.id},'Share coffee at this table');continue;
@@ -463,10 +469,11 @@ export class Street {
       const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
       mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
-      const seated=['sit','dine','relax','piano','bathroom','eat','read'].includes(a.activity);
+      const watching=a.activity==='watch';
+      const seated=['sit','dine','relax','piano','bathroom','eat','read'].includes(a.activity)||watching;
       mesh.setSeated(seated||a.vehicle==='car',a.part,s.time);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
       mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
-      mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom);
+      mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom,watching?(s.layout.homeTV?.[a.using?.lot]||0):null);
       if(mesh.userData.vehicle!==a.vehicle){
         const old=mesh.userData.ride;if(old){mesh.remove(old);disposeGroup(old);}
         mesh.userData.vehicle=a.vehicle;mesh.userData.ride=a.vehicle?vehicleArt(a.vehicle):null;
@@ -544,9 +551,12 @@ export class Street {
     $('build-open').hidden=s.space!=='public'&&!s.canBuild;$('owner-room').hidden=!s.canBuild;
     if(s.space==='public')$('build-open').textContent='Build at home';
     const spot=s.station(local,near),use=$('use-place');use.hidden=!!this.buildLot||!!outing||(!spot&&!local.activity);use.disabled=!s.ready||(!s.owner&&!s.connected);
+    $('tv-remote').hidden=local.activity!=='watch'||!!this.buildLot;
+    if(!$('tv-remote').hidden)$('tv-channel').value=String(s.layout.homeTV?.[local.using.lot]||0);
     if(near)use.textContent=local.activity==='eat'?'Pause meal':local.activity==='cook'?'Stop cooking':local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',wash:'washing',shower:'showering',bathroom:'bathroom visit',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);
     $('undo-wall').disabled=!this.buildLot||!wallState(s.layout,this.buildLot).undo.length;$('list-street').checked=s.listed;
     if(local.vehicle){use.hidden=false;use.textContent=local.vehicle==='car'?'Get out of car':'Get off bike';}
+    if(local.activity==='watch')use.textContent='Stop watching';
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }
   dispose(){this.deactivate();$('map-travel').hidden=true;clearInterval(this.timer);clearTimeout(this.hoverTimer);this.controls.domElement.style.cursor='';this.controls.domElement.removeAttribute('title');this.abort?.abort();this.music?.dispose();this.session?.dispose();

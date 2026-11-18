@@ -1,7 +1,7 @@
 import {polyCentroid,pointInPoly,distSeg} from '../packages/settlement/src/geom.js';
 import {rng} from '../packages/island-gen/src/rng.js';
 import {routeOnGrid} from './walk-grid.js';
-import {fixtureOutlet,lamps} from './home-fixtures.js';
+import {fixtureOutlet,lamps,televisionIn} from './home-fixtures.js';
 
 export const homeWorld=(b,x,z)=>({x:b.x+b.c*x+b.s*z,z:b.z-b.s*x+b.c*z});
 export const homeLocal=(b,p)=>({x:(p.x-b.x)*b.c-(p.z-b.z)*b.s,z:(p.x-b.x)*b.s+(p.z-b.z)*b.c});
@@ -29,14 +29,22 @@ export function homeWalkableLocal(b,q){
 // walker to the centre of a bed or counter, and keep the exit point with the use.
 function usesFor(b){
   const sofa=b.furniture.find(f=>f.type==='sofa');
-  const uses=[{...b.seats[0],object:'sofa',mealSeat:true,label:'Sit on the sofa',target:{x:sofa.x,z:sofa.z,y:.65}}];
+  let sofaSeat=b.seats[0],endSeat;
+  if(sofa.d>=1.72){
+    const cushions=[-.36,.36].map(offset=>({...sofaSeat,z:sofaSeat.z+offset}));
+    const allowed=p=>homeWalkable(b,p)===true;
+    if(cushions.every(p=>{const q=homeWorld(b,p.x,p.z);return allowed(q)&&routeOnGrid(allowed,b.inside,q);})){
+      [sofaSeat,endSeat]=cushions;
+    }
+  }
+  const uses=[{...sofaSeat,object:'sofa',mealSeat:true,label:'Sit on the sofa',target:{x:sofa.x,z:sofa.z,y:.65}}];
   const kinds={bed:['rest','Rest on the bed'],kitchen:['cook','Cook a meal'],shelf:['read','Read a book'],desk:['write','Write at the desk'],
     shower:['shower','Take a shower'],toilet:['bathroom','Use the bathroom'],basin:['wash','Wash your hands'],dining:['sit','Sit at the table'],rug:['stretch','Stretch on the rug']};
   const switches=[],mealSpots=[];
   for(const f of b.furniture){
     if(!kinds[f.type]&&!lamps[f.type])continue;
     if(f.type==='shelf'){
-      uses.push({...b.seats[0],object:'sofa',action:'read',label:'Read a book on the sofa',target:{x:f.x,z:f.z,y:1.9}});continue;
+      uses.push({...sofaSeat,object:'sofa',action:'read',label:'Read a book on the sofa',target:{x:f.x,z:f.z,y:1.9}});continue;
     }
     const candidates=f.type==='rug'?[{x:f.x,z:f.z}]:[.4,.65,.9,1.2].flatMap(gap=>[
       {x:f.x-f.w/2-gap,z:f.z},{x:f.x+f.w/2+gap,z:f.z},
@@ -86,7 +94,12 @@ function usesFor(b){
       }
     }else uses.push(use);
   }
-  return uses.concat(switches,mealSpots);
+  const tv=televisionIn(b),screen={x:tv.x,z:tv.z,y:tv.y};
+  const watch={...sofaSeat,object:'sofa',action:'watch',label:'Watch television',target:screen,radius:.57};
+  const floor=uses.find(u=>u.action==='stretch')||homeLocal(b,b.inside);
+  const second=endSeat?{...endSeat,object:'sofa-end'}:{x:floor.x,z:floor.z,object:'rug'};
+  second.yaw=b.yaw+Math.atan2(tv.x-second.x,tv.z-second.z);
+  return uses.concat(switches,mealSpots,watch,{...second,action:'watch',label:'Watch television together',target:screen,alternate:true});
 }
 export function prepareHomes(island,exclude=[]){
   const skip=new Set(exclude.map(b=>b.id)),homes=[],cells=new Map();

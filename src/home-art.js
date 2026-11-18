@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {Pieces,roof,setPieceVisibility} from './street-pieces.js';
 import {homeAt,homeLocal} from './home-plan.js';
 import {HomeAppliances} from './home-appliances.js';
+import {sideWindows,televisionIn} from './home-fixtures.js';
 
 const cream='#f0e5cf',wood='#92704e',metal='#465d58';
 const palette=[['#e4cbb0','#596f75','#668574'],['#c99680','#71534d','#4d7773'],['#a2b8a3','#4c6471','#a97955'],['#d6bd83','#665b6c','#48777b'],['#a7bac5','#506578','#758265'],['#d1b2af','#675a6e','#547165']];
@@ -18,6 +19,7 @@ function innerWindow(a,x,z,w=1.05){
 }
 export function homeShell(a,b){
   const [wall,tile,trim]=palette[b.palette],hw=b.w/2,hd=b.d/2,h=b.height;
+  const tv=televisionIn(b);
   const handles=Object.fromEntries(['front','back','left','right','roof'].map(key=>[key,{visible:true}]));
   b.renderHandles=handles;
   a.box(0,-.14,0,b.w+.16,.28,b.d+.16,'#a99c87');
@@ -46,8 +48,8 @@ export function homeShell(a,b){
       innerWindow(front.frame(0,0,hd-.12,Math.PI),s*(hw+1.1)/2,0,width);
     }
     const f=a.tagged(handles[s<0?'left':'right']).frame(s*hw,0,0,s*Math.PI/2);
-    for(const z of b.d>7?[-b.d*.24,b.d*.24]:[0]){
-      windowAt(f,z,1.5,.09,1.05,1.2,trim);innerWindow(f.frame(0,0,-.12,Math.PI),z,0);
+    for(const z of sideWindows(b,s,tv)){
+      windowAt(f,-s*z,1.5,.09,1.05,1.2,trim);innerWindow(f.frame(0,0,-.12,Math.PI),s*z,0);
     }
     windowAt(a.tagged(handles.back).frame(0,0,-hd,Math.PI),s*b.w*.24,1.5,.08,Math.min(1.1,b.w*.18),1.15,trim);
     innerWindow(a.tagged(handles.back).frame(0,0,-hd+.12),s*b.w*.24,0,Math.min(1.1,b.w*.18));
@@ -77,6 +79,13 @@ export function homeShell(a,b){
 
 function furnish(a,b){
   const accent=palette[b.palette][2];
+  const tv=televisionIn(b),set=a.frame(tv.x,tv.y,tv.z,tv.yaw);
+  set.box(0,0,-.24,.42,.29,.24,metal);
+  set.box(0,0,-.10,1.67,.94,.25,'#845c42');
+  set.box(-.10,0,.027,1.36,.82,.03,'#2c3838');
+  set.box(-.10,0,.046,1.26,.72,.014,'#394d50');
+  for(const y of [.22,.08])set.ball(.68,y,.06,.094,.094,.046,'#d5ba88');
+  for(let i=0;i<6;i++)set.box(.68,-.08-i*.039,.039,.15,.013,.025,'#463d34');
   // Floorboards and trims stay inside the footprint, even for the compact homes.
   for(let x=-b.w/2+.15;x<b.w/2;x+=.30)a.box(x,.052,0,.013,.009,b.d-.16,'#9b7c59');
   for(const r of b.walls.filter(r=>r.side==='inside')){

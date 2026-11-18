@@ -116,6 +116,34 @@ try{
    if(condition==='carrying')return a.bowlFrom===lot;
    return a.activity===condition;
  },{lot:lampHome,condition},{timeout:30000});
+ async function expectChannel(page,channel){
+   await page.waitForFunction(({lot,channel})=>{
+     const c=window.__cozy,screen=c.street.clearExteriors.interiors.appliances?.tv;
+     return (c.street.session.layout.homeTV?.[lot]||0)===channel&&screen?.channel===channel&&Boolean(screen.mesh?.visible)===Boolean(channel);
+   },{lot:lampHome,channel},{timeout:15000});
+ }
+ await clickStation(host,'watch','sofa','Watch television');await finishRoute();
+ await state(host,'watch');await expectChannel(guest,1);
+ await clickStation(guest,'watch','sofa','Watch television');await state(guest,'watch');
+ assert.equal(await guest.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).using.object;}),'sofa-end');
+ await guest.locator('#tv-channel').selectOption('2');await expectChannel(host,2);await expectChannel(guest,2);
+ const frame=await host.evaluate(()=>window.__cozy.street.clearExteriors.interiors.appliances.tv.frame);
+ await host.waitForFunction(frame=>window.__cozy.street.clearExteriors.interiors.appliances.tv.frame>=frame+2,frame);
+ await host.locator('#tv-channel').selectOption('0');await expectChannel(guest,0);
+ await guest.locator('#tv-channel').selectOption('3');await expectChannel(host,3);
+ await host.evaluate(async lot=>{
+   const c=window.__cozy,b=c.island.homesById.get(lot),{homeWorld}=await import('./src/home-plan.js');
+   const {televisionIn}=await import('./src/home-fixtures.js'),set=televisionIn(b),target=homeWorld(b,.15,set.z-.10);
+   const eye=homeWorld(b,-2.5*set.side,set.z+7.6);
+   c.street.cameraFocus=target;
+   await c.setCamera([eye.x,b.y+4.3,eye.z],[target.x,b.y+1.48,target.z]);c.render();
+ },lampHome);
+ await host.waitForFunction(()=>document.querySelector('#tv-channel').value==='3');
+ await host.screenshot({path:out+'/home-television.jpg',type:'jpeg',quality:92});
+ await host.evaluate(()=>{window.__cozy.street.cameraFocus=null;});
+ await guest.locator('#use-place').click();await host.locator('#use-place').click();
+ await state(host,'');await state(guest,'');
+ report.television={guestJoined:true,sharedChannel:true,screenAnimated:true,switchedOff:true};
  await clickStation(host,'cook',null,'Cook a meal');await finishRoute();
  await state(host,'cook');await state(host,'ready');
  await host.evaluate(lot=>{const s=window.__cozy.street.session;s.command({type:'walk',...s.island.homesById.get(lot).inside});},lampHome);
@@ -154,6 +182,23 @@ try{
  const fresh=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
  await fresh.waitForFunction(lot=>{const s=window.__cozy.street.session;return s.connected&&s.layout.homeMeals?.[lot]===1&&!Array.from(s.actors.values()).some(a=>a.bowlFrom);},lampHome,{timeout:45000});
  report.supper.reloadAndNewVisitorSawOneServing=true;
+ assert.equal(await fresh.evaluate(lot=>window.__cozy.street.session.layout.homeTV?.[lot],lampHome),3);
+ report.television.restoredForNewVisitor=true;
+ const visitorId=await fresh.evaluate(()=>window.__cozy.street.session.id);
+ const studio=await host.evaluate(id=>{
+   const c=window.__cozy,s=c.street.session,b=c.island.homes.find(b=>b.furniture.find(f=>f.type==='sofa').d<1.7);
+   for(const a of [s.actors.get(s.id),s.actors.get(id)]){s.activities.finish(a);Object.assign(a,b.inside);}
+   const index=b.uses.findIndex(u=>u.action==='watch');s.command({type:'furniture',lot:b.id,index});
+   return {lot:b.id,index};
+ },visitorId);
+ await finishRoute();await state(host,'watch');
+ await fresh.waitForFunction(lot=>window.__cozy.street.openRoof===lot,studio.lot);
+ await fresh.evaluate(({lot,index})=>window.__cozy.street.session.command({type:'furniture',lot,index}),studio);
+ await fresh.waitForFunction(()=>{
+   const scene=window.__cozy.street;
+   return scene.session.actors.get(scene.session.id).using?.object==='rug'&&scene.meshes.get(scene.session.id)?.getObjectByName('watch-on-rug')?.visible;
+ });
+ report.television.compactHomeFloorSeat=true;
  assert.deepEqual(report.errors,[]);report.passed=true;
 }catch(e){report.error=e.stack;report.passed=false;process.exitCode=1;}
 finally{await writeFile(out+'/review.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));await browser.close();}

@@ -4,6 +4,7 @@ import {createBroadcastTransport} from '../packages/net/src/transport-broadcast.
 import {createTrysteroTransport} from '../packages/net/src/transport-trystero.js';
 import {defaultLayout,gardenForStreet,gardenSeats,frontAt,sideAt,sideLimit,hasEditableFront,isHome,wallLimit,moveWalker,readLayout,toRoom,toWorld,wallState,within} from './street-world.js';
 import {homeAt} from './home-plan.js';
+import {tuneTelevision} from './home-fixtures.js';
 import {mealStation} from './home-meals.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
@@ -307,6 +308,10 @@ export class StreetSession {
     else{this.pendingCommand={...cmd,seq:++this.commandSeq};this.sendInput();}
   }
   applyCommand(actor,cmd){
+    if(cmd.type==='tv-channel'){
+      if(actor.activity==='watch'&&actor.using?.lot===cmd.lot)tuneTelevision(this,cmd.lot,cmd.channel);
+      return;
+    }
     if(cmd.type==='ride')return takeVehicle(this,actor,cmd.vehicle);
     if(cmd.type==='dismount')return dismount(this,actor);
     if(cmd.type==='teleport')return teleport(this,actor,cmd);
@@ -345,7 +350,7 @@ export class StreetSession {
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(cmd&&Number.isSafeInteger(cmd.seq)&&cmd.seq>(state.commandSeq??0)&&nowAllowed(state)){
         state.commandSeq=cmd.seq;state.commandAt=performance.now();actor.commandAck=cmd.seq;
-        if(['ride','dismount','teleport','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
+        if(['ride','dismount','teleport','tv-channel','coffee','cancel','beach','furniture','terrace-coffee','visit-bluebell','book-dinner','order-meal'].includes(cmd.type)||(cmd.type==='walk'&&Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&
           Math.abs(cmd.x)<this.island.half&&Math.abs(cmd.z)<this.island.half))this.applyCommand(actor,cmd);
       }
       if(m.action>state.action){state.action=m.action;this.interact(m.id);}

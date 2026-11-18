@@ -626,7 +626,8 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     spoon.box(-.052,-.12,.29,.022,.024,.22,'#d1c8ad',-.55);
     spoon.ball(-.105,-.118,.38,.065,.025,.09,'#d1c8ad');spoon.finish();
   }
-  g.setDomestic=(action,time,use,hasBowl)=>{
+  let remoteArm,floorPose,lastChannel,pressedAt;
+  g.setDomestic=(action,time,use,hasBowl,channel)=>{
     const lying=action==='rest',reading=action==='read'||action==='write';
     body.position.x=body.position.z=0;
     body.rotation.x=lying?-Math.PI/2:0;body.position.y=use?.height||(lying?.82:0);
@@ -634,6 +635,39 @@ export function avatar(color,skin='#d9a779',hair='#62423f'){
     const showBowl=hasBowl&&(!action||action==='eat'||action==='sit');
     if(showBowl&&!bowlRig)makeBowl();
     if(bowlRig)bowlRig.visible=!!showBowl;
+    if(action==='watch'&&!remoteArm){
+      remoteArm=new THREE.Group();remoteArm.position.set(.23,1.17,.04);torso.add(remoteArm);
+      const controller=new Pieces(remoteArm);
+      controller.ball(.015,-.09,.055,.17,.26,.18,color);
+      controller.ball(.012,-.16,.19,.14,.15,.29,skin);
+      controller.box(.012,-.11,.31,.088,.045,.18,'#374548');
+      controller.ball(.012,-.079,.36,.031,.015,.031,'#d68b6e');
+      controller.box(.012,-.079,.30,.05,.009,.024,'#91a59b');controller.finish();
+    }
+    if(remoteArm)remoteArm.visible=action==='watch';
+    const onRug=action==='watch'&&use?.object==='rug';
+    if(onRug&&!floorPose){
+      floorPose=new THREE.Group();floorPose.name='watch-on-rug';body.add(floorPose);
+      const pose=new Pieces(floorPose);
+      for(const side of [-1,1]){
+        pose.ball(side*.22,.63,.08,.43,.20,.24,'#526b7d',-side*.32);
+        pose.ball(side*.18,.57,.24,.39,.15,.19,'#435869',side*.40);
+        pose.ball(-side*.038,.58,.29,.20,.14,.19,'#8f6248');
+      }
+      pose.ball(-.29,.88,.04,.19,.32,.21,color);pose.ball(-.27,.75,.16,.15,.15,.24,skin);
+      pose.finish();
+    }
+    if(floorPose)floorPose.visible=onRug;
+    if(onRug){sitting.visible=false;body.position.y=-.45;}
+    if(action==='watch'){
+      if(lastChannel!==channel)pressedAt=time;
+      const pulse=Math.max(0,1-Math.abs((time-pressedAt)*3-1));
+      remoteArm.rotation.x=.37-.9*pulse;
+      restingArms.visible=false;
+      hands[0].visible=!onRug;hands[0].rotation.x=.34;
+      for(const limb of limbs){limb.arm.visible=limb.side<0;limb.arm.rotation.x=-.18;}
+    }
+    lastChannel=action==='watch'?channel:undefined;
     if(showBowl){
       restingArms.visible=false;for(const limb of limbs)limb.arm.visible=false;
       const bite=action==='eat'?.5-.5*Math.cos(time*2.7):0;

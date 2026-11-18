@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {fixtureOutlet,lamps,lampIsLit} from './home-fixtures.js';
 import {potServings} from './home-meals.js';
+import {TelevisionScreen} from './television.js';
 
 function addSoup(parent,f){
   const surface=new THREE.Mesh(new THREE.CylinderGeometry(.136,.133,.012,16),new THREE.MeshLambertMaterial({color:'#ce803c'}));
@@ -48,6 +49,7 @@ export class HomeAppliances {
   constructor(parent,home){
     this.home=home;this.lamps=[];this.flows=new Map();this.drop=new THREE.Object3D();
     const frame=this.frame=new THREE.Group();frame.position.set(home.x,home.y,home.z);frame.rotation.y=home.yaw;parent.add(frame);
+    this.tv=new TelevisionScreen(frame,home);
     for(const f of home.furniture){
       if(f.type==='kitchen')this.soup=addSoup(frame,f);
       if(lamps[f.type])this.lamps.push(addLamp(frame,f,lamps[f.type]));
@@ -57,6 +59,7 @@ export class HomeAppliances {
   }
   dispose(){
     this.frame.removeFromParent();
+    this.tv.texture?.dispose();
     this.frame.traverse(mesh=>{
       if(!mesh.isMesh)return;
       if(mesh.isInstancedMesh)mesh.dispose();
@@ -66,6 +69,7 @@ export class HomeAppliances {
   update(session){
     const time=session?.time||0,dt=Math.min(.1,Math.max(0,time-(this.lastTime??time)));
     this.lastTime=time;
+    this.tv.update(session?.layout.homeTV?.[this.home.id]||0,time);
     if(this.soup){
       const bowls=session?potServings(session,this.home.id):0;
       this.soup.visible=bowls>0;this.soup.scale.x=this.soup.scale.z=bowls===1?.89:1;

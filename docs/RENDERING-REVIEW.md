@@ -5,6 +5,25 @@ the first measured scene optimization ships in v0.3.1.
 
 ## Recommendation
 
+### Living-room television, v0.6
+
+The TV draws a 224 × 128 picture at eight frames per second. Each client allocates
+the screen texture when a powered set enters its open interior and disposes it
+on leaving. The host replicates a channel number. Each viewer draws the program
+against the existing shared clock.
+
+We measured 360 frames per channel with the same Home 5 camera and 457 residents
+in simulation on an Intel 0x7D67, D3D11, at 1280 × 720. Peak draw calls in this
+view went from 417 with power off to 418 with a program running. On Low, all
+three channels measured 59.8 completed FPS on the repeat. An earlier Night Sky
+sample measured 51.9 FPS with a 426 ms frame. The repeat also saw a 230 ms frame
+with the set off. The cause of those stalls remains open.
+
+Reproduce with `node tools/benchmark.mjs --television --720p --gpu-completion`.
+The run samples power off, each channel in order, then power off again on both
+Balanced and Low. The report records the adapter, GPU completions, draw calls
+and frame-time percentiles.
+
 ### Resident worker, v0.3.5
 
 A Chrome CPU profile of the Petalwood resident worker attributed 74.6% of

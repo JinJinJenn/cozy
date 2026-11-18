@@ -12,6 +12,8 @@ const baseline=process.argv.find(s=>s.startsWith('--baseline='))?.split('=')[1];
 if(baseline&&!/^[a-f0-9]{7,40}$/.test(baseline))throw Error('Expected a commit hash');
 const software=process.argv.includes('--software'),cache=new Map(),results=[];
 const orbit=process.argv.includes('--orbit'),cpu=process.argv.includes('--cpu4')?4:1;
+const television=process.argv.includes('--television');
+if(television&&(orbit||baseline))throw Error('The television comparison uses a fixed camera on the current build.');
 const trackCompletion=process.argv.includes('--gpu-completion');
 const adapter=process.env.COZY_ADAPTER_LUID,expectedGpu=process.env.COZY_EXPECT_GPU;
 if(adapter&&(software||!/^-?\d+,\d+$/.test(adapter)))throw Error('Use a decimal high,low Windows adapter LUID in hardware mode');
@@ -41,8 +43,25 @@ try{
     await page.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});
     const gpu=await page.evaluate(()=>{const gl=document.querySelector('canvas').getContext('webgl2'),ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'unknown';});
     if(expectedGpu&&!gpu.toLowerCase().includes(expectedGpu.toLowerCase()))throw Error('Unexpected WebGL adapter: '+gpu);
-    for(const distance of [24,180]){
-      await page.evaluate(async d=>{const c=window.__cozy;c.controls.maxDistance=420;const t=c.controls.target;
+    if(television){
+      await page.evaluate(async()=>{
+        const c=window.__cozy,s=c.street.session,b=c.island.homes.find(b=>b.name==='Home 5');
+        const {homeWorld}=await import('./src/home-plan.js'),{televisionIn}=await import('./src/home-fixtures.js');
+        Object.assign(s.actors.get(s.id),b.inside);
+        s.command({type:'furniture',lot:b.id,index:b.uses.findIndex(u=>u.action==='watch')});
+        const tv=televisionIn(b),eye=homeWorld(b,-2.5*tv.side,tv.z+7.6);
+        const target=c.street.cameraFocus=homeWorld(b,.15,tv.z-.1);
+        await c.setCamera([eye.x,b.y+4.3,eye.z],[target.x,b.y+1.48,target.z]);await c.flushChunks();
+      });
+      await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id).activity==='watch';});
+    }
+    const scenes=television?[0,1,2,3,0].map(channel=>({channel})):[24,180].map(distance=>({distance}));
+    for(const scene of scenes){
+      const {distance,channel}=scene;
+      if(television){
+        await page.locator('#tv-channel').selectOption(String(channel));
+        await page.waitForFunction(n=>window.__cozy.street.clearExteriors.interiors.appliances?.tv.channel===n,channel);
+      }else await page.evaluate(async d=>{const c=window.__cozy;c.controls.maxDistance=420;const t=c.controls.target;
         if(d>100)c.setView('centre');
         await c.setCamera([t.x+d*.47,t.y+d*.68,t.z+d*.56],[t.x,t.y,t.z]);await c.flushChunks();},distance);
       const sample=await page.evaluate(async ({count,orbit,distance,trackCompletion})=>{
@@ -84,7 +103,7 @@ try{
       },{count:software?60:360,orbit,distance,trackCompletion});
       sample.residents=sample.info.residents.length;
       delete sample.info.residents;
-      const record={mode,distance,gpu,...sample,errors};results.push(record);console.log(JSON.stringify(record));
+      const record={mode,...scene,gpu,...sample,errors};results.push(record);console.log(JSON.stringify(record));
     }
     await page.close();
   }

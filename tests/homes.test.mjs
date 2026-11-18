@@ -4,7 +4,7 @@ import {generate} from '../packages/island-gen/index.js';
 import {generateSettlement,createFlattenHook} from '../packages/settlement/index.js';
 import {prepareHomes,homeWorld,homeWalkable} from '../src/home-plan.js';
 import {plotsForStreet,defaultLayout,readLayout,toWorld,walkable} from '../src/street-world.js';
-import {lampIsLit} from '../src/home-fixtures.js';
+import {lampIsLit,sideWindows,televisionIn} from '../src/home-fixtures.js';
 import {mealStation,potServings} from '../src/home-meals.js';
 import {walkingRoute} from '../src/street-route.js';
 import {readFileSync} from 'node:fs';
@@ -55,10 +55,15 @@ test('every generated home has reachable doors, seating and room approaches',()=
   assert.ok(homes.length>450);
   for(const b of homes){
     const prefix=b.id+' ';
+    const tv=televisionIn(b);
+    for(const z of sideWindows(b,tv.side,tv))assert.ok(Math.abs(z-tv.z)>=1.86,prefix+'window clears television');
+    const viewers=b.uses.filter(u=>u.action==='watch');
+    assert.equal(viewers.length,2,prefix+'two viewing spots');
+    assert.ok(Math.hypot(viewers[0].x-viewers[1].x,viewers[0].z-viewers[1].z)>.65,prefix+'viewers fit side by side');
     assert.ok(walkingRoute(world,plots,layout,b.approach||b.entry,b.inside),prefix+'front door');
     for(const s of b.seats)assert.ok(walkingRoute(world,plots,layout,b.inside,homeWorld(b,s.x,s.z)),prefix+'seat');
     for(const u of b.uses)assert.ok(walkingRoute(world,plots,layout,b.inside,homeWorld(b,u.x,u.z)),prefix+u.action+' approach');
-    for(const action of ['rest','cook','wash','read','sit'])assert.ok(b.uses.some(u=>u.action===action),prefix+action+' available');
+    for(const action of ['rest','cook','wash','read','sit','watch'])assert.ok(b.uses.some(u=>u.action===action),prefix+action+' available');
     if(b.furniture.some(f=>f.type==='dining')){
       const chairs=b.uses.filter(u=>u.object.startsWith('chair-'));
       assert.equal(chairs.length,2,prefix+'both dining chairs');
@@ -117,4 +122,28 @@ test('two visitors reserve the same lamp and its saved state is independent of t
   flip(a,'nightstand');arrive();assert.ok(lampIsLit(saved(),b.id,'nightstand'));
   flip(a,'desk');arrive();assert.ok(!lampIsLit(saved(),b.id,'desk'));assert.ok(lampIsLit(saved(),b.id,'nightstand'));
   assert.equal(readLayout({...s.layout,homeLights:{[b.id]:4}}),null);
+});
+
+test('watching together reserves two places and shares one persistent channel per home',()=>{
+  const b=homes.find(b=>b.name==='Home 58');
+  const s=Object.assign(Object.create(StreetSession.prototype),{island:world,plots,layout:defaultLayout(),actors:new Map(),
+    time:0,town:{people:[]},persist(){this.saved=JSON.stringify(this.layout);}});
+  const acts=s.activities=new StreetActivities(s);
+  const [a,guest,visitor]=['host','guest','visitor'].map(id=>{
+    const actor={id,...b.inside};s.actors.set(id,actor);return actor;
+  });
+  const watch=actor=>s.applyCommand(actor,{type:'furniture',lot:b.id,index:b.uses.findIndex(u=>u.action==='watch')});
+  const arrive=actor=>{for(let i=0;i<1000&&actor.walking;i++)acts.advance(actor,.05);};
+  const tune=(actor,channel,lot=b.id)=>s.applyCommand(actor,{type:'tv-channel',lot,channel});
+  tune(visitor,3);assert.equal(s.layout.homeTV,undefined);
+  watch(a);watch(guest);watch(visitor);assert.match(visitor.feedback,/Someone else/);
+  arrive(a);arrive(guest);assert.equal(a.using.object,'sofa');
+  assert.equal(guest.using.object,b.uses.find(u=>u.action==='watch'&&u.alternate).object);
+  assert.ok(Math.hypot(a.x-guest.x,a.z-guest.z)>.65);
+  assert.equal(a.activity,'watch');assert.equal(guest.activity,'watch');assert.equal(s.layout.homeTV[b.id],1);
+  tune(guest,3);assert.equal(readLayout(JSON.parse(s.saved)).homeTV[b.id],3);
+  tune(a,27);tune(a,1,'l9999');assert.deepEqual(s.layout.homeTV,{[b.id]:3});
+  tune(a,0);assert.equal(readLayout(JSON.parse(s.saved)).homeTV,undefined);
+  acts.finish(guest);tune(guest,2);assert.equal(s.layout.homeTV,undefined);
+  assert.equal(readLayout({...s.layout,homeTV:{[b.id]:4}}),null);
 });

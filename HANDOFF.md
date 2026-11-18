@@ -4,6 +4,13 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+In v0.6.0 each generated home has a television opposite the sofa. Click the
+set to watch. A friend takes the other sofa cushion or sits cross-legged on the rug in a studio. Either
+viewer can change the channel or turn it off. Private homes keep their last
+channel in the owner's save. The picture follows the host clock. Only the
+open home allocates a screen texture, the first time its set is on.
+Run `npm run test:domestic` for the two-browser playtest.
+
 In v0.5.1 the hover cursor uses the same terrain intersection as the click, so a house behind the ground under the pointer cannot claim the hover label.
 
 Version 0.5.0 adds a two-seat convertible and commuter bike as player-controlled rides. Open Travel, take either vehicle, then use WASD or the touch pad. A second player can ride beside you. The host checks road, building, water and occupant clearance. Dismounting returns the ride. Vehicles do not persist as owned property and NPC traffic is still open work.

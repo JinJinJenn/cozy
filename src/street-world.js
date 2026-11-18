@@ -3,6 +3,7 @@
 import {pointInPoly,polyCentroid} from '../packages/settlement/src/geom.js';
 import {readTerrace,terraceDefault} from './terrace.js';
 import {homeAt,homeLocal,homeWalkableLocal} from './home-plan.js';
+import {tvChannels} from './home-fixtures.js';
 
 export const radius = .31;
 const homeLots=['l106','l108'];
@@ -30,7 +31,7 @@ export function readLayout(s) {
   }
   if(s.club!==undefined&&!validFront(s.club)||s.restaurant!==undefined&&!validFront(s.restaurant))return null;
   const fixtures={};
-  for(const [key,max] of [['homeLights',3],['homeMeals',2]]){
+  for(const [key,max] of [['homeLights',3],['homeMeals',2],['homeTV',tvChannels.length-1]]){
     if(s[key]===undefined)continue;
     if(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key]))return null;
     const entries=Object.entries(s[key]);
