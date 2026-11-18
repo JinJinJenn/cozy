@@ -7,6 +7,7 @@ import {cameraClearance,floorAt,gardenForStreet,frontAt,hasEditableFront,plotsFo
 import {homeAt} from './home-plan.js';
 import {stationsFor,StreetSession} from './street-session.js';
 import {StreetMusic,withinStage} from './street-music.js';
+import {RoadsterSound} from './roadster-sound.js';
 import {StreetTouch} from './street-touch.js';
 import {PianoMenu,pickPiano} from './piano-menu.js';
 import {settleChassis,vehicleArt} from './vehicle-art.js';
@@ -34,7 +35,7 @@ export class Street {
       this.roofline=Math.max(this.roofline,b.y+(b.roofHeight??b.height??6));
     }
     this.art=streetArt(island,this.plots,scene);this.meshes=new Map();this.keys=new Set();
-    this.music=new StreetMusic();this.abort=new AbortController();this.cafe=this.plots.find(b=>b.cafe);
+    this.music=new StreetMusic();this.motors=new RoadsterSound();this.abort=new AbortController();this.cafe=this.plots.find(b=>b.cafe);
     this.club=this.plots.find(b=>b.kind==='club');
     this.keyFlashes={melody:0,bass:0};
     this.editable=this.plots.filter(b=>b.cafe||hasEditableFront(b));
@@ -49,6 +50,23 @@ export class Street {
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(b.name||places[b.kind][0],b.kind==='home'?b.id:b.kind)));
     if(island.streetBenches.size)$('destination').add(new Option('Nearest flower box','flowers'),1);
     const listen=(el,type,fn)=>el.addEventListener(type,fn,{signal:this.abort.signal});
+    const soundButton=$('vehicle-sound');
+    const refreshSound=()=>{
+      soundButton.textContent=this.motors.muted?'Car sound off':'Car sound on';
+      soundButton.setAttribute('aria-pressed',String(!this.motors.muted));
+    };
+    const enableSound=()=>{
+      if(!this.active||this.motors.muted||this.enablingSound||this.motors.ctx?.state==='running')return;
+      this.enablingSound=this.music.unlockContext().then(ctx=>{this.motors.ctx=ctx;}).finally(()=>{this.enablingSound=null;});
+    };
+    refreshSound();
+    listen(soundButton,'click',e=>{
+      this.motors.setMuted(!this.motors.muted);refreshSound();enableSound();
+      const s=this.session;
+      if(e.detail&&s?.actors.get(s.id)?.vehicle==='car')this.controls.domElement.focus({preventScroll:true});
+    });
+    listen(window,'click',enableSound);
+    listen(window,'keydown',enableSound);
     const townURL=new URL('.',location.href);
     const params=new URLSearchParams(location.search);
     for(const key of ['net','v'])if(params.has(key))townURL.searchParams.set(key,params.get(key));
@@ -124,11 +142,16 @@ export class Street {
         this.camera.position.add(target);this.controls.update();return;
       }
       if(e.code==='Enter'&&!e.target.closest('button,a,summary')){e.preventDefault();this.centerOnPlayer();}
-      if(directions.has(e.code)){e.preventDefault();this.cameraFocus=null;$('world-choice').hidden=true;this.keys.add(e.code);this.input();}
+      if(directions.has(e.code)){
+        e.preventDefault();
+        if(this.session.actors.get(this.session.id)?.vehicle==='car'&&e.target.closest('button,a,summary')){
+          this.controls.domElement.focus({preventScroll:true});
+        }
+        this.cameraFocus=null;$('world-choice').hidden=true;this.keys.add(e.code);this.input();}
       if(e.code==='KeyE'&&!e.repeat&&!this.buildLot){e.preventDefault();this.use();}
     });
     listen(window,'keyup',e=>{this.keys.delete(e.code);if(e.code.startsWith('Shift'))this.sprint=false;if(this.active)this.input();});listen(window,'blur',()=>this.clearInput());
-    listen(document,'visibilitychange',()=>{if(document.hidden)this.clearInput();});
+    listen(document,'visibilitychange',()=>{if(document.hidden){this.clearInput();this.motors.quiet();}});
     listen($('use-place'),'click',()=>this.use());
     $('tv-channel').replaceChildren(...tvChannels.map((name,i)=>new Option(name,String(i))));
     listen($('tv-channel'),'change',()=>{
@@ -172,7 +195,7 @@ export class Street {
     listen($('world-action'),'click',()=>{
       $('world-choice').hidden=true;
       if(this.choice){
-        void this.music.unlock();
+        if(this.choice.type==='join-band'||this.choice.type==='strike-key'||withinStage(this.club,this.session.layout,this.session.actors.get(this.session.id)))void this.music.unlock();
         if(this.choice.type==='strike-key')this.pianoMenu.strike(this.choice.key);
         else if(this.choice.type==='view-print')this.viewedPrint=this.choice;
         else{this.cameraFocus=null;this.session.command(this.choice);}
@@ -531,7 +554,11 @@ export class Street {
     }
   }
   clearInput(){this.sprint=false;this.keys?.clear();this.touch?.clear();this.session?.setInput(0,0);}
-  use(){if(!this.session?.ready)return;void this.music.unlock();this.session.use();}
+  use(){
+    const s=this.session;if(!s?.ready)return;
+    if(withinStage(this.club,s.layout,s.actors.get(s.id)))void this.music.unlock();
+    s.use();
+  }
   activate(){
     if(!this.art)return false;
     $('map-travel').hidden=true;
@@ -568,7 +595,7 @@ export class Street {
     this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
-  deactivate(){if(!this.active)return;this.active=false;this.walkMarker.visible=false;this.clearInput();this.touch.setDriving(false);this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+  deactivate(){if(!this.active)return;this.active=false;this.motors.quiet();this.walkMarker.visible=false;this.clearInput();this.touch.setDriving(false);this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
     this.clearExteriors.update({x:Infinity,z:Infinity},{x:0,z:0});
     document.body.classList.remove('in-street');$('street-panel').hidden=true;
     this.controls.enablePan=true;this.controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;this.controls.minDistance=8;this.controls.maxDistance=4200;
@@ -653,6 +680,7 @@ export class Street {
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
     const m=this.meshes.get(s.id),target=this.controls.target;
+    if(!document.hidden)this.motors.update(now,local,m.userData.motion,s.keys.brake?0:s.keys.z,this.town.people,s.actors.values(),this.camera);
     if(this.buildLot&&!s.canBuild)this.closePanels();
     if(this.buildLot){if(!this.terraceEditor.active&&!this.homeEditor.home)this.positionGrip();}
     else{
@@ -697,7 +725,8 @@ export class Street {
       const activity=person.userData.driving?(destination?'Driving to '+destination:'Driving'):person.scale.y<.9?'Sitting':null;
       detail.textContent=[home,trait,activity].filter(Boolean).join(' · ');
     }
-    const speed=local.vehicle==='car'?`${Math.round(Math.abs(local.speed||0)*3.6)} km/h${local.speed<0?' · Reverse':''}`:'';
+    const gearbox=local.vehicle==='car'?this.motors.driver:null;
+    const speed=gearbox?`${Math.round(gearbox.speed*3.6)} km/h \u00b7 ${gearbox.gear<0?'Reverse':'D'+gearbox.gear}`:'';
     if(speed&&$('car-speed').textContent!==speed)$('car-speed').textContent=speed;
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
       local.vehicle==='car'?speed+' · W gas · Space brake · S brake / reverse · A/D steer · E get out':
@@ -775,6 +804,6 @@ export class Street {
     if(local.activity==='tablegame')use.textContent='Leave game';
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }
-  dispose(){this.deactivate();$('map-travel').hidden=true;clearInterval(this.timer);clearTimeout(this.hoverTimer);this.controls.domElement.style.cursor='';this.controls.domElement.removeAttribute('title');this.abort?.abort();this.music?.dispose();this.session?.dispose();
+  dispose(){this.deactivate();$('map-travel').hidden=true;clearInterval(this.timer);clearTimeout(this.hoverTimer);this.controls.domElement.style.cursor='';this.controls.domElement.removeAttribute('title');this.abort?.abort();this.motors?.dispose();this.music?.dispose();this.session?.dispose();
     for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();if(this.walkMarker){this.scene.remove(this.walkMarker);disposeGroup(this.walkMarker);}this.clearExteriors();}
 }

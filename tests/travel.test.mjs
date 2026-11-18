@@ -102,6 +102,18 @@ test('a stopped roadster can pull away along the outside curb where two harbor r
   assert.ok(a.speed>2&&Math.hypot(a.x-start.x,a.z-start.z)>2);
 });
 
+test('a short steering correction at road speed recentres without swinging across the lane',()=>{
+  for(const speed of [8,16]){
+    const car={speed};let yaw=0;
+    for(let i=0;i<60;i++){
+      stepRoadster(car,{x:i<8?1:0,z:0},1/60);
+      yaw+=car.yawRate/60;
+    }
+    assert.ok(yaw<-.012&&yaw>-.055,`heading changed by ${yaw} rad at ${speed} m/s`);
+    assert.ok(car.steer===0&&Math.abs(car.sideSpeed)<.01);
+  }
+});
+
 test('front and rear tires build yaw, share grip under braking and settle after neutral steering',()=>{
   const cruise={speed:14},braking={speed:14};
   for(let i=0;i<25;i++){

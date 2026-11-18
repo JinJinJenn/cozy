@@ -32,11 +32,17 @@ export class StreetMusic {
     this.flashes.delete(part);
     return flash.id===piano?.id&&performance.now()-flash.at<1500?flash.mask:0;
   }
-  async unlock(){
+  async unlockContext(){
     try{
       if(!this.ctx)this.ctx=new AudioContext();
-      if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.muted?0:1;this.master.connect(this.ctx.destination);}
       if(this.ctx.state==='suspended')await this.ctx.resume();
+      return this.ctx;
+    }catch{return null;}
+  }
+  async unlock(){
+    try{
+      if(!await this.unlockContext())return;
+      if(!this.master){this.master=this.ctx.createGain();this.master.gain.value=this.muted?0:1;this.master.connect(this.ctx.destination);}
       if(!this.loading)this.loading=fetch(new URL('../assets/audio/piano-a3.mp3',import.meta.url)).then(r=>r.arrayBuffer()).then(b=>this.ctx.decodeAudioData(b)).then(b=>this.sample=b);
       await this.loading;
     }catch{this.loading=null;}

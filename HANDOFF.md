@@ -4,6 +4,18 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.22.0 reduces steering sensitivity at road speed and retains parking lock.
+The roadster has a synthesized exhaust, axle-slip tire noise and a three-gear
+sound model shared with the HUD. Wheel torque still comes from the tire model
+and continuous drive curve. One nearby resident or remote driver can be heard
+alongside the local car. Vehicle mute persists separately from the stage piano.
+
+The keyboard route covered 62 m through the 27-degree harbor bend at up to
+27.7 km/h, with a maximum lane error of 0.57 m. At 1280 by 720 the Intel
+integrated GPU completed 59.8 frames per second with 459 residents simulated.
+The multiplayer travel test samples both the driver and the cyclist listening
+beside them and checks braking after the driver mutes and restores the sound.
+
 Version 0.21.2 raises both lanes and footways on the harbor bridge above the river. The roadster, pedestrians and resident drivers sample the same deck triangles. The approaches follow the adjoining streets onto both banks.
 
 Version 0.21.1 fixes a stop against the outside curb where two curved road

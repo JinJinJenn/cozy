@@ -6,7 +6,8 @@ const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const approach=(v,target,step)=>v+clamp(target-v,-step,step);
 
 export function carSteerAngle(steer,speed){
-  return steer*.60/(1+.020*Math.abs(speed));
+  // Preserve parking lock while keeping a short key press precise at road speed.
+  return steer*.60/(1+.014*speed*speed);
 }
 function lateralForce(slip,load,longitudinal,stiffness){
   const limit=Math.sqrt(Math.max(0,(grip*load)**2-longitudinal**2));
@@ -21,7 +22,10 @@ export function stepRoadster(car,input,dt,grade=0){
   const target=brake||car.reverseHold?0:throttle*(throttle<0?3.4:17.5);
   const rate=brake?8.5:!throttle?.42+.004*u*u:(target<0?3.2:6.0)/(1+.0028*u*u);
   const demand=(approach(u,target,rate*dt)-u)/dt;
-  car.steer=approach(car.steer||0,input.x||0,dt*(input.x?3.8:5.4));
+  const steering=car.steer||0,requested=input.x||0;
+  const crossing=steering*requested<0;
+  const rateIn=3.8/(1+.025*Math.abs(u));
+  car.steer=approach(steering,crossing?0:requested,dt*(crossing||!requested?6:rateIn));
   const delta=-carSteerAngle(car.steer,u),sn=Math.sin(delta),cs=Math.cos(delta);
 
   // Braking loads the front axle. The rear wheels drive the car, and each

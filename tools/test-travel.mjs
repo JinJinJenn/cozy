@@ -127,6 +127,25 @@ async function testDesktop(owner,visitor){
   const driver=(await actor(visitor)).id,cyclist=(await actor(owner)).id;
   await mount(visitor,'car');await Promise.all(pages.map(p=>synced(p,driver,'car')));
   await mount(owner,'bike');await Promise.all(pages.map(p=>synced(p,cyclist,'bike')));
+  // The cyclist hears the visiting driver from replicated world state.
+  // Sample the game mixer in each browser before testing the driver's mute.
+  for(const [page,channel] of [[owner,'street'],[visitor,'local']]){
+    await page.bringToFront();
+    await until(page,({channel,driver})=>window.__cozy.street.motors.voices.get(channel)?.id===driver,{channel,driver});
+    await page.evaluate(()=>{
+      const motors=window.__cozy.street.motors,meter=motors.ctx.createAnalyser();
+      motors.output.connect(meter);
+      const data=new Float32Array(meter.fftSize);
+      window.carLevel=()=>{meter.getFloatTimeDomainData(data);return Math.sqrt(data.reduce((sum,x)=>sum+x*x,0)/data.length);};
+    });
+    await until(page,()=>window.carLevel()>.001);
+  }
+  await visitor.locator('#vehicle-sound').click();
+  await until(visitor,()=>window.carLevel()<.00001&&window.__cozy.street.motors.voices.size===0);
+  assert.equal(await visitor.evaluate(()=>localStorage.getItem('cozy.vehicle-muted')),'1');
+  await visitor.locator('#vehicle-sound').click();
+  await until(visitor,()=>window.carLevel()>.001);
+  console.log('PASS driver and nearby cyclist hear the car. The driver can mute and restore it.');
   // Leave the actual peer connected and pause only its outgoing controls.
   // The host must preserve the ride once the former seven-second limit passes.
   await visitor.evaluate(()=>{window.__cozy.street.session.sendInput=()=>{};});
