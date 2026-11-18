@@ -5,6 +5,7 @@ import {mkdir,readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {testNostrRelay} from './test-nostr-relay.mjs';
+import {server} from './serve.mjs';
 import {playAddresses} from './playtest-addresses.mjs';
 import {playPlayers} from './playtest-players.mjs';
 import {playPublicStudio} from './playtest-studio.mjs';
@@ -13,14 +14,17 @@ import {playAdmission} from './playtest-admission.mjs';
 import {playBand} from './playtest-band.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
-const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
+const {chromium,firefox}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
 const live=process.argv.includes('--live'),relay=process.argv.includes('--relay');
 const software=process.argv.includes('--software');
 const band=process.argv.includes('--band');
+const mixed=process.argv.includes('--mixed');
 // Hosted-code verification uses isolated signalling. CI public-relay runs use
 // a unique deployment origin so playtest avatars never enter a player's lobby.
 assert.ok(!(live&&relay));
-const origin=live?'https://jinjinjenn.github.io/cozy/':'https://cozy-'+randomUUID()+'.test/cozy/';
+const localServer=mixed&&!live;
+if(localServer)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const origin=live?'https://jinjinjenn.github.io/cozy/':localServer?'http://127.0.0.1:'+server.address().port+'/':'https://cozy-'+randomUUID()+'.test/cozy/';
 const installRelay=testNostrRelay(),errors=[];
 let release;
 const signalling=new Promise(resolve=>release=resolve);
@@ -35,11 +39,11 @@ const inspect=p=>p.evaluate(()=>{
     residents:s.town.people.length,received:s.residentTargets?.length,peers:[...s.peers.keys()],signed:s.verifiedSeq,
     stored:Object.keys(localStorage).filter(k=>k.includes('waterfront-v1')).sort(),revision:s.layout.revision};
 });
-async function profile(signalGate){
+async function profile(signalGate,engine=browser){
   // Each profile has its own full island. Keep the pointer viewport intact
   // while sharing the hosted runner's software renderer across all three.
   const viewport=process.env.COZY_FLOWER_SHOT?{width:1320,height:790}:{width:960,height:580};
-  const ctx=await browser.newContext({viewport,deviceScaleFactor:process.env.CI ? .45 : 1});
+  const ctx=await engine.newContext({viewport,deviceScaleFactor:process.env.CI ? .45 : 1});
   if(software&&band)await ctx.addInitScript(()=>{
     // Three independent towns share one software GPU on the hosted runner.
     // Pace their presentation. WebRTC, Web Audio and town timers run normally.
@@ -48,15 +52,15 @@ async function profile(signalGate){
   });
   await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));
   if(!relay)await installRelay(ctx,signalGate);
-  await ctx.route('**/*',async route=>{
+  await ctx.route(localServer?'**/trystero-nostr.min.js':'**/*',async route=>{
     const url=new URL(route.request().url());
     if(!url.href.startsWith(origin))return route.continue();
     if(url.pathname.endsWith('/trystero-nostr.min.js'))await signalling;
-    if(live)return route.continue();
+    if(live||localServer)return route.continue();
     const file=path.resolve(root,url.pathname.slice('/cozy/'.length)||'index.html');assert.ok(file.startsWith(root));
     await route.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.mp3':'audio/mpeg'}[path.extname(file)]});
   });
-  const page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));return page;
+  const page=await ctx.newPage();page.on('pageerror',e=>{errors.push(e.message);if(mixed)console.error(engine.browserType().name(),e.message);});return page;
 }
 const paired=p=>wait(p,()=>{
   const s=window.__cozy.street.session;
@@ -66,8 +70,11 @@ async function navigate(page,selector){
   await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.locator(selector).click()]);
   await ready(page);
 }
+let secondEngine;
 try{
-  const pages=await Promise.all([profile(),profile()]);
+  if(mixed)secondEngine=await firefox.launch({headless:true,executablePath:process.env.FIREFOX_EXE||undefined,
+    firefoxUserPrefs:{'media.peerconnection.ice.obfuscate_host_addresses':false,'media.peerconnection.ice.loopback':true}});
+  const pages=await Promise.all([profile(),profile(undefined,secondEngine)]);
   await Promise.all(pages.map(async p=>{await p.goto(origin,{waitUntil:'domcontentloaded'});await ready(p);}));
   const starts=await Promise.all(pages.map(inspect));
   assert.ok(starts.every(s=>s.space==='public'&&s.owner&&s.stored.length===0));
@@ -82,7 +89,19 @@ try{
   assert.equal(remote.received,authority.residents);assert.ok(remote.received>400);
   assert.ok(remote.signed>0&&authority.peers.some(p=>p.startsWith('trystero-nostr/')));
   assert.deepEqual(remote.actors.sort(),authority.actors.sort());
-  if(band){
+  if(mixed){
+    const addressLists=await Promise.all(pages.map(p=>p.evaluate(()=>window.__cozy.island.homes.map(h=>h.id))));
+    assert.deepEqual(addressLists[0],addressLists[1]);assert.equal(addressLists[0].length,459);
+    for(const id of ['frontage-r40-3-r','frontage-r40-0-r','frontage-r49-2-r']){
+      await guest.evaluate(place=>window.__cozy.street.session.command({type:'teleport',place}),id);
+      await wait(guest,place=>window.__cozy.street.openRoof===place,id);
+      await wait(host,([place,peer])=>{
+        const c=window.__cozy,s=c.street.session,h=c.island.homesById.get(place),a=s.actors.get(peer);
+        return a&&Math.hypot(a.x-h.inside.x,a.z-h.inside.z)<3;
+      },[id,remote.id]);
+    }
+    assert.deepEqual(errors,[]);console.log('PASS Chromium and Firefox share one ordered town, 459 resident poses and all three previously divergent home addresses over native WebRTC.');
+  }else if(band){
     await playBand({host,guest,profile,ready,wait});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--door')){
     await playAdmission({host,guest,wait,ready,navigate,profile});assert.deepEqual(errors,[]);
@@ -139,4 +158,4 @@ try{
   assert.deepEqual(errors,[]);
   console.log('PASS public host departure, private owner build, legacy invite, isolated public layout and private save recovery');
   }
-}finally{release();await browser.close();}
+}finally{release();await secondEngine?.close();await browser.close();if(localServer)server.close();}

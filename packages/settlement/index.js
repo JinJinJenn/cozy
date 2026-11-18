@@ -18,13 +18,10 @@ export {flattenHeightfield,createFlattenHook,STYLES};
 // island: a generate() result (heightfield, water, size, grid, cell, seaLevel). style: a locale id (default island.presetId).
 export function generateSettlement(island,{seed,style}={}){
   const t0=Date.now(),sd=String(seed??island.seed??'settlement'),S=styleFor(style||island.presetId);
-  // Resident homes and saved multiplayer renovations refer to the issued parcel IDs.
+  // Network poses are indexed by household. All engines must load the same
+  // roads, parcel IDs and order, including the previously issued frontage lots.
   if(island.publishedLayout==='petalwood-v1'&&sd===petalwood.seed&&S.id===petalwood.style){
     const plan=structuredClone(petalwood);
-    finishStreetEnds(plan);
-    addCountryLanes(plan,makeTerrain(island,{maxHalf:S.maxHalf}));
-    plan.civic=planCivicCentre(plan,['l102','l104','l105','l106','l107','l108','l109']);
-    addFrontageLots(plan,makeTerrain(island,{maxHalf:S.maxHalf}));
     plan.layers=planLayers(plan);
     plan.stats.ms=Date.now()-t0;
     return plan;

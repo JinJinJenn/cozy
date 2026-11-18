@@ -11,7 +11,7 @@ behavior are distinct references; its unavailable original backend is not verifi
 
 | Area | Useful reference | Shipped in Cozy | Remaining work |
 | --- | --- | --- | --- |
-| Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 588 parcels, 457 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
+| Continuous world | Jenn's Town, Sunset Valley composition | Island roads, 590 parcels, 459 generated homes, full generated-home resident population | More varied architecture, landscaping and neighborhood composition |
 | Furniture use | Sky Lounge, Jenn's Town | Host reservations, separate approach/use/exit positions, configurable linked home lighting and a shared cook/serve/eat loop | Catalog-wide behaviors, richer props and interaction transitions |
 | Shared music | Sky Lounge ensemble | Two live keyboards, independent melody and bass, a house tune and nearby listeners | More instrument voices, shared song selection and a ready/start workflow |
 | Outdoor activities and appearance | Town garden objects, Sky Lounge player customization | Players can pick and wear three species of roadside flowers, water a friend's cut box and keep the pinned flower between streets. | Home gardening, a clothing inventory and access to other planted beds |

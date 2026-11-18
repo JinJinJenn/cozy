@@ -42,7 +42,7 @@ test('resident worker applies the same desk collision on commit and undo before 
     assert.equal(homeWalkable(home,target),true);
     const step=layout=>self.onmessage({data:{type:'step',steps:1,actors:[],routes:[],layout}});
     step({...defaultLayout(),revision:1,furnishings:{v:1,lots:{l93:{desk:[-2,-2,1]}}}});
-    assert.equal(message.type,'frame',message.message);assert.equal(message.positions.length,457);assert.equal(homeWalkable(home,target),false);
+    assert.equal(message.type,'frame',message.message);assert.equal(message.positions.length,459);assert.equal(homeWalkable(home,target),false);
     step({...defaultLayout(),revision:2});assert.equal(message.type,'frame',message.message);assert.equal(homeWalkable(home,target),true);
   }finally{delete globalThis.self;}
 });

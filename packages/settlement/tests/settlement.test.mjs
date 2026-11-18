@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {generateSettlement,flattenHeightfield,createFlattenHook} from '../index.js';
 import {pointInPoly,distSeg} from '../src/geom.js';
+
+test('published Harbor Town loads all issued addresses in wire order without re-sampling terrain',()=>{
+  const world={publishedLayout:'petalwood-v1',seed:'petalwood',presetId:'harborTown'};
+  const plan=generateSettlement(world);
+  assert.equal(plan.roads.length,62);assert.equal(plan.lots.length,590);
+  const addresses=plan.lots.map(l=>l.id);
+  assert.equal(new Set(addresses).size,590);
+  // Reordering existing parcels changes resident slots in network snapshots.
+  assert.equal(createHash('sha256').update(addresses.join('|')).digest('hex'),'5f3bb211dd76e51935de5fb3d4d41ea3e72dbd757034c2e7b2fbc60e43ef5434');
+  assert.ok(plan.lots.some(l=>l.id==='frontage-r40-3-r'));
+  assert.deepEqual(plan.lots.slice(-2).map(l=>l.id),['frontage-r40-0-r','frontage-r49-2-r']);
+  plan.lots.pop();assert.equal(generateSettlement(world).lots.length,590);
+});
 
 // Synthetic island: a dome with a narrow river (x=60) and a wide lake. Independent of island-gen, so these tests stay
 // valid when the real generator changes. Invariants only, never snapshots.

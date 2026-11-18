@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/multiplayer-playtest.yml'
       - 'packages/net/**'
+      - 'packages/settlement/**'
       - 'index.html'
       - 'src/main.js'
       - 'src/public-town.js'

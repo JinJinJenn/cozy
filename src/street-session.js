@@ -185,7 +185,7 @@ export class StreetSession {
         onPeerJoin:()=>{if(this.owner)this.announceOwner(kind);else this.sendInput();},
         onPeerLeave:peer=>{const sender=kind+'/'+peer;this.peers.delete(sender);this.privateHosts.delete(sender);this.admission?.leave(sender);},onError:()=>{}
     });
-    const name='street-'+this.pub;
+    const name='street-'+this.pub+'-'+publicWorld;
     this.connecting??=this.open(name,this.connections,handlers,t=>t.kind==='broadcast',(kind,c)=>this.attachPrivate(kind,c));
     await this.connecting;
     if(publicly&&!this.closed&&!this.privateRoutes&&new URLSearchParams(location.search).get('net')!=='local'){
@@ -246,7 +246,7 @@ export class StreetSession {
   async invite(){await this.start;if(!this.canBuild||!this.ready||!await this.connect())return null;
     return linkFor(this.pub,homeAt(this.island,this.actors.get(this.id))?.id);}
   async discover(){
-    if(!this.discovery)this.discovery=this.open('public-directory',this.directory,()=>({onMessage:(_,m)=>{
+    if(!this.discovery)this.discovery=this.open('public-directory-'+publicWorld,this.directory,()=>({onMessage:(_,m)=>{
       if(m?.kind==='listed'&&validKey(m.pub)&&m.pub!==this.pub)this.roomList.set(m.pub,{url:linkFor(m.pub),seen:performance.now()});
       if(m?.kind==='unlisted')this.roomList.delete(m.pub);
       if(m?.kind==='browse'&&this.listed)this.advertise();

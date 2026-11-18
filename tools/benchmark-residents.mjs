@@ -60,7 +60,8 @@ try{
         }finally{worker.terminate();}
       });
       console.log(JSON.stringify({revision,...result}));results.push(result);
-      assert.equal(result.count,457);assert.equal(result.digest,results[0].digest,'Resident snapshots diverged');
+      assert.ok(result.count>0);assert.equal(result.count,results[0].count,'Baseline and candidate must use the same resident roster');
+      assert.equal(result.digest,results[0].digest,'Resident snapshots diverged');
     }finally{await ctx.close();}
   }
 }finally{await browser.close();}

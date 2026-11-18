@@ -4,6 +4,15 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.17.3 fixes a cross-browser multiplayer bug. Chromium and Firefox now
+share 590 parcels and 459 resident slots in the same order. The release keeps
+every address previously issued by either browser, including the three
+roadside homes where their plans differed. Existing invite links and saves use
+the same owner and parcel IDs. Reload older tabs before meeting friends in
+the updated public town or on a private street.
+Run `npm run test:lobby -- --mixed` with Playwright Chromium and Firefox
+installed to check resident updates and visit the three houses over WebRTC.
+
 Version 0.17.2 lets two visitors play the Moon Room keyboards live. Open
 **Travel → Join the Moon Room band**, then choose **Play freely**. Use the
 on-screen keyboard, the letter shortcuts printed on its keys, or the keys on
@@ -272,7 +281,7 @@ The street advances on rendered frames, with a timer fallback for hidden tabs. G
 
 Click Robin or Bea to invite that resident for coffee. Inside a venue, clicking a chair, a keyboard or another activity spot offers its action where you clicked. The host holds the spot while the player walks over and checks occupancy again on arrival.
 
-The island viewer generates terrain, settlements and graded lots from a seed and locale. Town view finds a resident. The 457 generated-home residents follow the town simulation and appear on the minimap. The published Petalwood seed has 62 road pieces and 588 plots, including 54 new frontage parcels. The original 534 parcel boundaries and IDs remain intact.
+The island viewer generates terrain, settlements and graded lots from a seed and locale. Town view finds a resident. The 459 generated-home residents follow the town simulation and appear on the minimap. The published Petalwood seed has 62 road pieces and 590 plots, including 56 frontage parcels. The original 534 parcel boundaries and IDs remain intact.
 
 The settlement planner reserves a full block for a landscaped square, fits a clock hall to a nearby block when one is available, and selects market frontages and orchard parcels. On newly generated Harbor Town islands the outer streets bend around the central grid. Spare ends can join by a country lane where grades, water and existing lots permit. Roads, curbs and sidewalks are drawn from the actual road centrelines across the island. Island map → Square frames the district. In Petalwood, Find a place → Town Square routes a walker there from the waterfront. The hall and market buildings currently have exterior models.
 
