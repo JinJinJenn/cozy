@@ -30,6 +30,7 @@ Park beds and home landscaping still need their own interactions.
 The teal and rose club chairs seat one person each and can be used for a meal.
 Each easel holds one guided painting. Four animated brushwork stages change the visible canvas.
 Either player can finish an interrupted picture. A completed canvas opens a printable image.
+Use **Keep for home** at an easel or a framed picture to keep a copy. On a private street the owner can hang it between the back windows of a generated home, switch between oak and brass, or take it down. Visitors can inspect the painting and collect their own print. The collection and the displayed frames travel with an encrypted street backup.
 Owners can turn, pack or restore these four pieces while visitors stay in the room.
 An occupied or reserved piece stays in place. Packed easels retain their paintings in the private save.
 

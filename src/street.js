@@ -1,5 +1,5 @@
 import {neighborName} from './street-activities.js';
-import {homeAction,tvChannels} from './home-fixtures.js';
+import {homeAction,printIds,tvChannels,wallPrint} from './home-fixtures.js';
 import {presentWalker} from './street-motion.js';
 import * as THREE from 'three';
 import {avatar,disposeGroup,places,streetArt,townExteriors} from './street-art.js';
@@ -16,6 +16,7 @@ import {AddressMenu} from './address-menu.js';
 import {PlayerMenu} from './player-menu.js';
 import {TableMenu,pickBoardSquare} from './table-menu.js';
 import {drawPainting} from './easel-art.js';
+import {keepPrint,printCollection} from './private-saves.js';
 import {catalog} from './furniture-pose.js';
 import {canGreet,gesturePhase,shirts} from './player-profile.js';
 
@@ -59,6 +60,13 @@ export class Street {
     this.playerMenu=new PlayerMenu(this,listen);
     this.tableMenu=new TableMenu(this,listen);
     this.pianoMenu=new PianoMenu(this,listen);
+    listen($('easel-keep'),'click',()=>{
+      if(!this.printId)return;
+      if(keepPrint(this.session.localSlot,this.printId)){
+        this.printKept=true;this.notice('Print collected. Hang it in your private street under Build → Wall art.');
+      }else this.notice('Could not save this print on this device.');
+    });
+    listen($('print-close'),'click',()=>{this.viewedPrint=null;});
     listen($('easel-save'),'click',()=>{
       if(!this.printId)return;
       const link=document.createElement('a');link.download=catalog[this.printId].subject+'.png';
@@ -160,6 +168,7 @@ export class Street {
       if(this.choice){
         void this.music.unlock();
         if(this.choice.type==='strike-key')this.pianoMenu.strike(this.choice.key);
+        else if(this.choice.type==='view-print')this.viewedPrint=this.choice;
         else{this.cameraFocus=null;this.session.command(this.choice);}
         this.choice=null;
       }
@@ -357,6 +366,9 @@ export class Street {
     }
     const b=this.destinations.find(b=>b.id===this.openRoof);
     if(b?.kind==='home'){
+      const id=wallPrint(s.layout.wallPrints?.[b.id]);
+      const hit=id&&this.clearExteriors.interiors.appliances?.gallery?.hit(ray);
+      if(hit)offer(hit,.02,{type:'view-print',lot:b.id,id},'View '+catalog[id].subject);
       const square=pickBoardSquare(ray,b,local,s);
       if(square)offer(this.point.set(square.point.x,square.y,square.point.z),.02,square.command,square.label,square.focus);
     }
@@ -496,6 +508,7 @@ export class Street {
     grip.style.left=(r.left+(projected.x+1)*r.width/2)+'px';grip.style.top=(r.top+(1-projected.y)*r.height/2)+'px';
   }
   closePanels(){
+    this.viewedPrint=null;
     this.saveMenu.close();
     for(const id of ['build-pane','social-pane','directions-pane','wall-grip','world-choice'])$(id).hidden=true;
     if(this.buildLot){
@@ -691,14 +704,19 @@ export class Street {
     $('tv-remote').hidden=local.activity!=='watch'||!!this.buildLot;
     this.tableMenu.refresh(s,local,!!this.buildLot);
     this.pianoMenu.refresh();
-    const printId=local.activity==='admire'&&!this.buildLot?local.using?.object:null;
+    if(this.viewedPrint&&(this.viewedPrint.lot!==this.openRoof||
+      wallPrint(s.layout.wallPrints?.[this.openRoof])!==this.viewedPrint.id||this.buildLot))this.viewedPrint=null;
+    const printId=this.viewedPrint?.id||(local.activity==='admire'&&!this.buildLot?local.using?.object:null);
     $('easel-print').hidden=catalog[printId]?.type!=='easel';
-    $('easel-new').hidden=!printId||s.space!=='public'||local.using?.lot!==s.studioLot;
+    $('easel-new').hidden=!printId||!!this.viewedPrint||s.space!=='public'||local.using?.lot!==s.studioLot;
+    $('print-close').hidden=!this.viewedPrint;
     $('visit-studio').hidden=!s.studioLot||!s.layout.furnishings?.lots[s.studioLot]?.['easel-1'];
     if(!$('easel-print').hidden&&printId!==this.printId){
       const paper=$('easel-paper'),title=catalog[printId].subject;
       drawPainting(paper,printId,4);paper.setAttribute('aria-label',title);$('easel-title').textContent=title;
+      this.printKept=!!(printCollection(s.localSlot)&(1<<printIds.indexOf(printId)));
     }
+    if(printId){$('easel-keep').disabled=this.printKept;$('easel-keep').textContent=this.printKept?'In collection':'Keep for home';}
     this.printId=printId;
     if(!$('tv-remote').hidden)$('tv-channel').value=String(s.layout.homeTV?.[local.using.lot]||0);
     if(near)use.textContent=local.activity==='eat'?'Pause meal':local.activity==='cook'?'Stop cooking':local.part?'Stop playing '+local.part:local.activity?'Finish '+({train:'workout',relax:'resting',sit:'sitting',dine:'dining',dance:'dancing',rest:'resting',read:'reading',write:'writing',wash:'washing',shower:'showering',bathroom:'bathroom visit',stretch:'stretching'}[local.activity]||local.activity):spot?.label|| (spot?.part?'Play '+spot.part:spot?.action==='dance'?'Dance':names[near.kind]);

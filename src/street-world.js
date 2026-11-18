@@ -39,7 +39,7 @@ export function readLayout(s) {
       new Set(beds).size!==beds.length)return null;
     if(beds.length)fixtures.cutFlowerBeds=[...beds];
   }
-  for(const [key,max] of [['homeLights',3],['entryLights',1],['unlinkedLamps',3],['homeMeals',2],['homePaintings',24],['homeTV',tvChannels.length-1]]){
+  for(const [key,max] of [['homeLights',3],['entryLights',1],['unlinkedLamps',3],['homeMeals',2],['homePaintings',24],['wallPrints',4],['homeTV',tvChannels.length-1]]){
     if(s[key]===undefined)continue;
     if(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key]))return null;
     const entries=Object.entries(s[key]);

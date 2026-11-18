@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultLayout} from '../src/street-world.js';
-import {exportBackup,installBackup,loadOwner,parcelCredential,project,readBackup,savedParcel,savedStreets,selectSave,writeRecovered} from '../src/private-saves.js';
+import {defaultLayout,readLayout} from '../src/street-world.js';
+import {exportBackup,installBackup,keepPrint,loadOwner,parcelCredential,printCollection,project,readBackup,savedParcel,savedStreets,selectSave,writeRecovered} from '../src/private-saves.js';
 
 test('encrypted recovery retains the verified owner, multiple revisions and the original save',async()=>{
   const values=new Map();let full=false;
@@ -37,6 +37,17 @@ test('encrypted recovery retains the verified owner, multiple revisions and the 
     assert.throws(()=>installBackup(restored),/storage/);full=false;assert.equal((await loadOwner()).recovered.layout.revision,5);
     selectSave(second);assert.equal((await loadOwner()).recovered.layout.revision,4);
     selectSave('');assert.equal((await loadOwner()).identity.pub,original.identity.pub);
+    assert.equal(printCollection(''),0);assert.equal(keepPrint('','bed'),false);
+    assert.ok(keepPrint('','easel-2'));assert.equal(printCollection(''),2);
+    const decorated={...layout,wallPrints:{'frontage-r34-12-l':4}};
+    assert.equal(readLayout({...layout,wallPrints:{l1:5}}),null);
+    assert.equal(readLayout({...layout,wallPrints:{wrong:2}}),null);
+    const galleryFile=await exportBackup(original.identity,decorated,coffee,'art',null,null,false,printCollection(''));
+    const gallerySlot=installBackup(await readBackup(galleryFile,'art'));
+    assert.equal(printCollection(gallerySlot),2);assert.equal(printCollection(first),0);
+    assert.ok(keepPrint(gallerySlot,'easel-1'));assert.equal(printCollection(gallerySlot),3);assert.equal(printCollection(''),2);
+    selectSave(gallerySlot);assert.deepEqual((await loadOwner()).recovered.layout.wallPrints,decorated.wallPrints);
+    selectSave('');
     assert.deepEqual(JSON.parse(values.get(project+'.identity')),original.identity);
     values.set(project+'.identity','damaged');await assert.rejects(loadOwner(),/could not be read/);
     assert.equal(values.get(project+'.identity'),'damaged');

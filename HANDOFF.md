@@ -4,6 +4,14 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.18.0 lets players collect a finished painting in the public studio or
+on a private visit. Choose **Keep for home**, enter a generated home on your
+private street and open **Build → Wall art**. Hang the print in oak or antique
+brass. Guests can click the frame to view the painting and keep a copy. Each
+saved street has its own collection. Encrypted backups include both the collection
+and the pictures on the walls. Run the private and public `--studio` playtests
+to exercise painting, collecting, hanging, visiting and reloading.
+
 Version 0.17.4 keeps a private visitor's chair and activity reserved for the
 same one-minute reconnect window as their admission. The owner releases the
 seat if the visitor does not return during that window.

@@ -46,7 +46,7 @@ body.shot #ui,body.shot #mini{display:none}
       <div id="harbor-squares" role="group" aria-label="Game board"></div>
       <button id="harbor-practice">Practice solo</button> <button id="harbor-together">Play together</button>
     </section>
-    <figure id="easel-print" hidden><canvas id="easel-paper" width="640" height="480" role="img"></canvas><figcaption><span id="easel-title"></span> <button id="easel-save">Save print</button> <button id="easel-new" hidden>Paint another</button></figcaption></figure>
+    <figure id="easel-print" hidden><canvas id="easel-paper" width="640" height="480" role="img"></canvas><figcaption><span id="easel-title"></span> <button id="easel-keep">Keep for home</button> <button id="easel-save">Save PNG</button> <button id="easel-new" hidden>Paint another</button> <button id="print-close" hidden>Close</button></figcaption></figure>
     <label id="tv-remote" hidden>TV channel <select id="tv-channel"></select></label>
     <div id="live-action" hidden><span></span> <button id="order-chowder" hidden>Order chowder</button> <button id="order-fish" hidden>Order grilled fish</button> <button id="cancel-action">Cancel</button></div>
     <button id="reconnect-street" hidden>Reconnect to owner</button>
@@ -61,7 +61,13 @@ body.shot #ui,body.shot #mini{display:none}
       <div><button id="apply-wall">Move wall and door</button> <button id="undo-wall">Undo</button></div></div>
       <button id="terrace-open" hidden>Furnish café terrace</button>
       <div id="room-tools" hidden>
-        <label>Edit <select id="room-mode"><option value="divider">Room divider</option><option value="furniture">Furniture</option><option value="lighting">Lighting</option></select></label>
+        <label>Edit <select id="room-mode"><option value="divider">Room divider</option><option value="furniture">Furniture</option><option value="lighting">Lighting</option><option value="gallery">Wall art</option></select></label>
+        <div id="gallery-tools" hidden>
+          <label>Print <select id="gallery-print"></select></label>
+          <label>Frame <select id="gallery-frame"><option value="0">Oak</option><option value="1">Antique brass</option></select></label>
+          <div><button id="gallery-hang" class="primary">Hang print</button> <button id="gallery-clear">Take down</button></div>
+          <p id="gallery-status" role="status"></p>
+        </div>
         <div id="lighting-tools" hidden>
           <p id="lighting-info">The entry switch controls the hall light and the lamps you select.</p>
           <label><input id="link-desk" type="checkbox"> Desk lamp</label>

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import {dividerLimit,dividerParts,sameDivider} from './room-divider.js';
 import {FurnishingEditor} from './furnishing-editor.js';
-import {installedLampMask,lamps} from './home-fixtures.js';
+import {installedLampMask,lamps,printIds,wallPrint} from './home-fixtures.js';
+import {printCollection} from './private-saves.js';
+import {catalog} from './furniture-pose.js';
 
 const el=id=>document.getElementById(id);
 export class HomeEditor{
@@ -10,15 +12,19 @@ export class HomeEditor{
     this.furniture=new FurnishingEditor(street,listen);
     listen(el('room-mode'),'change',()=>{
       const mode=el('room-mode').value;
-      for(const name of ['divider','furniture','lighting'])el(name+'-tools').hidden=name!==mode;
+      for(const name of ['divider','furniture','lighting','gallery'])el(name+'-tools').hidden=name!==mode;
       this.ghost.visible=false;
       if(mode==='furniture')this.furniture.open(this.home);
       else{
         this.furniture.close();
         if(mode==='divider')this.change();
+        else if(mode==='gallery')this.showGallery();
         else this.showLighting();
       }
     });
+    for(const id of ['gallery-print','gallery-frame'])listen(el(id),'change',()=>this.galleryStatus());
+    listen(el('gallery-hang'),'click',()=>this.hang(this.gallerySelection()));
+    listen(el('gallery-clear'),'click',()=>this.hang(0));
     for(const [kind,lamp] of Object.entries(lamps)){
       const control=el('link-'+kind);
       listen(control,'change',()=>{
@@ -33,7 +39,7 @@ export class HomeEditor{
     listen(el('room-undo'),'click',()=>this.commit(null,true));
   }
   open(home){
-    el('room-mode').value='divider';el('divider-tools').hidden=false;el('furniture-tools').hidden=true;el('lighting-tools').hidden=true;
+    el('room-mode').value='divider';el('divider-tools').hidden=false;el('furniture-tools').hidden=true;el('lighting-tools').hidden=true;el('gallery-tools').hidden=true;
     this.home=home;el('wall-tools').hidden=el('wall-grip').hidden=true;el('room-tools').hidden=false;
     this.material=new THREE.MeshBasicMaterial({color:0x538a75,transparent:true,opacity:.52,depthWrite:false});
     this.geometry=new THREE.BoxGeometry();this.ghost=new THREE.Group();
@@ -75,8 +81,29 @@ export class HomeEditor{
     }
     el('lighting-info').textContent=installed?'The entry switch controls the hall light and the lamps you select.':'The entry switch controls the hall light.';
   }
+  showGallery(){
+    const s=this.street.session,owned=printCollection(s.localSlot),value=s.layout.wallPrints?.[this.home.id]||0;
+    const select=el('gallery-print');select.replaceChildren();
+    for(const [i,id] of printIds.entries())if(owned&(1<<i))select.add(new Option(catalog[id].subject,String(i+1)));
+    const displayed=printIds.indexOf(wallPrint(value));
+    if(displayed>=0&&(owned&(1<<displayed)))select.value=String(1+displayed);
+    el('gallery-frame').value=value>2?'1':'0';this.galleryStatus();
+  }
+  gallerySelection(){
+    return el('gallery-print').value?Number(el('gallery-print').value)+2*Number(el('gallery-frame').value):0;
+  }
+  galleryStatus(){
+    const value=this.street.session.layout.wallPrints?.[this.home.id]||0,next=this.gallerySelection();
+    el('gallery-frame').disabled=el('gallery-print').disabled=!next;
+    el('gallery-hang').disabled=!next||next===value;el('gallery-clear').hidden=!value;
+    el('gallery-status').textContent=value?catalog[wallPrint(value)].subject+' hangs between the back windows.':
+      next?'Choose a print for the back wall.':'View a finished painting and choose Keep for home to collect your first print.';
+  }
+  hang(value){
+    if(this.street.session.hangPrint(this.home,value))this.galleryStatus();
+  }
   refresh(){
-    if(el('room-mode').value==='lighting')return;
+    if(['lighting','gallery'].includes(el('room-mode').value))return;
     if(this.furniture.home){this.furniture.refresh();return;}
     const s=this.street.session,existing=this.home.divider??null;
     const changed=!sameDivider(existing,this.draft);

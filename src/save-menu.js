@@ -1,4 +1,4 @@
-import {exportBackup,installBackup,maxFileBytes,readBackup,savedParcel,savedStreets,selectedSave,selectSave} from './private-saves.js';
+import {exportBackup,installBackup,maxFileBytes,printCollection,readBackup,savedParcel,savedStreets,selectedSave,selectSave} from './private-saves.js';
 import {homeAt} from './home-plan.js';
 import {syncInteriors} from './home-furnishing.js';
 
@@ -51,7 +51,7 @@ export class SaveMenu{
       if(action==='export'){
         const revision=s.layout.revision;
         const home=homeAt(s.island,s.actors.get(s.id));
-        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id,savedParcel(s.ownerSave.slot),s.admission.required);
+        const data=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,password,home?.id,savedParcel(s.ownerSave.slot),s.admission.required,printCollection(s.ownerSave.slot));
         if(!current())return;
         const url=URL.createObjectURL(new Blob([data],{type:'application/json'})),a=document.createElement('a');
         a.href=url;a.download='Cozy-street-r'+revision+'-'+new Date().toISOString().slice(0,10)+'.cozy';

@@ -4,7 +4,7 @@ import {potServings} from './home-meals.js';
 import {TelevisionScreen} from './television.js';
 import {roundAt} from './table-game.js';
 import {TablePieces} from './table-pieces.js';
-import {EaselCanvas} from './easel-art.js';
+import {EaselCanvas,FramedPrint} from './easel-art.js';
 
 function addSoup(parent,f){
   const surface=new THREE.Mesh(new THREE.CylinderGeometry(.136,.133,.012,16),new THREE.MeshLambertMaterial({color:'#ce803c'}));
@@ -88,6 +88,7 @@ export class HomeAppliances {
   dispose(){
     this.frame.removeFromParent();
     this.tv.texture?.dispose();
+    this.gallery?.texture.dispose();
     for(const easel of this.easels)easel.texture.dispose();
     this.frame.traverse(mesh=>{
       if(!mesh.isMesh)return;
@@ -99,6 +100,9 @@ export class HomeAppliances {
     const time=session?.time||0,dt=Math.min(.1,Math.max(0,time-(this.lastTime??time)));
     this.lastTime=time;
     if(session)for(const easel of this.easels)easel.update(session.layout,this.home.id);
+    const print=session?.layout.wallPrints?.[this.home.id]||0;
+    if(print&&!this.gallery)this.gallery=new FramedPrint(this.frame,this.home);
+    this.gallery?.update(print,this.home.renderHandles.back.visible);
     const entry=this.entry,target=session?.layout.entryLights?.[this.home.id]||0;
     entry.level=entry.level===null?target:THREE.MathUtils.damp(entry.level,target,20,dt);
     entry.rocker.rotation.x=(entry.level-.5)*.64;

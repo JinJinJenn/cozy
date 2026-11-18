@@ -45,6 +45,10 @@ export function switchEntryLights(session,home){
 
 // Each house stores two independent canvases, with five possible stages apiece.
 const canvasPlace={'easel-1':1,'easel-2':5};
+export const printIds=['easel-1','easel-2'];
+export function wallPrint(value){
+  return Number.isInteger(value)&&value>=1&&value<=4?printIds[(value-1)%2]:null;
+}
 export function paintingStage(layout,lot,id){
   return Math.floor((layout.homePaintings?.[lot]||0)/canvasPlace[id])%5;
 }

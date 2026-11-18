@@ -1,4 +1,5 @@
 import {readLayout} from './street-world.js';
+import {printIds} from './home-fixtures.js';
 
 export const project='jenns-cozy-town-waterfront-v1';
 const slotPrefix=project+'.recovered.',selectedKey=project+'.selected-save';
@@ -10,6 +11,14 @@ const uid=/^[a-f0-9-]{36}$/i;
 export function stored(key){try{return JSON.parse(localStorage.getItem(key));}catch{return null;}}
 export function save(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}}
 export const selectedSave=()=>stored(selectedKey)||'';
+const printKey=(slot,id)=>project+'.print.'+(slot||'original')+'.'+id;
+export function keepPrint(slot,id){
+  return printIds.includes(id)&&save(printKey(slot,id),true);
+}
+export function printCollection(slot){
+  const inherited=slot?stored(slotPrefix+slot)?.prints||0:0;
+  return printIds.reduce((mask,id,i)=>stored(printKey(slot,id))===true?mask|(1<<i):mask,inherited);
+}
 export function readSaveValue(key){
   let raw;try{raw=localStorage.getItem(key);}catch{return undefined;}
   if(raw===null)return undefined;
@@ -104,15 +113,17 @@ function validateState(snapshot){
   const parcel=snapshot.parcel;
   if(parcel&&(!lotId(parcel.home)||parcel.pub===snapshot.identity?.pub))throw Error('Invalid public address credential.');
   if(snapshot.askToEnter!==undefined&&typeof snapshot.askToEnter!=='boolean')throw Error('Invalid visitor setting.');
-  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot,askToEnter:snapshot.askToEnter===true,...(parcel?{parcel}:{})};
+  const prints=snapshot.prints??0;
+  if(!Number.isInteger(prints)||prints<0||prints>3)throw Error('Invalid print collection.');
+  return {world,version:v,identity:snapshot.identity,layout,coffee:{...coffee},homeLot,askToEnter:snapshot.askToEnter===true,...(prints?{prints}:{}),...(parcel?{parcel}:{})};
 }
 async function passwordKey(password,salt){
   if(typeof password!=='string'||!password.length||password.length>1024)throw Error('Enter your backup passphrase.');
   const secret=await crypto.subtle.importKey('raw',utf8.encode(password),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt},secret,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
-export async function exportBackup(identity,layout,coffee,password,homeLot=null,parcel=null,askToEnter=false){
-  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot,parcel,askToEnter})));
+export async function exportBackup(identity,layout,coffee,password,homeLot=null,parcel=null,askToEnter=false,prints=0){
+  const data=utf8.encode(JSON.stringify(validateState({world,version:v,identity,layout,coffee,homeLot,parcel,askToEnter,prints})));
   const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await passwordKey(password,salt);
   const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:header},key,data);

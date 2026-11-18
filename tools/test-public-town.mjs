@@ -117,7 +117,7 @@ try{
       throw error;
     }
   }else if(process.argv.includes('--studio')){
-    await playPublicStudio({host,guest,wait});assert.deepEqual(errors,[]);
+    await playPublicStudio({host,guest,wait,navigate});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--players')){
     await playPlayers({host,guest,paired,ready,wait,navigate,profile,isolatedRelay:!relay});assert.deepEqual(errors,[]);
   }else if(process.argv.includes('--addresses')){

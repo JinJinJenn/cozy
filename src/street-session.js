@@ -10,13 +10,13 @@ import {homeAt} from './home-plan.js';
 import {applyRoomPlans,dividerLimit,sameDivider} from './room-divider.js';
 import {editedItems,installFurniture,occupantLimit,planInterior,syncInteriors} from './home-furnishing.js';
 import {catalog,furnishings,samePose,storedPose,supportFor,validPose,wireFurnishings} from './furniture-pose.js';
-import {homeAction,installedLampMask,paintingStage,setFixtureValue,setPaintingStage,tuneTelevision} from './home-fixtures.js';
+import {homeAction,installedLampMask,paintingStage,printIds,setFixtureValue,setPaintingStage,tuneTelevision,wallPrint} from './home-fixtures.js';
 import {boardCommand,practiceTurn,validRound} from './table-game.js';
 import {encodeResidents,decodeResidents} from './resident-wire.js';
 import {rerouteResidents} from './resident-world.js';
 import {lobbyIdentity,PublicTown,publicWorld,streetSpace} from './public-town.js';
 import {takeVehicle,moveVehicle,dismount,teleport} from './street-travel.js';
-import {project,loadOwner,readSaveValue,save,stored,writeRecovered} from './private-saves.js';
+import {project,loadOwner,printCollection,readSaveValue,save,selectedSave,stored,writeRecovered} from './private-saves.js';
 import {PublicAddresses} from './public-parcels.js';
 import {canGesture,canGreet,gesturePhase,loadProfile,readProfile,sameProfile,storeProfile} from './player-profile.js';
 import {flowerBox,validFlower} from './roadside-flowers.js';
@@ -77,6 +77,7 @@ export class StreetSession {
     this.layout=defaultLayout();this.time=0;this.seq=0;this.lastFrame=0;this.lastSent=0;this.connected=false;this.ready=false;this.listed=false;
     this.keys={...zero};this.inputSeq=0;this.actionSeq=0;this.verifiedSeq=-1;this.oldBoots=new Set();
     const params=new URLSearchParams(location.search);
+    this.localSlot=selectedSave();
     this.space=streetSpace(island,params);this.visit=params.get('visit');this.owner=this.space==='personal';
     if(this.space!=='public'){
       this.visitTicket=crypto.randomUUID();this.privateLinks=new Map();this.privateHosts=new Map();
@@ -279,6 +280,16 @@ export class StreetSession {
     if(current!==next){
       setFixtureValue(this.layout,'unlinkedLamps',home.id,next);
       this.persist();
+    }
+    return true;
+  }
+  hangPrint(home,value){
+    if(!this.ready||!this.canBuild||!home||homeAt(this.island,this.actors.get(this.id))!==home)return false;
+    const id=wallPrint(value);
+    if(value!==0&&(!id||!(printCollection(this.localSlot)&(1<<printIds.indexOf(id)))))return false;
+    if((this.layout.wallPrints?.[home.id]||0)!==value){
+      setFixtureValue(this.layout,'wallPrints',home.id,value);
+      this.layout.revision++;this.persist();
     }
     return true;
   }

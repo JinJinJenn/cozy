@@ -34,9 +34,10 @@ async function clickItem(page,lot,id,label){
 
 export async function playtestStudio({host,guest,open,out}){
   const lot=await host.evaluate(()=>window.__cozy.island.homes.find(b=>b.name==='Home 5').id);
-  async function visit(page){
-    await page.locator('#directions-open').click();await page.locator('#destination').selectOption(lot);
-    await page.locator('#jump-place').click();await page.waitForFunction(id=>window.__cozy.street.openRoof===id,lot);
+  const gallery=await host.evaluate(()=>window.__cozy.island.homes.find(b=>b.name==='Home 9').id);
+  async function visit(page,to=lot){
+    await page.locator('#directions-open').click();await page.locator('#destination').selectOption(to);
+    await page.locator('#jump-place').click();await page.waitForFunction(id=>window.__cozy.street.openRoof===id,to);
   }
   async function setup(id,x,z,rotate=false){
     await host.locator('#furniture-item').selectOption(id);await host.locator('#furniture-x').fill(String(x));await host.locator('#furniture-z').fill(String(z));
@@ -80,20 +81,64 @@ export async function playtestStudio({host,guest,open,out}){
     await c.setCamera([eye.x,h.y+3.0,eye.z],[aim.x,h.y+1.3,aim.z]);c.render();
   },lot);
   await guest.screenshot({path:out+'/studio.jpg',type:'jpeg',quality:92});
-  assert.ok(await host.evaluate(async lot=>{
-    const s=window.__cozy.street.session,{exportBackup,readBackup}=await import('./src/private-saves.js');
-    const pass=crypto.randomUUID(),file=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,pass,lot);
-    const {layout}=await readBackup(file,pass);
-    return layout.homePaintings[lot]===4&&layout.furnishings.lots[lot]['armchair-1'][2]===1;
-  },lot));
+  await guest.locator('#use-place').click();await visit(guest,gallery);
+  await clickItem(host,lot,'easel-1','View Harbor at dawn');
+  await host.locator('#easel-keep').click();await host.getByRole('button',{name:'In collection'}).waitFor();
+  await visit(host,gallery);await host.locator('#build-open').click();await host.locator('#room-mode').selectOption('gallery');
+  assert.equal(await host.locator('#gallery-print option').allTextContents()+'','Harbor at dawn');
+  await host.locator('#gallery-hang').click();
+  const frame=(page,value)=>page.waitForFunction(({lot,value})=>{
+    const st=window.__cozy.street;
+    return st.openRoof===lot&&(st.session.layout.wallPrints?.[lot]||0)===value;
+  },{lot:gallery,value});
+  await frame(guest,1);
+  assert.equal(await guest.evaluate(id=>{const c=window.__cozy;return c.street.session.hangPrint(c.island.homesById.get(id),0);},gallery),false);
+  await host.locator('#gallery-clear').click();await frame(guest,0);
+  await host.locator('#gallery-frame').selectOption('1');await host.locator('#gallery-hang').click();await frame(guest,3);
+  const view=async page=>{
+    await page.evaluate(async id=>{
+      const c=window.__cozy,st=c.street,h=c.island.homesById.get(id),{homeWorld}=await import('./src/home-plan.js');
+      const aim=homeWorld(h,0,-h.d/2+.16),eye=homeWorld(h,.3,-h.d/2+3.2);
+      st.cameraFocus=aim;await c.setCamera([eye.x,h.y+2.05,eye.z],[aim.x,h.y+1.82,aim.z]);c.render();
+    },gallery);
+    const getPoint=await page.waitForFunction(()=>{
+      const c=window.__cozy,st=c.street,panel=st.clearExteriors.interiors.appliances?.gallery?.panel;
+      if(!panel?.visible)return;
+      const cam=c.camera.clone();cam.position.lerp(st.controls.target,1-st.cameraFraction());cam.updateMatrixWorld();
+      const r=st.controls.domElement.getBoundingClientRect(),{width,height}=panel.geometry.parameters;
+      for(const fx of [0,.31,-.31])for(const fy of [0,.3,-.3]){
+        const uv=panel.localToWorld(st.point.clone().set(width*fx,height*fy,0)).project(cam);
+        const x=r.left+(1+uv.x)*r.width/2,y=r.top+(1-uv.y)*r.height/2;
+        if(document.elementFromPoint(x,y)!==st.controls.domElement)continue;
+        const ray=st.pointerRay({clientX:x,clientY:y});
+        if(st.pickAction(ray,true,st.floorPoint(ray,cam.far))?.command?.type==='view-print')return {x,y};
+      }
+    },null,{timeout:15000});
+    const point=await getPoint.jsonValue();await getPoint.dispose();
+    await page.mouse.click(point.x,point.y,{button:'right'});
+    await page.locator('#world-choice').getByRole('button',{name:'View Harbor at dawn',exact:true}).click({timeout:8000});
+    await page.locator('#print-close').waitFor({state:'visible'});
+  };
+  await view(guest);await guest.locator('#easel-keep').click();await guest.getByRole('button',{name:'In collection'}).waitFor();
+  await guest.locator('#print-close').click();await guest.locator('#easel-print').waitFor({state:'hidden'});
+  await guest.screenshot({path:out+'/wall-print.jpg',type:'jpeg',quality:92});
+  assert.ok(await host.evaluate(async ({lot,gallery})=>{
+    const s=window.__cozy.street.session,{exportBackup,printCollection,readBackup}=await import('./src/private-saves.js');
+    const pass=crypto.randomUUID(),file=await exportBackup(s.ownerSave.identity,s.layout,s.coffeeVisits,pass,gallery,null,false,printCollection(s.localSlot));
+    const {layout,prints}=await readBackup(file,pass);
+    return layout.homePaintings[lot]===4&&layout.furnishings.lots[lot]['armchair-1'][2]===1&&layout.wallPrints[gallery]===3&&prints===1;
+  },{lot,gallery}));
   const invite=await host.evaluate(()=>window.__cozy.street.session.invite());await guest.context().close();
   await host.reload();await host.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street?.session?.ready,null,{timeout:120000});
-  const fresh=await open(invite);await stage(fresh,4);await clickItem(fresh,lot,'easel-1','View Harbor at dawn');
+  const fresh=await open(invite);await frame(fresh,3);
+  await fresh.waitForFunction(()=>window.__cozy.street.session.connected);
+  await view(fresh);await fresh.locator('#print-close').click();
+  await visit(fresh);await stage(fresh,4);await clickItem(fresh,lot,'easel-1','View Harbor at dawn');
   await fresh.locator('#easel-print').waitFor({state:'visible'});
-  return {guestSeated:true,occupiedChairProtected:true,packUndo:true,interruptedPaintingResumed:true,sharedCanvas:true,printPixels:[640,480],encryptedBackup:true,ownerReload:true,freshVisitor:true};
+  return {guestSeated:true,occupiedChairProtected:true,packUndo:true,interruptedPaintingResumed:true,sharedCanvas:true,printPixels:[640,480],wallInAnotherHouse:true,guestCollectedFramedPrint:true,encryptedBackup:true,ownerReload:true,freshVisitor:true};
 }
 
-export async function playPublicStudio({host,guest,wait}){
+export async function playPublicStudio({host,guest,wait,navigate}){
   const lot=await host.evaluate(()=>window.__cozy.street.session.studioLot);
   assert.ok(lot,'The canonical public town should have a furnished art studio');
   for(const page of [host,guest]){
@@ -112,10 +157,18 @@ export async function playPublicStudio({host,guest,wait}){
   assert.equal(await host.locator('#easel-title').innerText(),'Harbor at dawn');
   const [print]=await Promise.all([guest.waitForEvent('download'),guest.locator('#easel-save').click()]);
   assert.equal(print.suggestedFilename(),'Poppies by the path.png');
+  await guest.locator('#easel-keep').click();await guest.getByRole('button',{name:'In collection'}).waitFor();
   await guest.locator('#easel-new').click();
   await wait(host,lot=>{
     const s=window.__cozy.street.session,value=s.layout.homePaintings[lot];
     return value%5===4&&Math.floor(value/5)<4&&[...s.actors.values()].some(a=>a.activity==='paint'&&a.using?.object==='easel-2');
   },lot);
-  console.log('PASS two visitors teleported from spawn, painted different public canvases together, downloaded a print and started a fresh canvas');
+  await guest.locator('#social-open').click();await navigate(guest,'#personal-street');
+  await guest.locator('#directions-open').click();await guest.locator('#destination').selectOption(lot);
+  await guest.locator('#jump-place').click();await wait(guest,id=>window.__cozy.street.openRoof===id,lot);
+  await guest.locator('#build-open').click();await guest.locator('#room-mode').selectOption('gallery');
+  assert.deepEqual(await guest.locator('#gallery-print option').allTextContents(),['Poppies by the path']);
+  await guest.locator('#gallery-hang').click();
+  await wait(guest,id=>window.__cozy.street.session.layout.wallPrints?.[id]===2,lot);
+  console.log('PASS two public painters finished separate pictures, took a print home and hung it on a private street');
 }

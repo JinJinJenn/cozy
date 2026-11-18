@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {paintingStage} from './home-fixtures.js';
+import {paintingStage,wallPrint} from './home-fixtures.js';
 
 // The same original painting is rendered on linen in the room and on the print.
 export function drawPainting(canvas,id,stage){
@@ -89,5 +89,48 @@ export class EaselCanvas{
     const stage=paintingStage(layout,lot,this.id);
     if(stage===this.stage)return;
     drawPainting(this.canvas,this.id,stage);this.texture.needsUpdate=true;this.stage=stage;
+  }
+}
+
+export class FramedPrint{
+  constructor(parent,home){
+    const paper=document.createElement('canvas');paper.width=512;paper.height=400;
+    this.texture=new THREE.CanvasTexture(paper);this.texture.colorSpace=THREE.SRGBColorSpace;
+    const gap=home.w*.48-Math.min(1.1,home.w*.18)-.22;
+    const width=Math.min(1.65,gap);
+    this.panel=new THREE.Mesh(new THREE.PlaneGeometry(width,width*400/512),new THREE.MeshLambertMaterial({
+      map:this.texture,emissive:0xffffff,emissiveMap:this.texture,emissiveIntensity:.13
+    }));
+    this.panel.position.set(0,1.82,-home.d/2+.16);parent.add(this.panel);
+  }
+  update(value,visible){
+    this.panel.visible=visible&&!!value;
+    if(!this.panel.visible||this.value===value)return;
+    this.value=value;
+    const canvas=this.texture.image,ctx=canvas.getContext('2d'),oak=value<=2;
+    const tones=oak?['#684532','#b3865e','#845737','#523728']:['#5b5032','#dcc78c','#99854e','#71603b'];
+    ctx.fillStyle=tones[0];ctx.fillRect(0,0,512,400);
+    for(const [i,points] of [
+      [[0,0],[512,0],[498,14],[14,14]],[[0,0],[14,14],[14,386],[0,400]],
+      [[512,0],[512,400],[498,386],[498,14]],[[0,400],[14,386],[498,386],[512,400]]
+    ].entries()){
+      ctx.fillStyle=tones[[1,2,0,3][i]];ctx.beginPath();ctx.moveTo(...points[0]);
+      for(const point of points.slice(1))ctx.lineTo(...point);
+      ctx.closePath();ctx.fill();
+    }
+    ctx.fillStyle='#eadfc5';ctx.fillRect(14,14,484,372);
+    ctx.strokeStyle='#877966';ctx.strokeRect(31,31,450,338);
+    ctx.save();ctx.translate(32,32);ctx.scale(448/512,336/400);
+    ctx.beginPath();ctx.rect(0,0,512,400);ctx.clip();
+    drawPainting(canvas,wallPrint(value),4);ctx.restore();
+    this.texture.needsUpdate=true;
+  }
+  hit(ray){
+    if(!this.panel.visible)return null;
+    const plane=new THREE.Plane(new THREE.Vector3(0,0,1),0).applyMatrix4(this.panel.matrixWorld);
+    if(ray.direction.dot(plane.normal)>=0)return null;
+    const point=ray.intersectPlane(plane,new THREE.Vector3());if(!point)return null;
+    const p=this.panel.worldToLocal(point.clone()),{width,height}=this.panel.geometry.parameters;
+    return Math.abs(p.x)<=width/2&&Math.abs(p.y)<=height/2?point:null;
   }
 }
