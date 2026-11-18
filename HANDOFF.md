@@ -4,6 +4,10 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.9.1 places invited guests inside the house on admission. If the
+doorway is occupied, the host looks for another clear indoor spot. Address
+controls also update while a slow renderer is waiting for its next frame.
+
 Version 0.9.0 gives a personal home an address in the public town. Enter a
 generated home and choose **Home address**, or open **Multiplayer** to claim a
 nearby house. If two players choose the same address, the host assigns it to

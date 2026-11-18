@@ -393,7 +393,7 @@ export class StreetSession {
     if(this.lobby){
       m.authority=this.pub;
       if(this.addresses.synced){m.parcelRevision=this.addresses.book.revision;m.parcelBoot=this.hostBoot;}
-    }
+    }else if(this.invitedHome)m.entryHome=this.invitedHome;
     this.connections.forEach(c=>c.send(m));}
   async receive(sender,m){
     if(this.closed||!m)return;
@@ -411,7 +411,12 @@ export class StreetSession {
       if(this.peers.has(sender)&&this.peers.get(sender)!==m.id)return;
       this.peers.set(sender,m.id);let state=this.controls.get(m.id);
       if(!state){if(this.controls.size>=12)return;state={seq:-1,action:0};this.controls.set(m.id,state);
-        this.actors.set(m.id,{id:m.id,...this.spawn,yaw:this.cafe.yaw,activity:'',part:''});}
+        const joining={id:m.id,...this.spawn,yaw:this.cafe.yaw,activity:'',part:''};
+        this.actors.set(m.id,joining);
+        if(!this.lobby&&this.island.homesById?.has(m.entryHome)){
+          teleport(this,joining,{place:m.entryHome});joining.entryHome=m.entryHome;
+        }
+      }
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
@@ -450,8 +455,9 @@ export class StreetSession {
         if(this.layout.revision!==layout.revision||newHost)applyRoomPlans(this.island,this.layout.rooms?.lots,layout.rooms?.lots);
         this.actors=new Map(f.actors.map(a=>[a.id,a]));this.layout=layout;this.time=f.t;
         if(this.pendingCommand&&this.actors.get(this.id).commandAck>=this.pendingCommand.seq)this.pendingCommand=null;
-        if(this.invitedHome){
-          this.command({type:'teleport',place:this.invitedHome});this.invitedHome=null;
+        if(this.invitedHome&&this.inviteBoot!==f.boot){
+          this.inviteBoot=f.boot;
+          if(this.actors.get(this.id).entryHome!==this.invitedHome)this.command({type:'teleport',place:this.invitedHome});
         }
         const residents=typeof f.residents==='string'?decodeResidents(f.residents,this.town.people.length):f.residents;
         if(Array.isArray(residents)&&residents.length===this.town.people.length){

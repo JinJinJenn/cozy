@@ -193,7 +193,10 @@ export class Street {
       if(this.previewChanged())this.commitWall();
     });
     listen(grip,'lostpointercapture',()=>{if(this.drag){this.drag=null;this.resetPreview();}});
-    listen($('social-open'),'click',()=>{const open=$('social-pane').hidden;this.closePanels();$('social-pane').hidden=!open;});
+    listen($('social-open'),'click',()=>{
+      const open=$('social-pane').hidden;this.closePanels();$('social-pane').hidden=!open;
+      if(open)this.refreshAddressMenu();
+    });
     listen($('copy-street'),'click',async()=>{
       const url=await this.session.invite();if(!url)return;
       $('invite-url').value=url;$('invite-url').hidden=false;
@@ -322,6 +325,13 @@ export class Street {
     if(!this.session)return;
     const dt=Math.min(.15,Math.max(0,(now-this.lastAdvance)/1000));this.lastAdvance=now;
     if(this.active)this.input();this.session.tick(dt);
+    if(this.active&&now>=(this.nextAddressUI||0)){
+      this.nextAddressUI=now+180;this.refreshAddressMenu();
+    }
+  }
+  refreshAddressMenu(){
+    const s=this.session,actor=s?.actors.get(s.id);
+    if(actor)this.addressMenu.refresh(s.addresses?s.near(actor):null);
   }
   notice(text){$('street-note').textContent=text;}
   showRooms(){
@@ -528,7 +538,6 @@ export class Street {
     this.art.updateMeters(s.time,s.actors.values());
     const near=s.near(local);if(near?.kind==='club')this.music.play(s.time,s.actors.values());
     if(this.nextUI>now)return;this.nextUI=now+150;
-    this.addressMenu.refresh(near);
     if(this.homeEditor.home)this.homeEditor.refresh();
     else if(this.terraceEditor.active)this.terraceEditor.refresh();
     else if(this.buildLot&&this.previewChanged())this.preview();

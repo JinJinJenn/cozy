@@ -46,8 +46,10 @@ test('invalid travel preserves activities and named teleport releases the rider 
   for(const cmd of [{x:NaN,z:0},{x:130,z:0},{place:'missing'}]){
     teleport(s,a,cmd);assert.equal(a.vehicle,'car');assert.equal(a.travelSeq,undefined);
   }
-  const b={id:'home-1',inside:{x:12,z:2}};s.island.homesById=new Map([[b.id,b]]);
+  const b={id:'home-1',kind:'home',x:12,z:2,w:6,d:6,c:1,s:0,walls:[],furniture:[],inside:{x:12,z:4.8}};
+  s.island.homesById=new Map([[b.id,b]]);s.island.homeCells=new Map([['0,0',[b]]]);
   s.actors.set('guest',{id:'guest',...b.inside});
   teleport(s,a,{place:b.id});assert.equal(a.travelSeq,1);assert.equal(a.vehicle,undefined);
-  assert.ok(Math.hypot(a.x-12,a.z-2)>=.62);assert.equal(a.walking,false);
+  assert.ok(Math.hypot(a.x-b.inside.x,a.z-b.inside.z)>=.62);assert.equal(a.walking,false);
+  assert.ok(Math.abs(a.x-b.x)<3&&Math.abs(a.z-b.z)<3);
 });

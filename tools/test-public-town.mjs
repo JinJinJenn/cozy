@@ -20,7 +20,10 @@ const signalling=new Promise(resolve=>release=resolve);
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
   args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
 const wait=(p,condition,arg)=>p.waitForFunction(condition,arg,{polling:125,timeout:90000});
-const ready=p=>wait(p,()=>window.__cozy?.ready&&window.__cozy.street.session?.ready);
+const ready=async p=>{
+  await wait(p,()=>window.__cozy?.ready&&window.__cozy.street.session?.ready);
+  if(process.env.CI&&process.argv.includes('--addresses'))await p.evaluate(()=>window.__cozy.setSize(480,290));
+};
 const inspect=p=>p.evaluate(()=>{
   const s=window.__cozy.street.session;
   return {space:s.space,owner:s.owner,id:s.id,pub:s.pub,connected:s.connected,actors:[...s.actors.keys()],

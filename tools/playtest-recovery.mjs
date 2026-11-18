@@ -24,7 +24,7 @@ export async function playtestRecovery({host,guest,open,origin,out}){
   });
   assert.notEqual(original,source.pub);
   await newDevice.locator('#social-open').click();await newDevice.locator('#public-street').click();
-  await newDevice.waitForFunction(()=>window.__cozy?.street?.session?.ready&&window.__cozy.street.session.space==='public',null,{timeout:120000});
+  await newDevice.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street.session?.ready&&window.__cozy.street.session.space==='public',null,{timeout:120000});
   await menu(newDevice);
   assert.equal(await newDevice.locator('#save-download').isVisible(),false);
   await newDevice.locator('#save-file').setInputFiles({name:file.suggestedFilename(),mimeType:'application/json',buffer:bytes});

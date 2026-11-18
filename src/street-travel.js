@@ -91,10 +91,11 @@ export function moveVehicle(s,a,input,dt){
     Object.assign(a,{x,z,yaw});
   }
 }
-function land(s,a,p){
+function land(s,a,p,home){
   const others=nearbyPeople(s,a,p.x,p.z);
   for(const [dx,dz] of [[0,0],[.8,0],[-.8,0],[0,.8],[0,-.8],[1.25,.8],[-1.25,-.8],[2.3,0],[-2.3,0],[0,2.3],[0,-2.3]]){
     const q={x:p.x+dx,z:p.z+dz};
+    if(home&&homeAt(s.island,q)!==home)continue;
     if(walkable(s.island,s.plots,s.layout,q)&&others.every(b=>Math.hypot(q.x-b.x,q.z-b.z)>(b.vehicle?1.9:.62))){
       clearActivity(s,a);Object.assign(a,q);a.travelSeq=(a.travelSeq||0)+1;return true;
     }
@@ -110,7 +111,17 @@ export function dismount(s,a){
 export function teleport(s,a,cmd){
   let p;
   if(cmd.place){
-    const b=s.island.homesById?.get(cmd.place)||s.plots.find(b=>b.id===cmd.place)||
+    const home=s.island.homesById?.get(cmd.place);
+    if(home){
+      if(land(s,a,home.inside,home))return;
+      for(let z=home.d/2-.8;z> -home.d/2+.4;z-=.9){
+        for(let x=-home.w/2+.8;x<home.w/2-.4;x+=.9){
+          if(land(s,a,toWorld(home,x,z),home))return;
+        }
+      }
+      a.feedback='There is no clear spot inside this house.';return;
+    }
+    const b=s.plots.find(b=>b.id===cmd.place)||
       [s.garden,s.island.townSquare].find(b=>b&&b.id===cmd.place);
     if(b)p=b.inside||b.entry||toWorld(b,0,frontAt(b,s.layout)+1.4);
   }else if(Number.isFinite(cmd.x)&&Number.isFinite(cmd.z)&&Math.abs(cmd.x)<s.island.half&&Math.abs(cmd.z)<s.island.half)p=cmd;

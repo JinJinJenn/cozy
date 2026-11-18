@@ -22,6 +22,12 @@ try{
      await r.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});});return ctx;};
  const open=async(url)=>{const p=await(await context()).newPage();p.on('pageerror',e=>report.errors.push(e.message));
    p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))report.errors.push(m.text());});
+   if(software&&process.env.CI)p.on('domcontentloaded',()=>{
+     // Each profile keeps its normal viewport and input coordinates. Reduce
+     // software rasterization while several full simulations share one runner.
+     void p.waitForFunction(()=>window.__cozy?.ready,null,{polling:200,timeout:120000})
+       .then(()=>p.evaluate(()=>window.__cozy.setSize(400,300))).catch(()=>{});
+   });
    await p.goto(url);await p.waitForFunction(()=>window.__cozy?.ready&&window.__cozy.street.session?.ready,null,{timeout:120000});return p;};
  const host=await open(origin+'?space=personal'),guest=await open(await host.evaluate(()=>window.__cozy.street.session.invite()));
  report.version=await host.locator('#graphics-settings summary span').innerText();
