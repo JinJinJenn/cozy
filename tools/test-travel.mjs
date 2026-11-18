@@ -8,13 +8,20 @@ import {testNostrRelay} from './test-nostr-relay.mjs';
 
 const {chromium}=createRequire(process.env.PLAYWRIGHT_FROM||import.meta.url)('playwright');
 const root=fileURLToPath(new URL('../',import.meta.url)),live=process.argv.includes('--live');
+const software=process.argv.includes('--software');
 const origin=live?'https://jinjinjenn.github.io/cozy/':'https://travel-'+randomUUID()+'.test/cozy/';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXE||undefined,
-  args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
+  args:[...(software?['--use-angle=swiftshader','--enable-unsafe-swiftshader']:[]),'--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows','--mute-audio']});
 const relay=testNostrRelay(),errors=[];
 const until=(p,fn,arg)=>p.waitForFunction(fn,arg,{polling:80,timeout:45000});
 async function profile(){
-  const ctx=await browser.newContext({viewport:{width:1050,height:660}});
+  const ctx=await browser.newContext({viewport:{width:1050,height:660},deviceScaleFactor:software?.6:1});
+  if(software)await ctx.addInitScript(()=>{
+    // Give native input and WebRTC a turn between software-rendered frames.
+    // Keep CSS coordinates and the game's simulation clock at their normal values.
+    const frame=requestAnimationFrame.bind(window);
+    window.requestAnimationFrame=fn=>setTimeout(()=>frame(fn),90);
+  });
   await ctx.addInitScript(()=>localStorage.setItem('cozy.graphics','low'));await relay(ctx);
   if(!live)await ctx.route(origin+'**',async route=>{
     const file=path.resolve(root,new URL(route.request().url()).pathname.slice(6)||'index.html');
@@ -133,9 +140,15 @@ try{
   const mapPoint=await screenAt(visitor,road);await visitor.mouse.click(mapPoint.x,mapPoint.y,{button:'right'});
   const pin=await visitor.evaluate(()=>window.__cozy.street.mapDestination);
   assert.ok(pin&&Math.hypot(pin.x-road.x,pin.z-road.z)<9,'street under the island-scale map pixel '+JSON.stringify({pin,road,mapPoint}));
-  await visitor.locator('#map-jump').click();
+  const confirm=await visitor.locator('#map-jump').evaluate(button=>{
+    const rect=button.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+    return !button.disabled&&document.elementFromPoint(x,y)===button?{x,y}:null;
+  });
+  assert.ok(confirm,'the enabled map travel confirmation receives pointer input');
+  await visitor.mouse.click(confirm.x,confirm.y);
   await until(visitor,({x,z})=>{const s=window.__cozy.street,a=s.session.actors.get(s.session.id);
     return s.active&&Math.hypot(a.x-x,a.z-z)<2.6;},pin);
+  console.log('PASS map click selected the road and confirmed travel at the map pin.');
   const roadStart=await actor(visitor);
   const step=await visitor.evaluate(({dx,dz})=>{
     const s=window.__cozy.street,a=s.session.actors.get(s.session.id);

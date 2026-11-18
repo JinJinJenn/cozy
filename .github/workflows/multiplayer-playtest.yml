@@ -78,7 +78,7 @@ jobs:
           fi
       - name: Drive, cycle and use pointer controls with a friend
         if: matrix.signalling == 'travel'
-        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:travel
+        run: PLAYWRIGHT_FROM="$RUNNER_TEMP/cozy-browser/package.json" npm run test:travel -- --software
       - name: Preserve failed client states
         if: failure()
         uses: actions/upload-artifact@v4
