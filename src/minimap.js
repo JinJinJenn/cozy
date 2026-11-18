@@ -1,4 +1,5 @@
 import {clamp,lerp} from '../packages/island-gen/src/rng.js';
+import {sunlight} from './daylight.js';
 
 // Top-down minimap: depth-tinted water + zone-painted land with hillshade.
 export function renderMinimapPixels(island,W,H){
@@ -13,7 +14,7 @@ export function renderMinimapPixels(island,W,H){
     else{
       const e=14,gx=(island.sample(x+e,z)-island.sample(x-e,z))/(2*e),gz=(island.sample(x,z+e)-island.sample(x,z-e))/(2*e);
       const s=Math.hypot(gx,gz),c=island.paint(x,z,h,s,island.wetAt(x,z,h));
-      const shade=clamp(.78+(-gx*-.45+-gz*.5)*1.1,.45,1.15);
+      const shade=clamp(.78-(gx*sunlight.x+gz*sunlight.z)/(sunlight.y*Math.hypot(1,gx,gz)),.45,1.15);
       const sr=v=>Math.pow(clamp(v*shade,0,1),1/2.2)*255;r=sr(c[0]);g=sr(c[1]);b=sr(c[2]);
     }
     const k=(py*W+px)*4;img.data[k]=r;img.data[k+1]=g;img.data[k+2]=b;img.data[k+3]=255;

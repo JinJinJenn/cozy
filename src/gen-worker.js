@@ -19,8 +19,8 @@ self.onmessage=e=>{
         meta:{seed:island.seed,presetId:island.presetId,preset:island.preset,size:island.size,half:island.half,grid:island.grid,cell:island.cell,stats:island.stats,chunkSize:island.chunkSize,checksum:island.checksum()},
         h,water:w,plan},[h.buffer,w.buffer]);
     }else if(m.type==='chunk'){
-      const t=buildTerrainChunk(island,m.cx,m.cz,m.res),wd=buildWaterChunk(island,m.cx,m.cz,m.wres);
-      const tr=[t.positions.buffer,t.colors.buffer,t.indices.buffer];
+      const t=buildTerrainChunk(island,m.cx,m.cz,m.res,{skirts:false}),wd=buildWaterChunk(island,m.cx,m.cz,m.wres);
+      const tr=[t.positions.buffer,t.normals.buffer,t.colors.buffer,t.indices.buffer];
       if(wd) tr.push(wd.positions.buffer,wd.depth.buffer,wd.indices.buffer);
       self.postMessage({type:'chunk',id:m.id,terrain:t,water:wd},tr);
     }else if(m.type==='minimap'){

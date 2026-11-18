@@ -7,6 +7,12 @@ article{background:var(--card);border-radius:16px;padding:20px 22px;margin:22px 
 figure{margin:14px 0}img,video{width:100%;border-radius:12px;display:block}figcaption{font-size:13px;opacity:.75;margin-top:4px}
 ul{padding-left:20px}.bad li{color:inherit}code{background:rgba(233,143,176,.18);padding:1px 5px;border-radius:5px}
 nav a{margin-right:12px}a{color:var(--accent)}</style></head><body><main><h1>Cozy devlog</h1><p>A record of the seeded islands, streets and residents that make up Cozy. The newest entry comes first.</p>
+<article id="m19"><div class="date">2026-11-17 &middot; v0.3.2</div>
+<h2>Daylight on Harbor Bay</h2>
+<p>Harbor slopes now catch the same sunlight as the houses. Meadow, woodland, riverbank and exposed rock have distinct ground colours. Short wind ripples follow the bay into the shallows.</p>
+<figure><img loading="lazy" src="shots/2026-11-17/harbor-bay-v032.jpg" alt="Harbor Bay looking along the waterfront homes toward the town square and river."><figcaption>Petalwood at 720p on the Low graphics setting, with all 457 residents simulated.</figcaption></figure>
+<p>Open water needs less geometry and the minimap now draws roads directly into its 208-pixel map. At the same bay viewpoint, rendered triangles fell from 1.88 million to 1.64 million. Desktop frame intervals stayed near 16.7 ms. Software rendering improved from 467 to 417 ms at the bay and from 167 to 117 ms at the café. The wide view still needs substantial work on slow hardware.</p>
+</article>
 <article id="m18"><div class="date">2026-11-17 &middot; M18 Tree surface cost &middot; v0.3.1</div>
 <h2>The same crowns with less buried geometry</h2>
 <p>Garden and woodland trees now share complete crown meshes with enclosed leaf triangles removed. Every exposed triangle keeps its shape, normal, color and leaf-pattern coordinates. Garden crowns lose 43 to 44 percent of their leaf triangles, with no distance-based detail swap.</p>

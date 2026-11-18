@@ -121,6 +121,19 @@ Use `--full-only` to sample the whole renderer without isolation variants.
 
 ## Work order
 
+The v0.3.2 terrain pass supplies packed slope normals and unlit albedo, removes
+skirts from equal-resolution viewer tiles and simplifies nearly uniform offshore
+water. Drawing the minimap at its display resolution eliminated a retained
+3133 × 4096 canvas, about 49 MiB at four bytes per pixel.
+
+Matched 1280 × 720 Low captures used the same Petalwood bay and café camera
+poses with all 457 residents active. Hardware draws at the bay went from
+1,877,275 to 1,639,019 triangles in 1,142 calls. At the café they went from
+603,434 to 401,962 in 503 calls. Desktop median and p95 frame intervals held
+at 16.7 and 16.8 ms over 120 frames per view. In 30-frame SwiftShader samples,
+bay median/p95 went from 466.6/466.8 to 416.7/433.3 ms and café median/p95 from
+166.6/183.3 to 116.7/133.3 ms. Physical low-end device measurements remain open.
+
 1. Improve the actual models and scene representation first. Build original tree
    crowns and architecture with deliberate silhouettes, shared materials and less
    hidden geometry. Preserve detail from street to town; no abrupt cheap-model swap.

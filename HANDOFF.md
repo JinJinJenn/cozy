@@ -4,6 +4,12 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.3.2 lights the graded terrain with the same sun as the houses. Open
+sea uses fewer triangles and the minimap paints roads into its 208-pixel map.
+All 111 unit checks and the four-locale viewer passed. With 457 residents
+running, the matched Low bay view dropped from 1,877,275 to 1,639,019 triangles.
+Software rendering still took 416.7 ms per frame at the median in that view.
+
 Version 0.3.1 removes buried tree-crown faces while preserving the exposed surface.
 Matched software WebGL wide-view samples improved by 10 to 11 percent; extra draw
 calls carry a small measured CPU cost. See the rendering review for the tradeoff
@@ -60,6 +66,7 @@ asset representation before a whole-game port; backend comparisons remain experi
 
 ## Version 0.3 verification and limits
 
+- Both [multiplayer CI jobs for v0.3.1](https://github.com/JinJinJenn/cozy/actions/runs/44211207259) passed.
 - Version 0.3.1 passed 109 unit checks, the four-locale viewer and three crown
   image comparisons. A full public-signalling native WebRTC street run passed
   locally. Remote CI has intermittent timeouts, including a map-button wait

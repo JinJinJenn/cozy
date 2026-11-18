@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {createRoadSurface} from './road-surface.js';
+import {sunlight} from './daylight.js';
 import {ResidentCrowd} from './resident-crowd.js';
 import {bindResidentWorld} from './resident-world.js';
 import {defaultLayout,floorAt} from './street-world.js';
@@ -15,24 +16,9 @@ function trace(ctx, xz, close = false) {
   if (close) ctx.closePath();
 }
 
-// The minimap uses a compact raster of the road plan. The world uses exact road segments.
-function paintPlan(plan, maxTextureSize) {
-  const { roads, plots } = plan.layers;
-  const bounds = new THREE.Box2();
-  const point = new THREE.Vector2();
-  for (const item of [...roads, ...plots]) {
-    for (let i = 0; i < item.xz.length; i += 2) bounds.expandByPoint(point.fromArray(item.xz, i));
-  }
-  if (bounds.isEmpty()) bounds.expandByPoint(point.set(0, 0));
-  bounds.expandByScalar(12);
-  const extent = bounds.getSize(new THREE.Vector2());
-  const scale = Math.min(4, maxTextureSize / Math.max(extent.x, extent.y));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.ceil(extent.x * scale));
-  canvas.height = Math.max(1, Math.ceil(extent.y * scale));
-  const ctx = canvas.getContext('2d');
-  ctx.scale(canvas.width / extent.x, canvas.height / extent.y);
-  ctx.translate(-bounds.min.x, -bounds.min.y);
+// The map is painted once per island. Roads and lots share the destination
+// canvas transform so no island-sized intermediate bitmap is needed.
+function paintMapRoads(ctx,roads) {
   ctx.lineJoin = ctx.lineCap = 'round';
   // Paint all footways before the carriageways so junction mouths stay open.
   for(const layer of ['verge','footway','kerb','carriageway']){
@@ -54,7 +40,7 @@ function paintPlan(plan, maxTextureSize) {
     trace(ctx, road.xz);
     ctx.stroke();
   }
-  return { canvas, bounds, extent };
+
 }
 
 function bridgeDecks(island, roads) {
@@ -105,15 +91,14 @@ function bridgeDecks(island, roads) {
 }
 
 export class SettlementView {
-  constructor(island, capabilities) {
+  constructor(island) {
     this.island = island;
     const plan = island.plan;
-    this.decal = paintPlan(plan, Math.min(4096, capabilities.maxTextureSize));
     this.terrainMaterial = createRoadSurface(island);
     this.group = new THREE.Group();
     this.group.add(new THREE.HemisphereLight('#dcebed', '#96947b', 1.12));
     const sun=this.sun=new THREE.DirectionalLight('#fff0d7',2.65);
-    sun.position.set(46,63,-32);
+    sun.position.set(sunlight.x,sunlight.y,sunlight.z);
     sun.castShadow=true;
     sun.shadow.mapSize.set(1024,1024);
     Object.assign(sun.shadow.camera,{left:-29,right:29,top:29,bottom:-29,near:1,far:150});
@@ -194,13 +179,12 @@ export class SettlementView {
     return p ? new THREE.Vector3(p.x, this.decks.heightAt(p.x,p.z) + 1, p.z) : new THREE.Vector3();
   }
   drawMap(ctx, size) {
-    const { bounds, extent, canvas } = this.decal;
     const scale = ctx.canvas.width / size;
     ctx.save();ctx.translate(ctx.canvas.width/2,ctx.canvas.height/2);ctx.scale(scale,scale);
     ctx.lineWidth=.42/scale;ctx.strokeStyle='rgba(93,109,88,.5)';
     for(const plot of this.island.plan.layers.plots){trace(ctx,plot.xz,true);ctx.stroke();}
+    paintMapRoads(ctx,this.island.plan.layers.roads);
     ctx.restore();
-    ctx.drawImage(canvas, (bounds.min.x + size / 2) * scale, (bounds.min.y + size / 2) * scale, extent.x * scale, extent.y * scale);
   }
   dispose() {
     this.worker?.terminate();

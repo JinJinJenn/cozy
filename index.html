@@ -8,6 +8,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#f6e3ec;font:13px/1.35
 canvas#gl{display:block;width:100vw;height:100vh}
 #ui{position:fixed;left:12px;top:12px;background:var(--panel);border-radius:14px;padding:10px 12px;display:grid;gap:8px;width:250px;box-shadow:0 4px 18px rgba(120,60,90,.18);backdrop-filter:blur(6px)}
 #ui label{display:grid;gap:3px;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+#ui{width:min(300px,calc(100vw - 48px));grid-template-columns:minmax(0,1fr)}
+#ui .row{flex-wrap:wrap}#ui input{min-width:0}
 select,input,button{font:inherit;color:var(--ink);border:1px solid #e3c9d6;border-radius:9px;padding:6px 8px;background:#fff}
 button{cursor:pointer;background:var(--mint);border-color:#6cc2a6;font-weight:600}
 button.alt{background:#fff}button:hover{filter:brightness(1.05)}

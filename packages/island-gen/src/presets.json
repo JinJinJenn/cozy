@@ -789,8 +789,8 @@
   "palette": {
    "sky": "#82b9d5",
    "fog": "#dfebdf",
-   "shallow": "#66b9b3",
-   "deep": "#377e95",
+   "shallow": "#72c6b6",
+   "deep": "#286e87",
    "foam": "#ffffff"
   },
   "zones": [
@@ -836,8 +836,9 @@
     ]
    },
    {
-    "name": "garden pink",
-    "color": "#acc48a",
+    "name": "sunlit meadow",
+    "color": "#b9b77b",
+    "strength": 0.58,
     "h": [
      3,
      40,
@@ -849,16 +850,16 @@
      0.1
     ],
     "noise": {
-     "scale": 0.04,
-     "min": 0.7,
+     "scale": 0.012,
+     "min": 0.5,
      "max": 1,
-     "soft": 0.08,
+     "soft": 0.18,
      "seed": 7
     }
    },
    {
     "name": "woodland",
-    "color": "#759876",
+    "color": "#62826c",
     "h": [
      14,
      500,
@@ -879,7 +880,7 @@
    },
    {
     "name": "wet bank",
-    "color": "#b9c9a0",
+    "color": "#648f75",
     "wet": [
      0.35,
      1,
@@ -889,7 +890,7 @@
    },
    {
     "name": "rock",
-    "color": "#a5aa9e",
+    "color": "#a09380",
     "slope": [
      0.6,
      9,

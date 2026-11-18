@@ -30,7 +30,7 @@ JSON in `src/presets.json`: size, grid, lobes/scatter, bays, warp, base profile,
 - Unity: import the RAW as 16-bit, Windows byte order, res 513; terrain height = `terrainHeight` from the JSON; sea level is at world y = `seaLevelY` relative to the terrain origin.
 
 ## Chunks (optional renderer helpers)
-`buildTerrainChunk(island,cx,cz,res)` and `buildWaterChunk(...)` return plain typed arrays (positions, vertex colours with baked light, indices; water has a per-vertex depth). Three.js is not imported.
+`buildTerrainChunk(island,cx,cz,res)` returns positions, unlit vertex colours, signed normalized 16-bit surface normals and triangle indices. Edge normals sample the same graded heightfield on adjacent tiles. Skirts are enabled by default for mixed resolutions. Pass `{skirts:false}` as the fifth argument for a uniform grid. `buildWaterChunk(...)` returns positions, depth and triangle indices for a wet tile, or `null` for a dry one.
 
 ## Tests
 `npm test` in the repo root (or `node --test tests/*.test.mjs` here): determinism, sea level / land ratio, finite chunks, API and export shapes.

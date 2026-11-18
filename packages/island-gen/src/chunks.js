@@ -1,83 +1,54 @@
-import {clamp,lerp,smooth} from './rng.js';
+import {clamp} from './rng.js';
 
-// Pure chunk geometry builders (typed arrays only). Chunk (cx,cz) covers
-// [cx*S,(cx+1)*S] x [cz*S,(cz+1)*S] in world metres; S = island.chunkSize.
-// Terrain gets baked light + shadow + cavity shade in vertex colours for the
-// flat pastel toon look (rendered with an unlit material).
-
-const SUN=(()=>{const v=[-.45,.72,.5],l=Math.hypot(...v);return v.map(a=>a/l);})();
+// The viewer always uses matching tile resolutions. Other callers can retain
+// skirts when mixing resolutions. Sample the graded heightfield across tile
+// boundaries so both tiles use the same lighting normal at the shared vertex.
 const SKIRT=7;
 
-function shadowAt(island,x,y,z){
-  // march toward the sun over the heightfield; 1 = fully shadowed
-  const hx=SUN[0],hz=SUN[2],hl=Math.hypot(hx,hz),sy=SUN[1];
-  let occ=0;
-  for(let i=1;i<=34;i++){
-    const d=i*8,px=x+hx/hl*d,pz=z+hz/hl*d,ry=y+d*sy/hl;
-    const t=island.sample(px,pz);
-    if(t>ry){occ=Math.max(occ,clamp((t-ry)/14,0,1));if(occ>=1)break;}
-  }
-  return occ;
-}
-
-export function buildTerrainChunk(island,cx,cz,res=33){
+export function buildTerrainChunk(island,cx,cz,res=33,{skirts=true}={}){
   const S=island.chunkSize,x0=cx*S,z0=cz*S,step=S/(res-1);
-  const core=res*res,skirtCount=4*res,total=core+skirtCount;
+  const core=res*res,total=core+(skirts?4*res:0);
   const positions=new Float32Array(total*3),colors=new Float32Array(total*3);
-  const e=Math.max(island.cell,step);
+  const normals=new Int16Array(total*3);
+  const e=island.cell;
   for(let j=0;j<res;j++)for(let i=0;i<res;i++){
     const x=x0+i*step,z=z0+j*step,hh=island.sample(x,z),k=(j*res+i)*3;
     positions[k]=x;positions[k+1]=hh;positions[k+2]=z;
-    const gx=(island.sample(x+e,z)-island.sample(x-e,z))/(2*e),gz=(island.sample(x,z+e)-island.sample(x,z-e))/(2*e);
-    const s=Math.hypot(gx,gz),wet=island.wetAt(x,z,hh);
-    const c=island.paint(x,z,hh,s,wet);
-    const nl=Math.hypot(gx,1,gz),lam=Math.max(0,(-gx*SUN[0]+SUN[1]-gz*SUN[2])/nl);
-    let light=.6+.52*lam;
-    const sh=hh>-.5?shadowAt(island,x,hh+.6,z):0;
-    light*=1-.3*sh;
-    const avg=(island.sample(x+11,z)+island.sample(x-11,z)+island.sample(x,z+11)+island.sample(x,z-11))*.25;
-    light*=1-clamp((avg-hh)*.035,0,.22);          // cavity darkening
-    light*=1+clamp((hh-avg)*.012,0,.08);           // ridge lift
-    const q=Math.floor(light*5+.5)/5;light=lerp(light,q,.22); // soft toon banding
-    const cool=sh*.5;
-    colors[k]=clamp(c[0]*light*(1-cool*.1),0,1);
-    colors[k+1]=clamp(c[1]*light*(1-cool*.04),0,1);
-    colors[k+2]=clamp(c[2]*light*(1+cool*.1),0,1);
-  }
-  // skirts hide LOD cracks between chunks of different resolution
-  let sk=core;
-  const edge=[];
-  for(let i=0;i<res;i++)edge.push(i);                       // top (j=0)
-  for(let i=0;i<res;i++)edge.push((res-1)*res+i);           // bottom
-  for(let j=0;j<res;j++)edge.push(j*res);                   // left
-  for(let j=0;j<res;j++)edge.push(j*res+res-1);             // right
-  const skirtOf=new Map();
-  for(const v of edge){
-    const k=v*3,o=sk*3;
-    positions[o]=positions[k];positions[o+1]=positions[k+1]-SKIRT;positions[o+2]=positions[k+2];
-    colors[o]=colors[k]*.9;colors[o+1]=colors[k+1]*.9;colors[o+2]=colors[k+2]*.9;
-    skirtOf.set(v+':'+(sk),sk);sk++;
+    const gx=(island.sample(x+e,z)-island.sample(x-e,z))/(2*e);
+    const gz=(island.sample(x,z+e)-island.sample(x,z-e))/(2*e);
+    const scale=32767/Math.hypot(gx,1,gz);
+    normals[k]=Math.round(-gx*scale);
+    normals[k+1]=Math.round(scale);
+    normals[k+2]=Math.round(-gz*scale);
+    const color=island.paint(x,z,hh,Math.hypot(gx,gz),island.wetAt(x,z,hh));
+    for(let channel=0;channel<3;channel++)colors[k+channel]=clamp(color[channel],0,1);
   }
   const idx=[];
   for(let j=0;j<res-1;j++)for(let i=0;i<res-1;i++){
     const a=j*res+i,b=a+1,c=a+res,d=c+1;
     idx.push(a,c,b,b,c,d);
   }
-  // skirt quads
-  const sides=[
-    {start:core,           list:Array.from({length:res},(_,i)=>i),                    flip:false},
-    {start:core+res,       list:Array.from({length:res},(_,i)=>(res-1)*res+i),        flip:true},
-    {start:core+2*res,     list:Array.from({length:res},(_,j)=>j*res),                flip:true},
-    {start:core+3*res,     list:Array.from({length:res},(_,j)=>j*res+res-1),          flip:false},
-  ];
-  for(const sd of sides){
-    for(let t=0;t<res-1;t++){
-      const a=sd.list[t],b=sd.list[t+1],sa=sd.start+t,sb=sd.start+t+1;
-      // double sided via both windings keeps it simple
-      idx.push(a,b,sa,b,sb,sa,a,sa,b,b,sa,sb);
+  if(skirts){
+    const sides=[
+      i=>i, i=>(res-1)*res+i, j=>j*res, j=>j*res+res-1
+    ];
+    let next=core;
+    for(const at of sides){
+      for(let t=0;t<res;t++,next++){
+        const a=at(t),k=a*3,o=next*3;
+        positions.set(positions.subarray(k,k+3),o);
+        positions[o+1]-=SKIRT;
+        colors.set(colors.subarray(k,k+3),o);
+        normals.set(normals.subarray(k,k+3),o);
+        if(t+1<res){
+          const b=at(t+1);
+          idx.push(a,b,next,b,next+1,next,a,next,b,b,next,next+1);
+        }
+      }
     }
   }
-  return {cx,cz,res,positions,colors,indices:Uint32Array.from(idx)};
+  const IndexArray=total<=65536?Uint16Array:Uint32Array;
+  return {cx,cz,res,positions,normals,colors,indices:IndexArray.from(idx)};
 }
 
 // Water surface chunk. Returns null when the chunk holds no water at all.
@@ -93,12 +64,42 @@ export function buildWaterChunk(island,cx,cz,res=49){
   }
   if(!any) return null;
   const idx=[];
-  for(let j=0;j<res-1;j++)for(let i=0;i<res-1;i++){
-    const a=j*res+i,b=a+1,c=a+res,d=c+1;
-    // skip fully dry quads
-    if(depth[a]<-.4&&depth[b]<-.4&&depth[c]<-.4&&depth[d]<-.4) continue;
-    idx.push(a,c,b,b,c,d);
+  function emitPatch(x0,z0,x1,z1){
+    const width=x1-x0,height=z1-z0;
+    if(width>3&&height>3){
+      // Every source sample must be open sea. Keep the entire perimeter so
+      // adjacent patches interpolate exactly the same depths at their seam.
+      let minimum=Infinity,maximum=-Infinity;
+      let offshore=true;
+      for(let z=z0;offshore&&z<=z1;z++)for(let x=x0;x<=x1;x++){
+        const v=z*res+x;
+        if(positions[v*3+1]!==0||depth[v]<1.5){offshore=false;break;}
+        minimum=Math.min(minimum,depth[v]);
+        maximum=Math.max(maximum,depth[v]);
+      }
+      const midX=(x0+x1)>>1,midZ=(z0+z1)>>1;
+      if(offshore && maximum-minimum<=minimum*.06){
+        const center=midZ*res+midX;
+        for(let x=x0;x<x1;x++){
+          idx.push(center,z0*res+x+1,z0*res+x,center,z1*res+x,z1*res+x+1);
+        }
+        for(let z=z0;z<z1;z++){
+          idx.push(center,z*res+x0,(z+1)*res+x0,center,(z+1)*res+x1,z*res+x1);
+        }
+        return;
+      }
+      emitPatch(x0,z0,midX,midZ);emitPatch(midX,z0,x1,midZ);
+      emitPatch(x0,midZ,midX,z1);emitPatch(midX,midZ,x1,z1);
+      return;
+    }
+    for(let z=z0;z<z1;z++)for(let x=x0;x<x1;x++){
+      const a=z*res+x,b=a+1,c=a+res,d=c+1;
+      if(depth[a]<-.4&&depth[b]<-.4&&depth[c]<-.4&&depth[d]<-.4)continue;
+      idx.push(a,c,b,b,c,d);
+    }
   }
+  emitPatch(0,0,res-1,res-1);
   if(!idx.length) return null;
-  return {cx,cz,res,positions,depth,indices:Uint32Array.from(idx)};
+  const IndexArray=res*res<=65536?Uint16Array:Uint32Array;
+  return {cx,cz,res,positions,depth,indices:IndexArray.from(idx)};
 }

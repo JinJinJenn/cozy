@@ -7,6 +7,7 @@ const SEA_LEVEL=0;
 import {PRESETS,PRESET_IDS} from '../packages/island-gen/src/presets.js';
 import {drawMarker} from './minimap.js';
 import {graphicsSettings} from './graphics.js';
+import {sunlight} from './daylight.js';
 const client=new IslandClient();
 
 const params=new URLSearchParams(location.search);
@@ -57,9 +58,15 @@ const waterMat=new THREE.ShaderMaterial({
       float foam=1.-smoothstep(band*.2,band*.55,d);
       float line=smoothstep(.0,.12,d)*(1.-smoothstep(.12,.34,d)); // thin bright shoreline
       col=mix(col,uFoam,clamp(foam*.7+line*.35,0.,1.));
-      // soft stylised glints
-      float g=sin(vW.x*.9+uTime*1.1)*sin(vW.z*.8-uTime*.9);
-      col+=vec3(.06)*smoothstep(.82,1.,g)*(1.-t*.6);
+      // Long wind streaks break and bend along their length. Fade subpixel
+      // crests as the camera pulls back so the bay reads as one surface.
+      float along=dot(vW.xz,vec2(.94,.34)),across=dot(vW.xz,vec2(-.34,.94));
+      float wave=across*.92+.8*w1+.54*sin(along*.27+across*.15+uTime*.8)-uTime*1.08;
+      float breaks=sin(along*.76+1.7*w2+uTime*.4);
+      float crest=smoothstep(.83,.98,sin(wave))*smoothstep(.12,.92,breaks*.52+w2*.46+w1*.33);
+      float resolved=1.-smoothstep(.3,2.2,fwidth(wave));
+      col+=vec3(.029,.043,.041)*crest*resolved;
+      col*=.99+.012*w1+.009*w2;
       float a=mix(.5,1.,t)*smoothstep(-.02,.1,d);
       a=max(a,foam*.85*smoothstep(-.02,.06,d));
       float f=smoothstep(uFogNear,uFogFar,length(cameraPosition-vW));
@@ -96,11 +103,8 @@ function makeMesh(data,isWater){
   m.matrixAutoUpdate=false;
   if(isWater)m.renderOrder=2;
   else{
-    // Terrain already carries baked slope lighting. A level receiver normal keeps
-    // the vertical crack skirts from leaving dark seams across grass and sand.
-    const normals=new Float32Array(data.positions.length);
-    for(let i=1;i<normals.length;i+=3)normals[i]=1;
-    g.setAttribute('normal',new THREE.BufferAttribute(normals,3));m.receiveShadow=true;
+    g.setAttribute('normal',new THREE.BufferAttribute(data.normals,3,true));
+    m.receiveShadow=true;
   }
   return m;
 }
@@ -181,7 +185,7 @@ function streetLighting(){
   const cam=sun.shadow.camera;
   if(cam.right!==span){Object.assign(cam,{left:-span,right:span,top:span,bottom:-span});cam.updateProjectionMatrix();}
   sun.target.position.copy(at);
-  sun.position.set(at.x+46,at.y+63,at.z-32);
+  sun.position.set(at.x+sunlight.x,at.y+sunlight.y,at.z+sunlight.z);
   sun.shadow.needsUpdate=true;
 }
 const orbitEye=new THREE.Vector3();
@@ -259,7 +263,7 @@ async function load(presetId,seed,view='oblique',viewOpts){
     const loaded=await client.load(seed,presetId);
     if(generation!==loadGen) return;
     island=loaded;
-    town=new SettlementView(island,renderer.capabilities);
+    town=new SettlementView(island);
     island.deckHeight=town.decks.heightAt;
     scene.add(town.group);
     street=new Street(island,scene,camera,controls,town);
