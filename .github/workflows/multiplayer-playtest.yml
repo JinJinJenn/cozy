@@ -37,6 +37,7 @@ on:
       - 'src/table-*.js'
       - 'src/home-*.js'
       - 'src/resident-*.js'
+      - 'src/sidewalk-network.js'
       - 'src/furni*.js'
       - 'src/room-divider.js'
       - 'src/street*.js'

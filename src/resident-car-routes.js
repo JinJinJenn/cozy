@@ -1,4 +1,4 @@
-import {buildRoadGraph, roadsWithin} from '../packages/sim/src/nav.js';
+import {buildRoadGraph, mergeJunctions, roadsWithin} from '../packages/sim/src/nav.js';
 import {hashFloat} from '../packages/sim/src/rng.js';
 import {distSeg} from '../packages/settlement/src/geom.js';
 import {cornerSpeeds} from '../packages/sim/src/roadster.js';
@@ -47,30 +47,6 @@ function addressRoads(plan, homes) {
   return roads;
 }
 
-// A rounded T or a shared endpoint can have several node IDs at one crossing.
-// Give the entire junction one reservation, including cars on different roads.
-function mergeJunctions(graph) {
-  const {nodes, adj} = graph;
-  const roots = nodes.map((_, i) => i);
-  function root(i) {
-    while (roots[i] !== i) i = roots[i] = roots[roots[i]];
-    return i;
-  }
-  adj.forEach((edges, i) => {
-    for (const [j, length] of edges) if (length <= joinTolerance) roots[root(j)] = root(i);
-  });
-  const merged = nodes.map(() => []);
-  adj.forEach((edges, i) => {
-    const a = root(i);
-    for (const [j, , road] of edges) {
-      const b = root(j);
-      if (a === b || road === null || merged[a].some(e => e[0] === b)) continue;
-      merged[a].push([b, separation(nodes[a], nodes[b]), road]);
-    }
-  });
-  return {nodes, adj: merged, root};
-}
-
 function laneRoute(ids, graph, roads) {
   const {nodes, adj} = graph;
   const legs = [], junctions = [];
@@ -114,7 +90,7 @@ function laneRoute(ids, graph, roads) {
 
 export function planResidentVisits(plan, homes, seed) {
   const roads = addressRoads(plan, homes);
-  const graph = mergeJunctions(buildRoadGraph(roads, joinTolerance, true));
+  const graph = mergeJunctions(buildRoadGraph(roads, joinTolerance, true), joinTolerance);
   const addresses = roads.flatMap(r => r.addresses);
   for (const a of addresses) a.node = graph.root(a.node);
   const visits = new Map();

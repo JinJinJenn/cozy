@@ -29,7 +29,7 @@ export function makeLand(island) {
   return { land, clearLine, dryLine, height: (x, z) => q.sample(x, z) };
 }
 
-class Heap {
+export class Heap {
   constructor() {
     this.a = [];
   }
@@ -167,6 +167,30 @@ export function buildRoadGraph(roads, joinDist, labelEdges = false) {
     grid.get(k).push(i);
   });
   return { nodes, adj, roadOf };
+}
+
+// A rounded T or a shared endpoint can have several node IDs at one crossing.
+// Give the entire junction one node for routes arriving from different roads.
+export function mergeJunctions(graph, joinTolerance) {
+  const {nodes, adj} = graph;
+  const roots = nodes.map((_, i) => i);
+  function root(i) {
+    while (roots[i] !== i) i = roots[i] = roots[roots[i]];
+    return i;
+  }
+  adj.forEach((edges, i) => {
+    for (const [j, length] of edges) if (length <= joinTolerance) roots[root(j)] = root(i);
+  });
+  const merged = nodes.map(() => []);
+  adj.forEach((edges, i) => {
+    const a = root(i);
+    for (const [j, , road] of edges) {
+      const b = root(j);
+      if (a === b || road === null || merged[a].some(e => e[0] === b)) continue;
+      merged[a].push([b, Math.hypot(nodes[a][0]-nodes[b][0], nodes[a][1]-nodes[b][1]), road]);
+    }
+  });
+  return {nodes, adj: merged, root};
 }
 
 // Distances along the streets for all possible visits from one address.

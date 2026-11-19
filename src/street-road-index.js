@@ -6,9 +6,10 @@ export function roadsOf(island){
     const [x,z]=road.pts[i-1],[ex,ez]=road.pts[i],length=Math.hypot(ex-x,ez-z);
     if(!length)continue;
     const dx=(ex-x)/length,dz=(ez-z)/length,r=road.width/2;
-    const line={x,z,dx,dz,length,r,drivable:road.class!=='path'&&road.width>=4};segments.push(line);
-    for(let ix=Math.floor((Math.min(x,ex)-r-.5)/32);ix<=Math.floor((Math.max(x,ex)+r+.5)/32);ix++)
-      for(let iz=Math.floor((Math.min(z,ez)-r-.5)/32);iz<=Math.floor((Math.max(z,ez)+r+.5)/32);iz++){
+    const line={x,z,dx,dz,length,r,bridge:!!road.bridge,drivable:road.class!=='path'&&road.width>=4};segments.push(line);
+    const reach=r+2; // Include the paved shoulders in nearby road queries.
+    for(let ix=Math.floor((Math.min(x,ex)-reach)/32);ix<=Math.floor((Math.max(x,ex)+reach)/32);ix++)
+      for(let iz=Math.floor((Math.min(z,ez)-reach)/32);iz<=Math.floor((Math.max(z,ez)+reach)/32);iz++){
         const key=ix+','+iz;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(line);
       }
   }

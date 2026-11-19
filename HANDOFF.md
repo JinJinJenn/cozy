@@ -4,6 +4,18 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.25.0 gives residents a graph for the left and right sidewalks, corners,
+street crossings, dry gaps between blocks, and bridge footways. Room edits
+invalidate cached walking legs and ground checks. The traffic replay measures
+walking along the actual road surface on both Harbor Town seeds.
+
+Run `node tools/test-viewer.mjs --traffic` for the six-minute replays. On
+petalwood, 459 residents walked 307,094 metres, with 75 metres parallel to a
+car lane inside its boundary. On clover-618 the figures were 229,366 and
+1,904 metres. All 73 and 63 resident drivers returned home respectively.
+
+## Previous driving update
+
 Version 0.24.0 uses oriented car and bicycle bodies for player movement and
 resident traffic checks. Drivers leave standing room behind vehicles and increase
 their following distance at speed. Signed town frames carry the residents'

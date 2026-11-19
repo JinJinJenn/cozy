@@ -1,3 +1,4 @@
+import {buildSidewalkNetwork} from './sidewalk-network.js';
 import {walkingRoute} from './street-route.js';
 import {defaultLayout,walkable,toWorld} from './street-world.js';
 import {homeAt,homeWalkable} from './home-plan.js';
@@ -49,6 +50,7 @@ export function bindResidentWorld(ctx,street){
   };
   const cache=new Map();let revision=-1;
   const layout=()=>street.session?.layout||defaultLayout();
+  const sidewalkRoute=buildSidewalkNetwork(island,p=>walkable(island,street.plots,layout(),p));
   ctx.inTrafficLane=pos=>!!carriagewayAt(island,...pos);
   ctx.leisureStop=(target,from)=>sidewalkStop(island,target,from,(x,z)=>{
     const p={x,z};
@@ -66,8 +68,19 @@ export function bindResidentWorld(ctx,street){
     if(revision!==state.revision){cache.clear();revision=state.revision;}
     const first=homeAt(island,start),last=homeAt(island,end);
     const begin=first?(first.approach||first.entry):start,finish=last?(last.approach||last.entry):end;
-    const base=networkRoute([begin.x,begin.z],[finish.x,finish.z],comp);if(!base)return null;
-    const goals=[...(first?[first.inside,first.entry,begin]:[]),...base.pts.map(([x,z])=>({x,z})),...(last?[last.entry,last.inside,end]:[])];
+    if(first&&first===last)return resolveLegs(start,[end],state);
+    const porch=first?[first.inside,first.entry,begin]:[],door=last?[last.entry,last.inside,end]:[];
+    const pavement=sidewalkRoute(begin,finish,state.revision);
+    if(pavement){
+      const route=resolveLegs(start,[...porch,...pavement,...door],state);
+      if(route)return route;
+    }
+    // Trails, isolated shores and a walkway obstructed by a room edit still
+    // use the land network and the ordinary door and furniture clearance.
+    const base=networkRoute([begin.x,begin.z],[finish.x,finish.z],comp);
+    return base&&resolveLegs(start,[...porch,...base.pts.map(([x,z])=>({x,z})),...door],state);
+  };
+  function resolveLegs(start,goals,state){
     const pts=[];let at=start,len=0;
     for(const goal of goals){
       if(Math.hypot(goal.x-at.x,goal.z-at.z)<.02)continue;
@@ -77,7 +90,7 @@ export function bindResidentWorld(ctx,street){
       if(!leg)return null;
       for(const p of leg){len+=Math.hypot(p.x-at.x,p.z-at.z);pts.push([p.x,p.z]);at=p;}
     }
-    return {pts:pts.length?pts:[to.slice()],len};
-  };
+    return {pts:pts.length?pts:[[at.x,at.z]],len};
+  }
   bindResidentTraffic(ctx,street);
 }

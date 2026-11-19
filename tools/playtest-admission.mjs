@@ -46,6 +46,7 @@ export async function playAdmission({host,guest,ready,wait,navigate,profile}){
     await wait(visitor,()=>window.__cozy.street.session.space==='public'&&window.__cozy.street.session.ready);
     assert.ok(await guest.evaluate(()=>window.__cozy.street.session.connected));
   }finally{await visitor.context().close();}
+  await host.bringToFront();
   await host.reload();await ready(host);await panel(host);
   assert.equal(await host.locator('#ask-to-enter').isChecked(),true);
   await guest.locator('#visit-wait').getByText('Knocked. Waiting for the owner.').waitFor();
