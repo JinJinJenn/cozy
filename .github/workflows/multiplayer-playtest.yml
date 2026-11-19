@@ -47,6 +47,10 @@ on:
       - 'src/harbor-garden.js'
       - 'src/mesh-index.js'
       - 'src/vehicle-art.js'
+      - 'src/station-wagon.js'
+      - 'src/tire-tracks.js'
+      - 'tools/playtest-wagon.mjs'
+      - 'tools/playtest-offroad.mjs'
       - 'src/bridge-*.js'
       - 'src/settlement-view.js'
       - 'tools/test-travel.mjs'
@@ -156,6 +160,8 @@ jobs:
           npm run test:travel -- --software --gamepad
           npm run test:travel -- --software --queue
           npm run test:travel -- --software --banks
+          npm run test:travel -- --software --wagon
+          npm run test:travel -- --software --offroad
           node tools/test-viewer.mjs --traffic
           node tools/test-viewer.mjs --residents
       - name: Transfer a private street between browser profiles

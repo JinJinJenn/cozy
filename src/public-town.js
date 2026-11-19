@@ -1,6 +1,6 @@
 // Only the canonical world participates. Changing a world or wire format
 // requires a new room name so old clients cannot exchange incompatible poses.
-export const publicWorld = 'harbor-petalwood-world2-wire3';
+export const publicWorld = 'harbor-petalwood-world2-wire4';
 export function streetSpace(island, params) {
   if (params.has('visit')) return 'visit';
   if (params.get('space') === 'personal' || island.presetId !== 'harborTown' || island.seed !== 'petalwood') return 'personal';

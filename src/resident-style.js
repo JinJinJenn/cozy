@@ -1,3 +1,4 @@
+import {householdCar} from '../packages/sim/src/cars.js';
 import {Rng,hashSeed} from '../packages/sim/src/rng.js';
 
 const jackets=['#c34e52','#387c91','#dfaa43','#7967a4','#39816c','#b2557c','#415e88','#bc7142','#657048','#e7c9ab'];
@@ -8,7 +9,7 @@ const trim=['#eadaab','#8ab7ac','#d49879','#52566c','#b3a0af'];
 const paint=['#4e9589','#ae5c51','#e2b75f','#6985aa','#89965d','#d4c5a6'];
 export function residentStyle(seed,lot){
   const rng=new Rng(hashSeed(seed+'|wardrobe|'+lot));
-  return {coat:rng.pick(jackets),skin:rng.pick(skins),hair:rng.pick(hairs),pants:rng.pick(trousers),
+  return {carModel:householdCar(seed,lot),coat:rng.pick(jackets),skin:rng.pick(skins),hair:rng.pick(hairs),pants:rng.pick(trousers),
     accent:rng.pick(trim),paint:rng.pick(paint),cut:rng.int(5),outfit:rng.int(4),glasses:rng.chance(.28),
     height:rng.range(.87,1.11),width:rng.range(.83,1.21),
     faceWidth:rng.range(.87,1.14),faceHeight:rng.range(.89,1.12),faceDetail:rng.int(4),

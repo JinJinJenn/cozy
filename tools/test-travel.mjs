@@ -30,7 +30,9 @@ async function profile(){
     assert.ok(file.startsWith(root));
     await route.fulfill({body:await readFile(file),contentType:{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]});
   });
-  const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(origin);
+  const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));
+  p.on('console',m=>{if(m.type()==='error'&&/Shader Error|VALIDATE_STATUS|WebGLProgram/.test(m.text()))errors.push(m.text());});
+  await p.goto(origin);
   await until(p,()=>window.__cozy?.street?.session?.ready);return p;
 }
 const actor=p=>p.evaluate(()=>{const s=window.__cozy.street.session;return s.actors.get(s.id);});
@@ -53,10 +55,19 @@ try{
   const second=await profile();pages.push(second);
   await Promise.all(pages.map(p=>until(p,()=>{const s=window.__cozy.street.session;
     return s.owner?s.peers.size>0:s.connected;})));
+  const ids=await Promise.all(pages.map(async page=>(await actor(page)).id));
+  await Promise.all(pages.map(p=>until(p,ids=>{const s=window.__cozy.street.session;
+    return ids.every(id=>s.actors.has(id))&&(s.owner||s.connected&&s.verifiedSeq>0);},ids)));
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
-  if(process.argv.includes('--banks')){
+  if(process.argv.includes('--offroad')){
+    const {testOffroad}=await import('./playtest-offroad.mjs');
+    await testOffroad({visitor,owner,actor,synced,until});
+  }else if(process.argv.includes('--wagon')){
+    const {testWagon}=await import('./playtest-wagon.mjs');
+    await testWagon({visitor,owner,actor,until});
+  }else if(process.argv.includes('--banks')){
     const {testRoadContact}=await import('./playtest-road-contact.mjs');
     await testRoadContact({visitor,owner,actor,synced,until});
   }else if(process.argv.includes('--queue')){
@@ -70,6 +81,7 @@ try{
   assert.deepEqual(errors,[]);
 }catch(err){
   for(const p of pages)console.error(await p.evaluate(()=>{const s=window.__cozy?.street;return {actor:s?.session?.actors.get(s.session.id),
+    owner:s?.session?.owner,connected:s?.session?.connected,verified:s?.session?.verifiedSeq,players:s?.session?.actors.size,
     menu:document.querySelector('#world-choice')?.innerText,focus:s?.cameraFocus,roof:s?.openRoof};}).catch(()=>null));
   console.error(errors);throw err;
 }finally{await browser.close();}

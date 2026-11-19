@@ -29,7 +29,7 @@ function poseBranch(branch,pose){
 // batches. Logical residents remain in the simulation when outside the camera.
 export class ResidentCrowd {
   constructor(parent,residents,seed){
-    this.parent=parent;this.rig=avatar('#e46b66',undefined,undefined,{});this.car=vehicleArt('car');
+    this.parent=parent;this.rig=avatar('#e46b66',undefined,undefined,{});this.car=vehicleArt('car');this.wagon=vehicleArt('car','wagon');
     this.rig.rotation.order='YXZ';
     this.sources=[];this.batches=new Map();this.pose=0;
     const branches=new Map(),identity=new THREE.Matrix4();
@@ -44,7 +44,7 @@ export class ResidentCrowd {
     });
     const count=residents.length;
     this.frustum=new THREE.Frustum();this.clip=new THREE.Matrix4();this.sphere=new THREE.Sphere(new THREE.Vector3(),2.25);
-    for(const rig of [this.rig,this.car])rig.traverse(m=>{if(!m.isMesh)return;
+    for(const rig of [this.rig,this.car,this.wagon])rig.traverse(m=>{if(!m.isMesh)return;
       const key=m.geometry.uuid+':'+m.material.uuid;
       let batch=this.batches.get(key);
       if(!batch){batch={geometry:m.geometry,material:m.material,capacity:0};this.batches.set(key,batch);}
@@ -60,17 +60,18 @@ export class ResidentCrowd {
         if(o.userData.faceDetails)faceDetails=true;
       }
       const wearers=variant?this.styles.reduce((n,style)=>n+Number(style[variant.key]===variant.value),0):count;
-      batch.capacity+=pieces.length*(rig===this.car?Math.min(count,12):wearers);
+      batch.capacity+=pieces.length*(rig!==this.rig?Math.min(count,12):wearers);
       const joint=!m.matrixAutoUpdate&&m.matrix.equals(identity)?m.parent:m;
       faceDetails ||= variant?.key==='faceDetail'||variant?.key==='glasses';
-      this.sources.push({source:m,batch,pieces,branch:branchFor(joint),variant,faceDetails,vehicle:rig===this.car});
+      this.sources.push({source:m,batch,pieces,branch:branchFor(joint),variant,faceDetails,vehicle:rig!==this.rig,wagon:rig===this.wagon});
     });
     for(const b of this.batches.values()){
       this.allocate(b,Math.max(1,b.capacity));
     }
     this.costumes=this.styles.map(style=>this.sources.filter(s=>!s.vehicle&&(!s.variant||style[s.variant.key]===s.variant.value)));
     this.distantCostumes=this.costumes.map(parts=>parts.filter(s=>!s.faceDetails));
-    this.carParts=this.sources.filter(s=>s.vehicle);
+    this.carParts=this.sources.filter(s=>s.vehicle&&!s.wagon);
+    this.wagonParts=this.sources.filter(s=>s.wagon);
   }
   allocate(b,capacity){
     const old=b.mesh;
@@ -129,15 +130,17 @@ export class ResidentCrowd {
         state.carYaw=lastYaw+turn;rig.rotation.y=state.carYaw;
         const contact=island&&roadContact(island.tireHeight||island.deckHeight||island.sample,p.x,p.z,state.carYaw,state.roadContact??={});
         if(contact){rig.position.y=contact.y;rig.rotation.x=contact.pitch;rig.rotation.z=contact.roll;}
-        this.car.position.copy(rig.position);this.car.rotation.copy(rig.rotation);
+        const wagon=style.carModel==='wagon',car=wagon?this.wagon:this.car;
+        car.position.copy(rig.position);car.rotation.copy(rig.rotation);
         state.wheelPhase=(state.wheelPhase||0)+(distance<8?distance/.28:0);
         const frontAngle=distance>.001?THREE.MathUtils.clamp(Math.atan2(turn*wheelbase,distance),-.60,.60):0;
         const speed=dt>0?distance/dt:0,braking=state.braking??((state.carSpeed||0)-speed>dt*3);
         const accel=dt>0&&state.carSpeed!==undefined?(speed-state.carSpeed)/dt:0;
         settleChassis(state,dt>0?speed*turn/dt:0,accel,dt);
-        rig.setRide('car',0,state.roll,state.pitch);
+        rig.setRide('car',0,state.roll,state.pitch,style.carModel);
         state.carSpeed=speed;
-        this.car.updateRide(0,0,0,state.wheelPhase,braking,state.roll,state.pitch,frontAngle,contact?.travel);this.submit(this.carParts,style);
+        car.updateRide(0,0,0,state.wheelPhase,braking,state.roll,state.pitch,frontAngle,contact?.travel);
+        this.submit(wagon?this.wagonParts:this.carParts,style);
       }else{
         state.carYaw=undefined;state.carSpeed=undefined;
         if(this.wasDriver)rig.setDomestic('',0);
@@ -157,6 +160,6 @@ export class ResidentCrowd {
   }
   dispose(){
     for(const b of this.batches.values()){this.parent.remove(b.mesh);b.mesh.dispose();}
-    for(const rig of [this.rig,this.car])rig.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.geometry.dispose();m.material.dispose();}});
+    for(const rig of [this.rig,this.car,this.wagon])rig.traverse(m=>{if(m.isInstancedMesh)m.dispose();else if(m.isMesh){m.geometry.dispose();m.material.dispose();}});
   }
 }

@@ -1,6 +1,6 @@
 import {roadsOf,project} from './street-road-index.js';
 import {homeAt} from './home-plan.js';
-import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
+import {frontAt,sideAt,toRoom,toWorld,walkable,walkCell} from './street-world.js';
 import {trafficContact} from '../packages/sim/src/traffic-footprint.js';
 import {roadContact} from '../packages/sim/src/road-contact.js';
 import {stepRoadster} from '../packages/sim/src/roadster.js';
@@ -10,9 +10,10 @@ const specifications={
   car:{halfWidth:.86,halfLength:1.55},
   bike:{top:7.5,reverse:1.15,accel:3.4,brake:6,coast:1.5,turn:.93,halfWidth:.28,halfLength:.79}
 };
-function outdoors(s,p){
-  if(!walkable(s.island,s.plots,s.layout,p)||homeAt(s.island,p))return false;
-  return !s.plots.some(b=>{const q=toRoom(b,p);return q.x> -b.w/2-.25&&q.x<sideAt(b,s.layout)+.25&&q.z> -b.d/2-.25&&q.z<frontAt(b,s.layout)+.25;});
+function outdoors(s,p,car){
+  const cell=walkCell(s.island,s.plots,Math.floor(p.x/32),Math.floor(p.z/32));
+  if(!walkable(s.island,s.plots,s.layout,p,cell,car?Infinity:.95)||homeAt(s.island,p))return false;
+  return !cell.venues.some(b=>{const q=toRoom(b,p);return q.x> -b.w/2-.25&&q.x<sideAt(b,s.layout)+.25&&q.z> -b.d/2-.25&&q.z<frontAt(b,s.layout)+.25;});
 }
 function nearbyPeople(s,actor,x,z){
   const people=[];
@@ -30,27 +31,31 @@ function fits(s,kind,x,z,yaw,people){
     const cx=x+fore*sin,cz=z+fore*cos;
     for(const side of [-spec.halfWidth,spec.halfWidth]){
       const corner={x:cx+side*cos,z:cz-side*sin};
-      if(kind==='car'){
-        const lines=roadsOf(s.island).cells.get(Math.floor(corner.x/32)+','+Math.floor(corner.z/32));
-        if(!lines?.some(l=>l.drivable&&project(l,corner).distance<=l.r))return false;
-      }
-      if(!outdoors(s,corner))return false;
+      if(!outdoors(s,corner,kind==='car'))return false;
     }
   }
   return true;
 }
 function clearActivity(s,a){
   s.activities.finish(a);a.activity='';a.part='';a.feedback='';
-  delete a.bowlFrom;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;delete a.brakeHeld;
+  delete a.bowlFrom;delete a.carModel;delete a.vehicle;delete a.speed;delete a.steer;delete a.reverseHold;delete a.brakeHeld;
   delete a.gear;delete a.shiftLeft;delete a.engineLoad;
   delete a.sideSpeed;delete a.yawRate;delete a.longAccel;delete a.lateralAccel;delete a.roadPitch;
 }
-export function takeVehicle(s,a,kind){
+function mountVehicle(s,a,kind,model,x,z,yaw){
+  clearActivity(s,a);Object.assign(a,{vehicle:kind,x,z,yaw,speed:0});
+  if(kind==='car'&&model==='wagon')a.carModel='wagon';
+}
+export function takeVehicle(s,a,kind,model){
   if(!Object.hasOwn(specifications,kind))return;
   let best,line;
   for(const segment of roadsOf(s.island).segments){
     if(kind==='car'&&!segment.drivable)continue;
     const p=project(segment,a);if(!best||p.distance<best.distance){best=p;line=segment;}
+  }
+  if(kind==='car'&&(!line||best.distance>line.r+10)&&fits(s,kind,a.x,a.z,a.yaw,nearbyPeople(s,a,a.x,a.z))){
+    mountVehicle(s,a,kind,model,a.x,a.z,a.yaw);
+    return;
   }
   if(!line){a.feedback='There is no road here.';return;}
   const yaw=Math.atan2(line.dx,line.dz),direction=Math.cos(yaw-a.yaw)<0?-1:1;
@@ -59,7 +64,8 @@ export function takeVehicle(s,a,kind){
     const x=best.x-line.dz*side+line.dx*offset,z=best.z+line.dx*side+line.dz*offset;
     const heading=yaw+(direction<0?Math.PI:0);
     if(!fits(s,kind,x,z,heading,nearbyPeople(s,a,x,z)))continue;
-    clearActivity(s,a);Object.assign(a,{vehicle:kind,x,z,yaw:heading,speed:0});return;
+    mountVehicle(s,a,kind,model,x,z,heading);
+    return;
   }
   a.feedback='The road is occupied. Try another stretch of street.';
 }
@@ -80,14 +86,24 @@ export function moveVehicle(s,a,input,dt){
   }
 }
 
-function approach(value,target,amount){
-  return value+Math.sign(target-value)*Math.min(Math.abs(target-value),amount);
+// A car straddling a paved shoulder progressively gives up grip on loose ground.
+function looseGround(island,car){
+  const lines=roadsOf(island).cells.get(Math.floor(car.x/32)+','+Math.floor(car.z/32));
+  let loose=1;
+  for(const line of lines||[]){
+    if(!line.drivable)continue;
+    const edge=project(line,car).distance-line.r;
+    if(edge<=.45)return 0;
+    loose=Math.min(loose,(edge-.45)/1.55);
+  }
+  return loose;
 }
 function driveCar(s,a,input,dt){
   if(dt<=0)return;
-  a.brakeHeld=!!input.brake;
+  a.brakeHeld=!!(input.brake||input.handbrake);
   const people=nearbyPeople(s,a,a.x,a.z);
   const surface=roadContact(s.island.tireHeight||s.island.deckHeight||s.island.sample,a.x,a.z,a.yaw,driveSurface);
+  const loose=looseGround(s.island,a);
   a.roadPitch=surface.pitch;
   // The tire velocities are along the road. Only their horizontal projection
   // advances the car through the town's XZ collision and network coordinates.
@@ -96,7 +112,7 @@ function driveCar(s,a,input,dt){
   const steps=Math.max(1,Math.ceil(dt*60)),step=dt/steps;
   for(let i=0;i<steps;i++){
     const previous=a.speed||0,side=a.sideSpeed||0,omega=a.yawRate||0;
-    stepRoadster(a,input,step,surface.grade,surface.crossGrade);
+    stepRoadster(a,input,step,surface.grade,surface.crossGrade,loose);
     const lateralTravel=(side+a.sideSpeed)*.5*step;
     const travel=(previous+a.speed)*.5*step*pitchCos+lateralTravel*bankForward;
     const drift=lateralTravel*rollCos,turn=(omega+a.yawRate)*.5*step;
@@ -104,36 +120,6 @@ function driveCar(s,a,input,dt){
     const mid=a.yaw+turn*.5,yaw=a.yaw+turn;
     const x=a.x+Math.sin(mid)*travel+Math.cos(mid)*drift,z=a.z+Math.cos(mid)*travel-Math.sin(mid)*drift;
     if(fits(s,'car',x,z,yaw,people)){Object.assign(a,{x,z,yaw});continue;}
-    // Scrub along the kerb on a shallow contact. The proposed recovery goes
-    // through the same footprint, pedestrian and building checks as free travel.
-    const lines=roadsOf(s.island).cells.get(Math.floor(a.x/32)+','+Math.floor(a.z/32))||[];
-    let nearest,foot;
-    for(const line of lines){
-      if(!line.drivable)continue;
-      const hit=project(line,a);
-      if(!foot||hit.distance<foot.distance){nearest=line;foot=hit;}
-    }
-    if(nearest){
-      const along=nearest.dx*Math.sin(mid)+nearest.dz*Math.cos(mid);
-      if(Math.abs(along)>.76){
-        const heading=Math.atan2(nearest.dx*Math.sign(along),nearest.dz*Math.sign(along));
-        const error=Math.atan2(Math.sin(heading-a.yaw),Math.cos(heading-a.yaw));
-        const corrected=a.yaw+approach(0,error,step*2.8);
-        let cx=a.x+nearest.dx*travel*along,cz=a.z+nearest.dz*travel*along;
-        let clear=fits(s,'car',cx,cz,corrected,people);
-        if(!clear&&foot.distance>nearest.r-specifications.car.halfWidth-.24){
-          // At an outside bend, rotating to the tangent can swing the rear
-          // corner farther onto the curb. Resolve a small inward displacement
-          // with the rotation and check the complete footprint together.
-          const inset=Math.min(.65*step,foot.distance)/foot.distance;
-          cx+=(foot.x-a.x)*inset;cz+=(foot.z-a.z)*inset;
-          clear=fits(s,'car',cx,cz,corrected,people);
-        }
-        if(clear){
-          Object.assign(a,{x:cx,z:cz,yaw:corrected,speed:a.speed*Math.exp(-step*2),sideSpeed:0,yawRate:0});continue;
-        }
-      }
-    }
     a.speed=0;a.sideSpeed=0;a.yawRate=0;a.longAccel=0;a.lateralAccel=0;return;
   }
 }

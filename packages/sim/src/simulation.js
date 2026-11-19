@@ -2,6 +2,7 @@
 //
 // State = seed + config + ordered input log (events from the host/players) + the op log of the objects replica.
 // There is no wall clock and no Math.random: step() advances exactly one fixed timestep.
+import {householdCar} from './cars.js';
 import {driveAcceleration} from './powertrain.js';
 import { Replica } from '../../objects/index.js';
 import { Rng, hashSeed, hashFloat } from './rng.js';
@@ -575,6 +576,7 @@ export class Simulation {
               const previous=a.speed||0;
               if(accelerated===undefined){
                 const pedal=Math.max(0,Math.min(.82,(cruise-previous)*.65+.13));
+                a.carModel??=householdCar(this.cfg.seed,n.home?.lotId);
                 const power=driveAcceleration(a,previous,pedal,time,false);
                 accelerated=Math.max(0,previous+power*time);
               }
@@ -718,7 +720,7 @@ export class Simulation {
     return this.npcs.map((n) => ({
       id: n.id, who: npcWho(n.id), name: n.name, x: n.pos[0], z: n.pos[1], y: r2(this.ctx.nav.height(n.pos[0], n.pos[1])),
       heading: n.heading, driving:n.action?.driveStart!==undefined&&n.action.i>=n.action.driveStart&&n.action.i<n.action.driveEnd,
-      ...(n.action?.gear&&n.action.i<n.action.driveEnd?{gear:n.action.gear,engineLoad:n.action.engineLoad,braking:!!n.action.braking}:{}),
+      ...(n.action?.gear&&n.action.i<n.action.driveEnd?{gear:n.action.gear,engineLoad:n.action.engineLoad,braking:!!n.action.braking,carModel:n.action.carModel}:{}),
       destination: n.action?.destination,
       action: n.action ? n.action.kind : 'none', purpose: n.action && n.action.purpose ? n.action.purpose : null,
       asleep: n.sleeping, seat: n.seat ? n.seat.objectId : null, mood: r2(n.mood), moodLabel: MOODS.find((m) => n.mood >= m[0])[1], homeLotId: n.home.lotId,

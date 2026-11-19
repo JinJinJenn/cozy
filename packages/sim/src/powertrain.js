@@ -1,5 +1,7 @@
+import {carSpec} from './cars.js';
+
 // Three-speed torque-converter automatic. Ratios include the final drive.
-const ratios=[16,10.5,7.4],reverseRatio=15,wheelRadius=.28,mass=890,efficiency=.9;
+const ratios=[16,10.5,7.4],reverseRatio=15,wheelRadius=.28,efficiency=.9;
 const wheelRpm=60/(2*Math.PI*wheelRadius),shiftDuration=.19;
 const ratioFor=gear=>gear<0?reverseRatio:ratios[gear-1];
 export const validGear=gear=>gear===-1||gear===1||gear===2||gear===3;
@@ -30,8 +32,9 @@ export function driveAcceleration(state,speed,pedal,dt,reverse=speed<-.1){
   const governor=Math.min(1,Math.max(0,((gear<0?3.4:17.5)-Math.abs(speed))/.6));
   state.gear=gear;state.shiftLeft=end;state.engineLoad=pedal*clutch*governor;
   const rpm=engineRpm(speed,gear,pedal),ratio=ratioFor(gear);
-  const torque=114*(1-.27*Math.min(1,((rpm-3200)/2600)**2));
+  const model=carSpec(state.carModel);
+  const torque=model.torque*(1-.27*Math.min(1,((rpm-3200)/2600)**2));
   const wheelForce=state.engineLoad*torque*ratio*efficiency/wheelRadius;
   const drag=.14+.0015*speed*speed+(1-pedal)*ratio*.027;
-  return (gear<0?-1:1)*wheelForce/mass-Math.sign(speed)*drag;
+  return (gear<0?-1:1)*wheelForce/model.mass-Math.sign(speed)*drag;
 }

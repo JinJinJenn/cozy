@@ -36,7 +36,7 @@ body.in-street #ui,body.in-street #mini,body.shot #street-panel{display:none}
   .driving #walk-pad::before{content:'‹';left:6px}.driving #walk-pad::after{content:'›';right:6px}
   .driving #pad-stick{width:28px;height:36px;border-radius:12px}
   .driving #car-pedals{position:absolute;right:max(10px,env(safe-area-inset-right));bottom:var(--drive-bottom);
-    display:grid;grid-template-columns:auto auto auto;gap:4px;align-items:end;touch-action:none;user-select:none}
+    display:grid;grid-template-columns:repeat(4,auto);gap:3px;align-items:end;touch-action:none;user-select:none}
   #car-speed{grid-column:1/-1;justify-self:end;padding:2px 8px;border-radius:8px;background:#294640ed;color:#fff7e8;font-variant-numeric:tabular-nums}
   #street-panel #car-pedals button{pointer-events:auto;min-width:46px;min-height:54px;padding:4px 8px;border:2px solid #fff7e8;
     border-radius:11px;font-size:13px;touch-action:none;box-shadow:0 2px 4px #20392e55}

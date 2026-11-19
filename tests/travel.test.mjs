@@ -25,7 +25,7 @@ test('a facade pick hits the sloped roof and clears the sky beside the ridge',()
     assert.equal(cameraClearance({x,y,z:12},{x,y,z:-12},house,true)<1,hit);
   }
 });
-test('cars accelerate, turn, coast, brake and reverse within the carriageway',()=>{
+test('cars accelerate, turn, coast, reverse and cross the pavement edge under power',()=>{
   const {s,a}=street();takeVehicle(s,a,'car');assert.equal(a.vehicle,'car');
   for(let i=0;i<40;i++)moveVehicle(s,a,{x:0,z:1},.05);
   assert.ok(a.speed>9&&a.z>9);
@@ -34,7 +34,7 @@ test('cars accelerate, turn, coast, brake and reverse within the carriageway',()
   assert.ok(a.speed<0);
   Object.assign(a,{x:0,z:0,yaw:Math.PI/2,speed:12});
   for(let i=0;i<20;i++)moveVehicle(s,a,{x:0,z:1},.1);
-  assert.ok(a.x<3&&a.speed===0);
+  assert.ok(a.x>19&&a.speed>7);
 });
 test('oncoming cars with mirror clearance pass and broadside cars block their full length',()=>{
   for(const resident of [false,true]){
@@ -102,11 +102,11 @@ test('steering ramps and recentres consistently at 20 and 60 Hz and braking reac
   for(const k of ['x','z','yaw'])assert.ok(Math.abs(low[k]-high[k])<.003);
 });
 
-test('a glancing curb contact scrubs speed and guides the car along the road while a pedestrian still stops it',()=>{
+test('a shallow curb crossing preserves heading and momentum while a pedestrian still stops the car',()=>{
   const {s,a}=street();
   Object.assign(a,{vehicle:'car',x:2.7,z:0,yaw:.22,speed:9});
   for(let i=0;i<35;i++)moveVehicle(s,a,{x:0,z:0},1/60);
-  assert.ok(a.z>3&&a.speed>2&&a.yaw<.16&&a.x<3.2);
+  assert.ok(a.z>4&&a.speed>8&&Math.abs(a.yaw-.22)<.001&&a.x>3.7);
   s.town.people=[{visible:true,position:{x:a.x,z:a.z+4}}];
   const start=a.z;
   for(let i=0;i<60;i++)moveVehicle(s,a,{x:0,z:1},1/60);
@@ -182,6 +182,26 @@ test('each automatic upshift interrupts wheel torque and the car pulls again in 
   assert.ok(car.speed>17&&car.longAccel<.1);
 });
 
+test('the heavier front-drive wagon launches slower and takes a wider powered turn',()=>{
+  const measure=carModel=>{
+    const launch={carModel,speed:0},bend={carModel,speed:8},stop={carModel,speed:30/3.6};
+    let seconds=0,stoppingDistance=0;
+    while(seconds<15&&launch.speed<30/3.6){stepRoadster(launch,{z:1},1/120);seconds+=1/120;}
+    for(let frame=0;frame<120;frame++)stepRoadster(bend,{x:1,z:.45},1/120);
+    for(let frame=0;frame<240&&stop.speed>0;frame++){
+      const initial=stop.speed;stepRoadster(stop,{brake:1},1/120);
+      stoppingDistance+=(initial+stop.speed)/240;
+    }
+    assert.equal(stop.speed,0);
+    return {seconds,turn:Math.abs(bend.yawRate),stoppingDistance};
+  };
+  const roadster=measure('roadster'),wagon=measure('wagon');
+  assert.deepEqual(measure(undefined),roadster);
+  assert.ok(wagon.seconds>roadster.seconds+.3&&wagon.seconds<3);
+  assert.ok(wagon.turn<roadster.turn*.95&&wagon.turn>.6);
+  assert.ok(wagon.stoppingDistance>roadster.stoppingDistance+.25&&wagon.stoppingDistance<5.5);
+});
+
 test('power backs off with rear slip and gives the driven tires room to settle',()=>{
   const straight={speed:9,gear:2},sliding={...straight,sideSpeed:2.8,yawRate:-.35};
   stepRoadster(straight,{z:1},1/60);stepRoadster(sliding,{z:1},1/60);
@@ -208,7 +228,8 @@ test('partial brake pressure survives physics and a resting or unmapped pad does
   const idle={index:1,mapping:'standard',connected:true,axes:[.09],buttons:[]};
   const pad={index:2,mapping:'standard',connected:true,axes:[-.56],buttons};
   buttons[6].value=.375;buttons[7].value=.625;
-  assert.deepEqual(driveGamepad([null,idle,pad]),{index:2,steer:-.5,pedal:.625,brake:.375,exit:false});
+  assert.deepEqual(driveGamepad([null,idle,pad]),{index:2,steer:-.5,pedal:.625,brake:.375,handbrake:false,exit:false});
+  buttons[0].pressed=true;assert.equal(driveGamepad([pad]).handbrake,true);
   assert.equal(driveGamepad([{...pad,mapping:''},idle]).index,1);
   assert.equal(driveGamepad([{...pad,connected:false}]),null);
 });
@@ -356,6 +377,44 @@ test('a private seat survives a 30 second relay outage and is freed when the vis
   assert.equal(a.using,undefined);assert.equal(s.actors.has(a.id),false);
   assert.equal(s.controls.size,0);assert.equal(s.peers.size,0);
 });
+test('both cars drive through a street end, remount in the field, and stop at the waterline',()=>{
+  for(const model of ['roadster','wagon']){
+    const {s,a}=street();
+    s.island.plan.roads=[{width:6,pts:[[-30,0],[0,0]]}];
+    Object.assign(a,{x:-7,z:0,yaw:Math.PI/2});
+    takeVehicle(s,a,'car',model);
+    const row=a.z;
+    for(let i=0;i<220;i++)moveVehicle(s,a,{x:0,z:1},1/60);
+    assert.ok(a.x>14&&Math.abs(a.z-row)<.01&&a.speed>7,model+' crossed the end of the road');
+    dismount(s,a);const fieldX=a.x;
+    takeVehicle(s,a,'car',model);assert.equal(a.x,fieldX);
+    for(let i=0;i<1000;i++)moveVehicle(s,a,{x:0,z:1},1/60);
+    assert.ok(a.x>98&&a.x<99&&a.speed===0,model+' stopped with its nose at the water');
+    for(let i=0;i<180;i++)moveVehicle(s,a,{x:0,z:-1},1/60);
+    assert.ok(a.x<95&&a.speed<0,model+' reversed away from shore');
+  }
+});
+
+test('the handbrake breaks rear traction and neutral steering recovers on grass and pavement',()=>{
+  for(const carModel of ['roadster','wagon'])for(const loose of [0,1]){
+    const grip={carModel,speed:11},slide={carModel,speed:11};
+    for(let i=0;i<36;i++){
+      stepRoadster(grip,{x:.8,z:0},1/60,0,0,loose);
+      stepRoadster(slide,{x:.8,z:0,handbrake:true},1/60,0,0,loose);
+    }
+    assert.ok(Math.abs(slide.sideSpeed)>Math.abs(grip.sideSpeed)+.18 && Math.abs(slide.yawRate)>1.25*Math.abs(grip.yawRate) && slide.speed>5);
+    for(let i=0;i<180;i++)stepRoadster(slide,{x:0,z:.2},1/60,0,0,loose);
+    assert.ok(Math.abs(slide.sideSpeed)<.1 && Math.abs(slide.yawRate)<.05 && slide.speed>4);
+  }
+});
+
+test('the current island road plan sets the tire surface after a re-roll',()=>{
+  const {s}=street();
+  assert.ok(carriagewayAt(s.island,0,0));
+  s.island.plan={roads:[{width:6,pts:[[20,-30],[20,30]]}]};
+  assert.ok(carriagewayAt(s.island,20,0));assert.equal(carriagewayAt(s.island,0,0),undefined);
+});
+
 test('bikes cross grass but stop before water and people',()=>{
   const {s,a}=street();takeVehicle(s,a,'bike');a.yaw=Math.PI/2;
   for(let i=0;i<75;i++)moveVehicle(s,a,{x:0,z:1},.05);

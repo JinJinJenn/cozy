@@ -19,6 +19,7 @@ import {SaveMenu} from './save-menu.js';
 import {AddressMenu} from './address-menu.js';
 import {PlayerMenu} from './player-menu.js';
 import {TableMenu,pickBoardSquare} from './table-menu.js';
+import {tireTracks} from './tire-tracks.js';
 import {drawPainting} from './easel-art.js';
 import {keepPrint,printCollection} from './private-saves.js';
 import {catalog} from './furniture-pose.js';
@@ -47,6 +48,7 @@ export class Street {
       new THREE.MeshBasicMaterial({color:'#fff1bd',side:THREE.DoubleSide,depthWrite:false,
         polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}));
     this.walkMarker.visible=false;scene.add(this.walkMarker);
+    this.tracks=tireTracks(scene,island.tireHeight);
     this.point=new THREE.Vector3();this.rayPoint=new THREE.Vector3();
     this.destinations=[...this.plots,gardenForStreet(this.cafe),...(island.townSquare?[island.townSquare]:[]),...island.homes];
     $('destination').replaceChildren(new Option('Choose a place',''),...this.destinations.map(b=>new Option(b.name||places[b.kind][0],b.kind==='home'?b.id:b.kind)));
@@ -183,6 +185,7 @@ export class Street {
     listen($('visit-studio'),'click',()=>travel({type:'teleport',place:this.session.studioLot}));
     listen($('easel-new'),'click',()=>this.session.command({type:'new-canvas'}));
     listen($('jump-place'),'click',()=>{if(this.destination)travel({type:'teleport',place:this.destination.id});});
+    listen($('take-wagon'),'click',()=>travel({type:'ride',vehicle:'car',carModel:'wagon'}));
     for(const kind of ['car','bike'])listen($('take-'+kind),'click',()=>travel({type:'ride',vehicle:kind}));
     listen($('go-place'),'click',()=>{
       const b=this.destination;if(!b)return;
@@ -597,7 +600,7 @@ export class Street {
     this.controls.target.set(p.x,y+1.48,p.z);this.camera.position.set(p.x+off.x-this.cafe.x,y+6.4,p.z+off.z-this.cafe.z);
     this.controls.update();this.render();return true;
   }
-  deactivate(){if(!this.active)return;this.active=false;this.motors.quiet();this.walkMarker.visible=false;this.clearInput();this.touch.setDriving(false);this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
+  deactivate(){if(!this.active)return;this.active=false;this.motors.quiet();this.walkMarker.visible=false;this.tracks.hide();this.clearInput();this.touch.setDriving(false);this.closePanels();this.art.update({x:Infinity,z:Infinity},this.session.layout);
     this.clearExteriors.update({x:Infinity,z:Infinity},{x:0,z:0});
     document.body.classList.remove('in-street');$('street-panel').hidden=true;
     this.controls.enablePan=true;this.controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;this.controls.minDistance=8;this.controls.maxDistance=4200;
@@ -617,13 +620,14 @@ export class Street {
     const keys=this.keys,down=(a,b)=>Number(keys.has(a)||keys.has(b));
     const forward=down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+(vehicle==='car'?this.touch.throttle:this.touch.z);
     const side=down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+this.touch.x;
-    if(!pad||forward||side||keys.has('Space')||this.touch.brake)this.padDriving=false;
-    else if(pad.steer||pad.pedal||pad.brake)this.padDriving=true;
+    if(!pad||forward||side||keys.has('Space')||this.sprint||this.touch.handbrake||this.touch.brake)this.padDriving=false;
+    else if(pad.steer||pad.pedal||pad.brake||pad.handbrake)this.padDriving=true;
     if(forward||side||pad?.pedal||pad?.steer)this.cameraFocus=null;
     if(vehicle){
       const turn=side||pad?.steer||0,gas=forward||pad?.pedal||0;
       const brake=vehicle==='car'&&(keys.has('Space')||this.touch.brake||pad?.brake||0);
-      this.session.setInput(Math.max(-1,Math.min(1,turn)),Math.max(-1,Math.min(1,gas)),brake);return;
+      const handbrake=vehicle==='car'&&!!(this.sprint||this.touch.handbrake||pad?.handbrake);
+      this.session.setInput(Math.max(-1,Math.min(1,turn)),Math.max(-1,Math.min(1,gas)),brake,handbrake);return;
     }
     const dx=this.controls.target.x-this.camera.position.x,dz=this.controls.target.z-this.camera.position.z,n=Math.hypot(dx,dz)||1;
     const pace=(this.sprint?1:.73)/Math.max(1,Math.hypot(forward,side));
@@ -656,6 +660,7 @@ export class Street {
     const local=s.actors.get(s.id);if(!local)return;
     const dt=Math.max(0,Math.min(.18,(now-(this.lastRender??now))/1000));this.lastRender=now;
     this.keyFlashes.melody=this.keyFlashes.bass=0;
+    this.tracks.tick(now);
     for(const [id,a] of s.actors){
       let mesh=this.meshes.get(id);
       const shirt=shirts[a.profile?.shirt]||(id===s.id?'#c55b61':id.startsWith('resident')?(id==='resident1'?'#94799b':'#659681'):'#6687bd');
@@ -681,18 +686,22 @@ export class Street {
       mesh.rotation.z=contact?.roll??((a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0);
       mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom,watching?(s.layout.homeTV?.[a.using?.lot]||0):null);
       mesh.setGesture(a.gesture,a.gesture?gesturePhase(a,s.time):null,seated);
-      if(mesh.userData.vehicle!==a.vehicle){
+      if(mesh.userData.vehicle!==a.vehicle||mesh.userData.carModel!==a.carModel){
         const old=mesh.userData.ride;if(old){mesh.remove(old);disposeGroup(old);}
-        mesh.userData.vehicle=a.vehicle;mesh.userData.ride=a.vehicle?vehicleArt(a.vehicle):null;
+        mesh.userData.vehicle=a.vehicle;mesh.userData.carModel=a.carModel;
+        mesh.userData.ride=a.vehicle?vehicleArt(a.vehicle,a.carModel):null;
         if(mesh.userData.ride)mesh.add(mesh.userData.ride);
       }
       if(a.vehicle){
         const predicted=id===s.id&&!s.owner&&a.vehicle==='car';
-        const brake=(predicted?s.keys.brake:a.brakeHeld)||undefined;
+        const brake=(predicted?s.keys.brake||s.keys.handbrake:a.brakeHeld)||undefined;
         const drive=predicted?pose:a;
-        if(a.vehicle==='car')settleChassis(pose,drive.lateralAccel||0,drive.longAccel||0,dt);
+        if(a.vehicle==='car'){
+          settleChassis(pose,drive.lateralAccel||0,drive.longAccel||0,dt);
+          this.tracks.follow(pose,Math.abs(drive.speed)>2&&Math.abs(drive.sideSpeed)>.32);
+        }
         const phase=mesh.userData.ride.updateRide(drive.speed||0,dt,drive.steer||0,undefined,brake,pose.roll,pose.pitch,undefined,contact?.travel);
-        mesh.setRide(a.vehicle,phase,pose.roll,pose.pitch);
+        mesh.setRide(a.vehicle,phase,pose.roll,pose.pitch,a.carModel);
       }
     }
     for(const [id,m] of this.meshes)if(!s.actors.has(id)){this.scene.remove(m);disposeGroup(m);this.meshes.delete(id);}
@@ -740,14 +749,15 @@ export class Street {
       const person=this.town.people[following];
       const destination=this.island.homesById.get(person.userData.destination)?.name;
       const activity=person.userData.driving?(destination?'Driving to '+destination:'Driving'):person.scale.y<.9?'Sitting':null;
-      detail.textContent=[home,trait,activity].filter(Boolean).join(' · ');
+      const vehicle=person.userData.driving?(this.town.crowd.styles[following].carModel==='wagon'?'Station wagon':'Roadster'):null;
+      detail.textContent=[home,trait,activity,vehicle].filter(Boolean).join(' · ');
     }
     const gearbox=local.vehicle==='car'?this.motors.driver:null;
     const speed=gearbox?`${Math.round(gearbox.speed*3.6)} km/h \u00b7 ${gearbox.gear<0?'Reverse':'D'+gearbox.gear} \u00b7 ${100*Math.round(gearbox.rpm/100)} rpm`:'';
     if(speed&&$('car-speed').textContent!==speed)$('car-speed').textContent=speed;
     $('walk-hint').textContent=this.terraceEditor.active||this.homeEditor.home?'':this.buildLot?.kind==='house'?'Drag the corner, or move either wall below.':this.buildLot?'Drag the wall handle, or set an offset below.':
-      local.vehicle==='car'&&this.padDriving?speed+' \u00b7 Left stick steer \u00b7 RT gas \u00b7 LT brake \u00b7 B / Circle reverse \u00b7 Y / Triangle get out':
-      local.vehicle==='car'?speed+' · W gas · Space brake · S brake / reverse · A/D steer · E get out':
+      local.vehicle==='car'&&this.padDriving?speed+' \u00b7 Left stick steer \u00b7 RT gas \u00b7 LT brake \u00b7 A / Cross handbrake \u00b7 B / Circle reverse \u00b7 Y / Triangle get out':
+      local.vehicle==='car'?speed+' · W gas · Space brake / Shift handbrake · S brake / reverse · A/D steer · E get out':
       local.vehicle?'W/S pedal or reverse · A/D steer · E to get off':this.cameraFocus?'Enter to return to your character · Drag to orbit':
       this.controls.getDistance()>75?'Click a roof for its entrance · Right-click for travel · Drag to orbit · Enter to return':
       'Left-click to walk or interact · Right-click for options · Drag to orbit · Scroll or +/− to zoom';
@@ -823,5 +833,5 @@ export class Street {
     if(this.browsing&&!$('social-pane').hidden)this.showRooms();
   }
   dispose(){this.deactivate();$('map-travel').hidden=true;clearInterval(this.timer);clearTimeout(this.hoverTimer);this.controls.domElement.style.cursor='';this.controls.domElement.removeAttribute('title');this.abort?.abort();this.motors?.dispose();this.music?.dispose();this.session?.dispose();
-    for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();if(this.walkMarker){this.scene.remove(this.walkMarker);disposeGroup(this.walkMarker);}this.clearExteriors();}
+    this.tracks?.dispose();for(const m of this.meshes?.values()||[]){this.scene.remove(m);disposeGroup(m);}this.art?.dispose();if(this.walkMarker){this.scene.remove(this.walkMarker);disposeGroup(this.walkMarker);}this.clearExteriors();}
 }

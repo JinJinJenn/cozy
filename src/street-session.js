@@ -61,6 +61,7 @@ const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c
 const utf8=new TextEncoder(),algorithm={name:'ECDSA',namedCurve:'P-256'},signature={name:'ECDSA',hash:'SHA-256'};
 const validKey=k=>typeof k==='string'&&/^[A-Za-z0-9_-]{87}$/.test(k);
 const validActor=p=>p && typeof p.id==='string' && p.id.length<=64 && Number.isFinite(p.x)&&Number.isFinite(p.z)&&Number.isFinite(p.yaw)&&validPiano(p.piano)
+  && (p.carModel===undefined||p.carModel==='wagon'||p.carModel==='roadster')
   && (p.gear===undefined||validGear(p.gear))
   && (p.shiftLeft===undefined||Number.isFinite(p.shiftLeft)&&p.shiftLeft>=0&&p.shiftLeft<=1)
   && (p.engineLoad===undefined||Number.isFinite(p.engineLoad)&&p.engineLoad>=0&&p.engineLoad<=1)
@@ -566,7 +567,7 @@ export class StreetSession {
       if(actor.activity==='watch'&&actor.using?.lot===cmd.lot)tuneTelevision(this,cmd.lot,cmd.channel);
       return;
     }
-    if(cmd.type==='ride')return takeVehicle(this,actor,cmd.vehicle);
+    if(cmd.type==='ride')return takeVehicle(this,actor,cmd.vehicle,cmd.carModel);
     if(cmd.type==='dismount')return dismount(this,actor);
     if(cmd.type==='teleport')return teleport(this,actor,cmd);
     if(actor.vehicle){
@@ -575,9 +576,9 @@ export class StreetSession {
     }
     this.activities.command(actor,cmd);
   }
-  setInput(x,z,brake=false){
-    if(Number(brake)===Number(this.keys.brake||0)&&Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
-    this.keys={x,z,brake};this.motion++;
+  setInput(x,z,brake=false,handbrake=false){
+    if(handbrake===!!this.keys.handbrake&&Number(brake)===Number(this.keys.brake||0)&&Math.hypot(x-this.keys.x,z-this.keys.z)<.009&&!(x===0&&z===0&&(this.keys.x||this.keys.z)))return;
+    this.keys={x,z,brake,handbrake};this.motion++;
     if(!this.owner&&this.connected)this.sendInput();
   }
   strikeKey(key){
@@ -596,6 +597,7 @@ export class StreetSession {
     return true;
   }
   sendInput(){const m={kind:'input',id:this.id,seq:++this.inputSeq,x:this.keys.x,z:this.keys.z,action:this.actionSeq,motion:this.motion,cmd:this.pendingCommand};
+    if(this.keys.handbrake)m.handbrake=true;
     if(this.keys.brake){
       m.brake=true;
       if(Number(this.keys.brake)<1)m.brakePressure=this.keys.brake;
@@ -653,7 +655,7 @@ export class StreetSession {
       }
       if(state.seq>=m.seq)return;
       Object.assign(state,{seq:m.seq,x:Math.max(-1,Math.min(1,m.x)),z:Math.max(-1,Math.min(1,m.z)),at:performance.now()});
-      state.brake=m.brake===true;
+      state.brake=m.brake===true;state.handbrake=m.handbrake===true;
       if(state.brake&&Number.isFinite(m.brakePressure)&&m.brakePressure>0&&m.brakePressure<1){
         state.brake=m.brakePressure;
       }

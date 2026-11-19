@@ -4,6 +4,23 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.27.0 opens the roadside for player cars. Drive across sidewalks,
+grass or dry beach, follow the ground on all four tires, and rejoin the road.
+Shift on a keyboard, A/Cross on a standard controller or Slide on touch pulls
+the handbrake. Hold it briefly while turning and release to regain rear grip.
+Space and the brake pedal still apply the service brake.
+
+Travel offers a rear-wheel-drive roadster and a heavier front-wheel-drive
+station wagon. Households use a seeded choice of the two cars. In the six-minute
+Harbor Town replay, 38 residents took a wagon and 35 took a roadster.
+All 73 returned. Updated clients meet in the same multiplayer driving version.
+
+Run `npm run test:travel -- --offroad` for the two-client street-end crossing,
+reverse, slide and recovery. `--wagon` checks the visitor's bodywork and lights
+on the host and the actual wagon drawn for a traveling resident.
+
+## Four-wheel contact
+
 Version 0.26.0 samples the two triangles under each tire and the drivable
 bridge decks. Driver grip and gravity follow the road grade and bank. Each
 wheel can take up a change in slope independently. Player cars, visiting cars

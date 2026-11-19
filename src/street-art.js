@@ -532,7 +532,8 @@ export function disposeGroup(g){g.traverse(m=>{if(m.isInstancedMesh)m.dispose();
 export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
   const g=new THREE.Group(),torso=new THREE.Group(),standing=new THREE.Group(),sitting=new THREE.Group();
   const restingArms=new THREE.Group(),hands=[],limbs=[];
-  const a=new Pieces(torso),seated=new Pieces(sitting),arms=new Pieces(restingArms);
+  const seatedLegs=new THREE.Group();seatedLegs.name='seated-legs';sitting.add(seatedLegs);
+  const a=new Pieces(torso),seated=new Pieces(seatedLegs),arms=new Pieces(restingArms);
   for(const s of [-1,1]){
     const leg=new THREE.Group(),armPivot=new THREE.Group();
     leg.position.set(s*.135,.59,0);armPivot.position.set(s*.276,1.17,0);
@@ -684,7 +685,7 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
   };
   g.setSeated=(value,part,time=0,piano,flash=0)=>{
     torso.rotation.x=0;torso.position.z=0;
-    standing.visible=!value;sitting.visible=value;torso.position.y=value?-.055:bob;
+    standing.visible=!value;sitting.visible=value;seatedLegs.visible=true;torso.position.y=value?-.055:bob;
     restingArms.visible=!part&&!carrying;
     for(const [i,arm] of hands.entries()){
       arm.visible=!!part;
@@ -821,10 +822,11 @@ export function avatar(color,skin='#d9a779',hair='#62423f',wardrobe){
     }
     torso.rotation.x=action==='bathroom'?.12:action==='write'?.08:0;
   };
-  g.setRide=(kind,phase,roll=0,pitch=0)=>{
+  g.setRide=(kind,phase,roll=0,pitch=0,model)=>{
     shadow.visible=false;
     if(kind==='car'){
-      body.position.set(.34,.02,-.22);body.rotation.z=roll;body.rotation.x=pitch;restingArms.visible=false;
+      seatedLegs.visible=false;
+      body.position.set(.34,model==='wagon'?-.245-Math.max(0,g.scale.y-1)*1.55:.02,-.22);body.rotation.z=roll;body.rotation.x=pitch;restingArms.visible=false;
       for(const arm of hands){arm.visible=true;arm.rotation.x=-.10;}
     }else{
       body.position.set(0,.26,-.17);torso.rotation.x=.13;

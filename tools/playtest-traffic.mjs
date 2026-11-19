@@ -28,7 +28,8 @@ async function replayTown(page,origin,seed,population){
       worker.postMessage(packet);
     });
     const drivers = new Set(), crossStreet = new Set(), returning = new Set(), returned = new Set();
-    const waits = new Map(), shifted = new Set(), runs = [];
+    const waits = new Map(), shifted = new Set(), wagons = new Set(), roadsters = new Set(), runs = [];
+    const styles=window.__cozy.street.town.crowd.styles;
     let walked = 0, inLane = 0, onPavement = 0, longestLaneWalk = 0;
     let previous = [], longestWait = 0, peakDrivers = 0, stoppedDriver;
     try {
@@ -63,6 +64,10 @@ async function replayTown(page,origin,seed,population){
           longestLaneWalk = Math.max(longestLaneWalk,runs[i]);
           if (p.driving) {
             drivers.add(i);onRoad++;
+            if(p.carModel){
+              if(p.carModel!==styles[i].carModel)throw Error('Resident drivetrain and visible car disagree for '+p.name);
+              (p.carModel==='wagon'?wagons:roadsters).add(i);
+            }
             if(p.gear>=2&&p.engineLoad>0)shifted.add(i);
             if (p.destination === p.homeLotId) returning.add(i);
             else {
@@ -84,12 +89,14 @@ async function replayTown(page,origin,seed,population){
         });
         peakDrivers = Math.max(peakDrivers, onRoad);previous = positions;
       }
-      return {population: previous.length, benches: island.streetBenches.size, drivers: drivers.size,
+      return {population: previous.length, benches: island.streetBenches.size, drivers: drivers.size, wagons:wagons.size, roadsters:roadsters.size,
         walked:Math.round(walked), onPavement:Math.round(onPavement), parallelLane:Math.round(inLane),
         longestLaneWalk:Math.round(longestLaneWalk), crossStreet: crossStreet.size, returned: returned.size, peakDrivers, longestWait, shifted: shifted.size, ...(stoppedDriver?{stoppedDriver}:{})};
     } finally { worker.terminate(); }
   });
   assert.equal(result.population,population);
+  assert.ok(result.wagons>0&&result.roadsters>0);
+  assert.equal(result.wagons+result.roadsters,result.drivers);
   assert.equal(result.returned,result.drivers,'all resident drivers returned by the end of the Harbor Town replay: '+JSON.stringify(result));
   assert.ok(result.shifted>=50,'resident trips accelerated in second gear: '+result.shifted);
   assert.ok(result.benches > 0 && result.crossStreet >= 50 && result.returned >= 50 && result.longestWait < 60, JSON.stringify(result));

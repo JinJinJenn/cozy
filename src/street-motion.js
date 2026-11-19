@@ -3,10 +3,10 @@ import {moveVehicle} from './street-travel.js';
 
 export function presentWalker(session,actor,state,now,dt){
   const guest=!session.owner,local=actor.id===session.id;
-  const reset=!state.ready||state.epoch!==session.poseEpoch||state.travelSeq!==actor.travelSeq||state.vehicle!==actor.vehicle||Math.hypot(actor.x-state.x,actor.z-state.z)>3||
+  const reset=!state.ready||state.epoch!==session.poseEpoch||state.travelSeq!==actor.travelSeq||state.vehicle!==actor.vehicle||state.carModel!==actor.carModel||Math.hypot(actor.x-state.x,actor.z-state.z)>3||
     state.activity!==actor.activity||state.revision!==session.layout.revision&&!walkable(session.island,session.plots,session.layout,state);
   const oldX=state.x,oldZ=state.z;
-  if(reset){state.roll=0;state.pitch=0;state.rollRate=0;state.pitchRate=0;}
+  if(reset){state.carModel=actor.carModel;state.roll=0;state.pitch=0;state.rollRate=0;state.pitchRate=0;}
   if(reset||!guest){
     state.x=actor.x;state.z=actor.z;state.yaw=reset?actor.yaw:state.yaw;
     state.speed=actor.speed||0;state.steer=actor.steer||0;state.reverseHold=actor.reverseHold||0;

@@ -66,7 +66,7 @@ export class StreetTouch {
   showPedals(){
     const held=new Set(this.contacts.values());
     this.throttle=Number(held.has('gas'))-Number(held.has('reverse'));
-    this.brake=held.has('brake');
+    this.brake=held.has('brake');this.handbrake=held.has('handbrake');
     for(const button of this.buttons)button.toggleAttribute('data-held',held.has(button.dataset.pedal));
   }
   clear(){

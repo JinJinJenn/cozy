@@ -43,7 +43,8 @@ export async function testResidents(page){
     crowd.submit=function(sources,style){
       const offsets=new Map([...this.batches.values()].map(b=>[b,b.used]));
       submit.call(this,sources,style);
-      (sources===this.carParts?this.car:this.rig).updateMatrixWorld(true);
+      const rig=sources===this.wagonParts?this.wagon:sources===this.carParts?this.car:this.rig;
+      rig.updateMatrixWorld(true);
       for(const {source,batch,pieces} of sources){
         let visible=true;
         for(let n=source;n;n=n.parent)if(!n.visible&&!n.userData.wardrobe){visible=false;break;}

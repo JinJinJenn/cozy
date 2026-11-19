@@ -1,8 +1,9 @@
 const roadIndexes=new WeakMap();
 export function roadsOf(island){
-  if(roadIndexes.has(island))return roadIndexes.get(island);
+  const roads=island.plan.roads;
+  if(roadIndexes.has(roads))return roadIndexes.get(roads);
   const segments=[],cells=new Map();
-  for(const road of island.plan.roads)for(let i=1;i<road.pts.length;i++){
+  for(const road of roads)for(let i=1;i<road.pts.length;i++){
     const [x,z]=road.pts[i-1],[ex,ez]=road.pts[i],length=Math.hypot(ex-x,ez-z);
     if(!length)continue;
     const dx=(ex-x)/length,dz=(ez-z)/length,r=road.width/2;
@@ -13,7 +14,7 @@ export function roadsOf(island){
         const key=ix+','+iz;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(line);
       }
   }
-  const result={segments,cells};roadIndexes.set(island,result);return result;
+  const result={segments,cells};roadIndexes.set(roads,result);return result;
 }
 export function project(line,p){
   const t=Math.min(line.length,Math.max(0,(p.x-line.x)*line.dx+(p.z-line.z)*line.dz));

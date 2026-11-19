@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 export async function playtestLighting({host,guest,open,out}){
   const lot=await host.evaluate(()=>window.__cozy.island.homes.find(h=>h.name==='Home 5').id);
   async function visit(page){
+    await page.bringToFront();
+    await page.waitForFunction(()=>{const s=window.__cozy.street.session;return s.owner||s.connected;},null,{polling:100,timeout:45000});
     await page.locator('#directions-open').click();await page.locator('#destination').selectOption(lot);
     await page.locator('#jump-place').click();
-    await page.waitForFunction(id=>window.__cozy.street.openRoof===id,lot);
+    await page.waitForFunction(id=>window.__cozy.street.openRoof===id,lot,{polling:100,timeout:60000});
   }
   async function flip(part){
     const point=await guest.evaluate(async ({id,part})=>{

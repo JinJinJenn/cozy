@@ -10,8 +10,8 @@ export function driveGamepad(pads){
     const gas=trigger(pad.buttons[7]),brake=trigger(pad.buttons[6]);
     const reverse=!!pad.buttons[1]?.pressed,exit=!!pad.buttons[3]?.pressed;
     const state={steer:Math.round(steer*64)/64,pedal:reverse?-1:Math.round(gas*64)/64,
-      brake:Math.round(brake*64)/64,exit,index:pad.index};
-    if(state.steer||state.pedal||state.brake||state.exit)return state;
+      brake:Math.round(brake*64)/64,handbrake:!!pad.buttons[0]?.pressed,exit,index:pad.index};
+    if(state.steer||state.pedal||state.brake||state.handbrake||state.exit)return state;
     idle??=state;
   }
   return idle;

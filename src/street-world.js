@@ -200,7 +200,7 @@ export function walkCell(island,plots,x,z){
   return {venues:venues?(venues.get(key)||emptyCell):plots,homes:island.homeCells?.get(key)||emptyCell,
     footprints:island.footprintCells?.get(key)||emptyCell};
 }
-export function walkable(island,plots,layout,pos,cell) {
+export function walkable(island,plots,layout,pos,cell,maxSlope=.95) {
   if (Math.abs(pos.x)>island.half-1 || Math.abs(pos.z)>island.half-1) return false;
   cell??=walkCell(island,plots,Math.floor(pos.x/32),Math.floor(pos.z/32));
   for (const b of cell.venues) {
@@ -233,7 +233,7 @@ export function walkable(island,plots,layout,pos,cell) {
   if(indoors)return true;
   const h=island.sample(pos.x,pos.z);
   if(island.deckHeight && island.deckHeight(pos.x,pos.z)>h+.04)return true;
-  return h>Math.max(.12,island.waterAt(pos.x,pos.z)-.05) && island.slope(pos.x,pos.z)<.95;
+  return h>Math.max(.12,island.waterAt(pos.x,pos.z)-.05) && (maxSlope===Infinity || island.slope(pos.x,pos.z)<maxSlope);
 }
 export function moveWalker(island,plots,layout,actor,input,dt) {
   const mag=Math.hypot(input.x,input.z);

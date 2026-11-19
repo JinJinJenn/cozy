@@ -42,8 +42,7 @@ export async function testTouchDriving({visitor,owner,actor,synced,until}){
     },{id:driver,yaw});
     if(process.env.COZY_TOUCH_SHOT)await visitor.screenshot({path:process.env.COZY_TOUCH_SHOT,type:'jpeg',quality:90});
     await touch('touchMove',p.turn,p.brake);await stopped();
-    // On a slow renderer the turning car can reach the kerb before the two
-    // fingers move to brake. Back up before asking it to pull forward again.
+    // Reverse at least a car length before changing pedals again.
     const parked=await owner.evaluate(id=>{
       const a=window.__cozy.street.session.actors.get(id);return {x:a.x,z:a.z};
     },driver);
