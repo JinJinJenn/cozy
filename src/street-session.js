@@ -660,7 +660,9 @@ export class StreetSession {
         state.brake=m.brakePressure;
       }
       state.motion=Number.isSafeInteger(m.motion)?m.motion:0;
-      if(this.lobby&&m.parcelBoot===this.boot)state.parcelRevision=m.parcelRevision;
+      // A visitor can lose our presence, re-elect us and discard its parcel
+      // snapshot while this host still has its original actor and saved ack.
+      if(this.lobby)state.parcelRevision=m.parcelBoot===this.boot?m.parcelRevision:undefined;
       const cmd=m.cmd,actor=this.actors.get(m.id);
       if(m.profile&&(!actor.profile||performance.now()-(state.profileAt??0)>=500)){
         const profile=readProfile(m.profile);

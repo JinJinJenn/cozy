@@ -5,7 +5,7 @@ export function graphicsSettings(renderer,canvas){
   let mode='auto';try{mode=localStorage.getItem('cozy.graphics')||'auto';}catch{}
   if(mode!=='auto'&&!presets[mode])mode='auto';
   const panel=document.createElement('details');panel.id='graphics-settings';
-  panel.innerHTML='<summary>Graphics <span>v0.27.0</span></summary><label>Quality <select aria-label="Graphics quality"><option value="auto">Auto</option><option value="low">Low</option><option value="balanced">Balanced</option><option value="high">High</option></select></label><output></output>';
+  panel.innerHTML='<summary>Graphics <span>v0.27.1</span></summary><label>Quality <select aria-label="Graphics quality"><option value="auto">Auto</option><option value="low">Low</option><option value="balanced">Balanced</option><option value="high">High</option></select></label><output></output>';
   document.body.appendChild(panel);
   const select=panel.querySelector('select'),readout=panel.querySelector('output');select.value=mode;
   let scale=1,average=16.7,last=0,samples=0,sampleTime=0,next=0,ratio=1,autoShadows=true;

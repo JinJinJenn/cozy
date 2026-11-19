@@ -54,6 +54,20 @@ export async function testWagon({owner,visitor,actor,until}){
       return a?.brakeHeld&&a.speed===0&&ride?.getObjectByName('brake-lamps')?.visible;
     },id);
   }finally{await visitor.keyboard.up('Space');}
+  // A visitor briefly losing the host's presence can come back to the same
+  // owner and boot. The owner still remembers the preceding parcel ack.
+  await until(owner,id=>{const s=window.__cozy.street.session;
+    return s.controls.get(id)?.parcelRevision===s.addresses.book.revision;},id);
+  const original=await visitor.evaluate(()=>{
+    const s=window.__cozy.street.session;
+    const original={pub:s.pub,boot:s.hostBoot};
+    for(const [key,member] of [...s.lobby.members])if(member.pub===s.pub)s.lobby.leave(key);
+    if(!s.owner)throw Error('The dropped host presence did not trigger a local election');
+    return original;
+  });
+  await until(visitor,({pub,boot})=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);
+    return !s.owner&&s.connected&&s.pub===pub&&s.hostBoot===boot&&s.addresses.synced&&a?.vehicle==='car'&&a.carModel==='wagon';},original);
+  console.log('PASS visiting driver recovered the same wagon after temporarily losing the town host.');
   const driver=await visitor.waitForFunction(()=>{
     const {town}=window.__cozy.street;
     const i=town.people.findIndex((p,i)=>p.visible&&p.userData.driving&&town.crowd.styles[i].carModel==='wagon');

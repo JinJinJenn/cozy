@@ -19,6 +19,10 @@ Run `npm run test:travel -- --offroad` for the two-client street-end crossing,
 reverse, slide and recovery. `--wagon` checks the visitor's bodywork and lights
 on the host and the actual wagon drawn for a traveling resident.
 
+Version 0.27.1 also restores a visiting driver's car when their browser loses
+the public host's presence and then rejoins that same host. The wagon playtest
+forces that election and checks the returned car and parcel state.
+
 ## Four-wheel contact
 
 Version 0.26.0 samples the two triangles under each tire and the drivable

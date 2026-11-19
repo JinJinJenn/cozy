@@ -90,6 +90,7 @@ async function parkAhead({owner,visitor,actor,synced,until},me,excluded){
     }
   },{yaw:(await actor(visitor)).yaw,excluded},{timeout:120000,polling:100});
   const trip=await candidate.jsonValue();await candidate.dispose();
+  await until(visitor,()=>window.__cozy.street.session.connected);
   await visitor.evaluate(p=>window.__cozy.street.session.command({type:'teleport',...p}),trip.goal);
   await until(visitor,p=>{const s=window.__cozy.street.session,a=s.actors.get(s.id);return Math.hypot(a.x-p.x,a.z-p.z)<1;},trip.goal);
   await visitor.locator('#directions-open').click();await visitor.locator('#take-car').click();
