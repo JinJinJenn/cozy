@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {avatar} from './street-art.js';
+import {roadContact} from '../packages/sim/src/road-contact.js';
 import {settleChassis,vehicleArt} from './vehicle-art.js';
 import {wheelbase} from '../packages/sim/src/roadster.js';
 import {residentStyle} from './resident-style.js';
@@ -105,8 +106,8 @@ export class ResidentCrowd {
     this.visible=0;
     for(let i=0;i<people.length;i++){
       const person=people[i],p=person.position,state=person.userData;
-      const dx=p.x-(state.x??p.x),dz=p.z-(state.z??p.z),dy=p.y-(state.y??p.y);
-      state.x=p.x;state.z=p.z;state.y=p.y;
+      const dx=p.x-(state.x??p.x),dz=p.z-(state.z??p.z);
+      state.x=p.x;state.z=p.z;
       this.sphere.center.copy(p);this.sphere.center.y+=.85;
       if(!person.visible||camera&&!this.frustum.intersectsSphere(this.sphere))continue;
       if(camera&&island&&!state.driving&&camera.position.distanceToSquared(p)>36*36){
@@ -116,7 +117,7 @@ export class ResidentCrowd {
       this.visible++;
       const distance=Math.hypot(dx,dz);
       if(!state.driving&&person.scale.y>=.9&&distance>.002&&distance<3)state.heading=Math.atan2(dx,dz);
-      const rig=this.rig;rig.position.copy(p);rig.rotation.y=state.heading||0;rig.rotation.x=0;
+      const rig=this.rig;rig.position.copy(p);rig.rotation.y=state.heading||0;rig.rotation.x=0;rig.rotation.z=0;
       const style=this.styles[i],seated=person.scale.y<.9||state.driving;
       rig.scale.set(style.width,style.height,style.width);
       rig.setStride(distance<3?distance:0,dt,seated,false,false,undefined,state,style);
@@ -126,8 +127,9 @@ export class ResidentCrowd {
         const lastYaw=state.carYaw??rig.rotation.y,delta=rig.rotation.y-lastYaw;
         const turn=Math.atan2(Math.sin(delta),Math.cos(delta))*(1-Math.exp(-dt*12));
         state.carYaw=lastYaw+turn;rig.rotation.y=state.carYaw;
-        if(distance>.004&&distance<8)state.roadPitch=-Math.atan(THREE.MathUtils.clamp(dy/distance,-.35,.35));
-        rig.rotation.x=state.roadPitch||0;this.car.position.copy(p);this.car.rotation.copy(rig.rotation);
+        const contact=island&&roadContact(island.tireHeight||island.deckHeight||island.sample,p.x,p.z,state.carYaw,state.roadContact??={});
+        if(contact){rig.position.y=contact.y;rig.rotation.x=contact.pitch;rig.rotation.z=contact.roll;}
+        this.car.position.copy(rig.position);this.car.rotation.copy(rig.rotation);
         state.wheelPhase=(state.wheelPhase||0)+(distance<8?distance/.28:0);
         const frontAngle=distance>.001?THREE.MathUtils.clamp(Math.atan2(turn*wheelbase,distance),-.60,.60):0;
         const speed=dt>0?distance/dt:0,braking=state.braking??((state.carSpeed||0)-speed>dt*3);
@@ -135,9 +137,9 @@ export class ResidentCrowd {
         settleChassis(state,dt>0?speed*turn/dt:0,accel,dt);
         rig.setRide('car',0,state.roll,state.pitch);
         state.carSpeed=speed;
-        this.car.updateRide(0,0,0,state.wheelPhase,braking,state.roll,state.pitch,frontAngle);this.submit(this.carParts,style);
+        this.car.updateRide(0,0,0,state.wheelPhase,braking,state.roll,state.pitch,frontAngle,contact?.travel);this.submit(this.carParts,style);
       }else{
-        state.carYaw=undefined;state.carSpeed=undefined;state.roadPitch=0;
+        state.carYaw=undefined;state.carSpeed=undefined;
         if(this.wasDriver)rig.setDomestic('',0);
       }
       this.wasDriver=state.driving;

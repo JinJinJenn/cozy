@@ -60,9 +60,22 @@ export async function playtestStudio({host,guest,open,out}){
   await host.waitForFunction(()=>document.querySelector('#furniture-pack').disabled);
   await guest.locator('#use-place').click();
   await clickItem(guest,lot,'easel-1','Paint Harbor at dawn');
-  await Promise.all([stage(host,1),stage(guest,1)]);
-  await guest.locator('#use-place').click();
+  // The two peers can present different frames of the same stroke. Stop the
+  // guest's brush on a visible partial painting, then compare the saved stage.
+  const partial=await guest.waitForFunction(lot=>{
+    const st=window.__cozy.street,art=st.clearExteriors.interiors.appliances;
+    const n=art?.home.id===lot&&art.easels.find(e=>e.id==='easel-1')?.stage;
+    const button=document.querySelector('#use-place');
+    if(!(n>=1&&n<4)||button.textContent!=='Put brush down')return false;
+    const box=button.getBoundingClientRect(),x=box.left+box.width/2,y=box.top+box.height/2;
+    return document.elementFromPoint(x,y)===button?{x,y}:false;
+  },lot,{polling:50,timeout:60000});
+  const brush=await partial.jsonValue();await partial.dispose();
+  await guest.mouse.click(brush.x,brush.y);
   await guest.waitForFunction(()=>{const s=window.__cozy.street.session;return !s.actors.get(s.id).activity;});
+  const savedStage=await guest.evaluate(()=>window.__cozy.street.clearExteriors.interiors.appliances.easels.find(e=>e.id==='easel-1').stage);
+  assert.ok(savedStage>=1&&savedStage<4,'the visitor stopped with an unfinished canvas');
+  await stage(host,savedStage);
   await host.locator('#furniture-pack').click();
   await guest.waitForFunction(lot=>!window.__cozy.island.homesById.get(lot).placements?.['armchair-1'],lot);
   await host.locator('#furniture-undo').click();

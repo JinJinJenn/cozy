@@ -4,6 +4,19 @@ JinJinJenn owns the project and publishes it on her GitHub Pages site. [Play the
 
 ## Current build
 
+Version 0.26.0 samples the two triangles under each tire and the drivable
+bridge decks. Driver grip and gravity follow the road grade and bank. Each
+wheel can take up a change in slope independently. Player cars, visiting cars
+and batched resident cars use the same surface.
+
+Run `npm run test:travel -- --banks` to check the actual tire and street meshes
+on the host and visitor, then follow a moving resident. On the measured
+18-degree street the largest absolute gap fell from 48 cm to just over 2 mm.
+Across 4,642 sampled lane positions on petalwood, the largest air gap was
+5.1 mm and the deepest tire penetration was 12.6 mm.
+
+## Previous pedestrian update
+
 Version 0.25.0 gives residents a graph for the left and right sidewalks, corners,
 street crossings, dry gaps between blocks, and bridge footways. Room edits
 invalidate cached walking legs and ground checks. The traffic replay measures

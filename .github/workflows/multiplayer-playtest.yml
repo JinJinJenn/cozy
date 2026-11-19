@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/multiplayer-playtest.yml'
+      - 'packages/island-gen/src/chunks.js'
+      - 'src/bridge-profile.js'
       - 'packages/net/**'
       - 'packages/settlement/**'
       - 'packages/sim/**'
@@ -50,6 +52,8 @@ on:
       - 'tools/test-travel.mjs'
       - 'tools/playtest-gamepad.mjs'
       - 'tools/playtest-traffic-queue.mjs'
+      - 'tools/playtest-road-contact.mjs'
+      - 'tests/road-contact.test.mjs'
       - 'src/drive-gamepad.js'
       - 'tests/bridge.test.mjs'
       - 'tests/travel.test.mjs'
@@ -146,11 +150,12 @@ jobs:
           PLAYWRIGHT_FROM: ${{ runner.temp }}/cozy-browser/package.json
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          node --test tests/bridge.test.mjs tests/travel.test.mjs
+          node --test tests/bridge.test.mjs tests/travel.test.mjs tests/road-contact.test.mjs
           npm run test:travel -- --software
           npm run test:travel -- --software --touch
           npm run test:travel -- --software --gamepad
           npm run test:travel -- --software --queue
+          npm run test:travel -- --software --banks
           node tools/test-viewer.mjs --traffic
           node tools/test-viewer.mjs --residents
       - name: Transfer a private street between browser profiles

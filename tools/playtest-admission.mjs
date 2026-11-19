@@ -47,9 +47,10 @@ export async function playAdmission({host,guest,ready,wait,navigate,profile}){
     assert.ok(await guest.evaluate(()=>window.__cozy.street.session.connected));
   }finally{await visitor.context().close();}
   await host.bringToFront();
-  await host.reload();await ready(host);await panel(host);
-  assert.equal(await host.locator('#ask-to-enter').isChecked(),true);
+  await host.reload();await ready(host);
   await guest.locator('#visit-wait').getByText('Knocked. Waiting for the owner.').waitFor();
+  await host.locator('#answer-door').click({timeout:90000});
+  assert.equal(await host.locator('#ask-to-enter').isChecked(),true);
   await host.locator('#ask-to-enter').uncheck();
   await wait(guest,()=>window.__cozy.street.session.connected);
   console.log('PASS home-specific knock, admit, decline and public return. An admitted guest kept receiving signed city frames while the waiting visitor received zero. Owner reload retained the door setting.');

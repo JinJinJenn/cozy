@@ -16,7 +16,7 @@ function lateralForce(slip,load,longitudinal,stiffness){
   return limit>0?-limit*Math.tanh(stiffness*slip/limit):0;
 }
 
-export function stepRoadster(car,input,dt,grade=0){
+export function stepRoadster(car,input,dt,grade=0,crossGrade=0){
   const u=car.speed||0,v=car.sideSpeed||0,r=car.yawRate||0,throttle=input.z||0;
   const pressure=throttle*u<0?1:clamp(Number(input.brake)||0,0,1);
   const brake=pressure>0;
@@ -34,8 +34,10 @@ export function stepRoadster(car,input,dt,grade=0){
 
   // Braking loads the front axle. The rear wheels drive the car, and each
   // axle spends the same available grip on longitudinal and lateral force.
-  const frontLoad=gravity*rearArm/wheelbase-demand*.42/wheelbase;
-  const rearLoad=gravity-frontLoad;
+  const forwardLength=Math.hypot(1,grade);
+  const normalGravity=gravity/Math.hypot(1,grade,crossGrade);
+  const frontLoad=clamp(normalGravity*rearArm/wheelbase-demand*.42/wheelbase,0,normalGravity);
+  const rearLoad=normalGravity-frontLoad;
   const frontX=brake?clamp(demand*.66,-grip*frontLoad,grip*frontLoad):0;
   const frontV=v+frontArm*r,rearV=v-rearArm*r;
   const rearSlip=Math.atan2(rearV,Math.max(2,Math.abs(u)));
@@ -51,9 +53,9 @@ export function stepRoadster(car,input,dt,grade=0){
   const frontY=lateralForce(Math.atan2(frontV*cs-u*sn,Math.max(2,Math.abs(u*cs+frontV*sn))),frontLoad,frontX,37);
   const rearY=lateralForce(rearSlip,rearLoad,rearX,43);
   const frontSide=frontY*cs+frontX*sn;
-  const bankForce=frontSide+rearY;
+  const tireSide=frontSide+rearY;
   const accel=frontX*cs+rearX-frontY*sn;
-  let speed=u+(accel+v*r-gravity*grade)*dt;
+  let speed=u+(accel+v*r-gravity*grade/forwardLength)*dt;
   // A stopped car holds on a hill. The reverse gate also holds the car until
   // an opposing pedal has brought it to rest.
   if(!pedal&&(!u||Math.sign(speed)!==Math.sign(u)||brake&&Math.abs(u)<.10))speed=0;
@@ -64,13 +66,16 @@ export function stepRoadster(car,input,dt,grade=0){
   const crawl=clamp((4-Math.abs(u))/2,0,1)*(1-Math.exp(-dt*24));
   const rollingRate=car.speed*Math.tan(delta)/wheelbase;
   const yaw=r+(frontArm*frontSide-rearArm*rearY)*dt/yawInertia;
-  const side=v+(bankForce-u*r)*dt;
+  // A rolling tire must generate lateral force on a bank. Keep the static
+  // hold at parking speed so a parked car stays where its driver leaves it.
+  const downhill=-normalGravity*crossGrade/forwardLength*Math.min(1,Math.abs(u)/2);
+  const side=v+(tireSide+downhill-u*r)*dt;
   car.yawRate=yaw+(rollingRate-yaw)*crawl;
   car.sideSpeed=side+(rollingRate*rearArm-side)*crawl;
   if(!car.speed&&Math.abs(car.sideSpeed)<.055&&Math.abs(car.yawRate)<.06){
     car.sideSpeed=0;car.yawRate=0;
   }
-  car.longAccel=accel;car.lateralAccel=bankForce;
+  car.longAccel=accel;car.lateralAccel=tireSide;
 }
 
 // Set a speed at each route vertex from its curvature. Carry the required

@@ -56,7 +56,10 @@ try{
   const owner=await first.evaluate(()=>window.__cozy.street.session.owner)?first:second;
   const visitor=owner===first?second:first;
   await visitor.bringToFront();
-  if(process.argv.includes('--queue')){
+  if(process.argv.includes('--banks')){
+    const {testRoadContact}=await import('./playtest-road-contact.mjs');
+    await testRoadContact({visitor,owner,actor,synced,until});
+  }else if(process.argv.includes('--queue')){
     const {testTrafficQueue}=await import('./playtest-traffic-queue.mjs');
     await testTrafficQueue({visitor,owner,actor,synced,until});
   }else if(process.argv.includes('--gamepad')){

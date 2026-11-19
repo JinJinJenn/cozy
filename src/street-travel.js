@@ -2,8 +2,10 @@ import {roadsOf,project} from './street-road-index.js';
 import {homeAt} from './home-plan.js';
 import {frontAt,sideAt,toRoom,toWorld,walkable} from './street-world.js';
 import {trafficContact} from '../packages/sim/src/traffic-footprint.js';
-import {stepRoadster,wheelbase} from '../packages/sim/src/roadster.js';
+import {roadContact} from '../packages/sim/src/road-contact.js';
+import {stepRoadster} from '../packages/sim/src/roadster.js';
 
+const driveSurface={};
 const specifications={
   car:{halfWidth:.86,halfLength:1.55},
   bike:{top:7.5,reverse:1.15,accel:3.4,brake:6,coast:1.5,turn:.93,halfWidth:.28,halfLength:.79}
@@ -85,16 +87,19 @@ function driveCar(s,a,input,dt){
   if(dt<=0)return;
   a.brakeHeld=!!input.brake;
   const people=nearbyPeople(s,a,a.x,a.z);
-  const dx=Math.sin(a.yaw)*wheelbase*.5,dz=Math.cos(a.yaw)*wheelbase*.5;
-  const height=s.island.deckHeight||((x,z)=>s.island.sample(x,z));
-  const grade=Math.max(-.35,Math.min(.35,(height(a.x+dx,a.z+dz)-height(a.x-dx,a.z-dz))/wheelbase));
-  a.roadPitch=-Math.atan(grade);
+  const surface=roadContact(s.island.tireHeight||s.island.deckHeight||s.island.sample,a.x,a.z,a.yaw,driveSurface);
+  a.roadPitch=surface.pitch;
+  // The tire velocities are along the road. Only their horizontal projection
+  // advances the car through the town's XZ collision and network coordinates.
+  const pitchCos=Math.cos(surface.pitch), rollCos=Math.cos(surface.roll);
+  const bankForward=Math.sin(surface.pitch)*Math.sin(surface.roll);
   const steps=Math.max(1,Math.ceil(dt*60)),step=dt/steps;
   for(let i=0;i<steps;i++){
     const previous=a.speed||0,side=a.sideSpeed||0,omega=a.yawRate||0;
-    stepRoadster(a,input,step,grade);
-    const travel=(previous+a.speed)*.5*step;
-    const drift=(side+a.sideSpeed)*.5*step,turn=(omega+a.yawRate)*.5*step;
+    stepRoadster(a,input,step,surface.grade,surface.crossGrade);
+    const lateralTravel=(side+a.sideSpeed)*.5*step;
+    const travel=(previous+a.speed)*.5*step*pitchCos+lateralTravel*bankForward;
+    const drift=lateralTravel*rollCos,turn=(omega+a.yawRate)*.5*step;
     if(!travel&&!drift&&!turn)continue;
     const mid=a.yaw+turn*.5,yaw=a.yaw+turn;
     const x=a.x+Math.sin(mid)*travel+Math.cos(mid)*drift,z=a.z+Math.cos(mid)*travel-Math.sin(mid)*drift;

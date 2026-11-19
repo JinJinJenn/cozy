@@ -119,7 +119,7 @@ export function bridgeProfile(island, road, width = road.width, roads = []) {
 // Index the same two triangles the renderer submits. Wheels and pedestrians
 // use this surface on both the main thread and the resident worker.
 export function bridgeHeightAt(terrain, spans) {
-  if (!spans.length) return terrain;
+  if (!spans.length) return (x, z, ground = terrain) => ground(x, z);
   const cells = new Map(), cellSize = 16;
   function add(p, q, r) {
     const ux = q[0] - p[0], uz = q[1] - p[1], vx = r[0] - p[0], vz = r[1] - p[1];
@@ -143,8 +143,8 @@ export function bridgeHeightAt(terrain, spans) {
     const al = edge(a, -1), ar = edge(a, 1), bl = edge(b, -1), br = edge(b, 1);
     add(al, bl, ar); add(ar, bl, br);
   }
-  return (x, z) => {
-    let y = terrain(x, z);
+  return (x, z, ground = terrain) => {
+    let y = ground(x, z);
     const list = cells.get(Math.floor(x / cellSize) + ',' + Math.floor(z / cellSize));
     if (!list) return y;
     for (const t of list) {

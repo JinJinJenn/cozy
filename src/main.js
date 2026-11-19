@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {terrainCells,renderedTerrainHeight} from '../packages/island-gen/src/chunks.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {IslandClient} from './island-client.js';
 import {SettlementView} from './settlement-view.js';
@@ -127,7 +128,7 @@ function makeMesh(data,isWater){
 // which mesh bounds pass the frustum test. Limit queued work on a superseded load.
 async function buildIslandSurface(generation){
   const halfTiles=Math.floor(island.half/island.chunkSize),width=halfTiles*2;
-  const cells=island.chunkCells??Math.ceil(island.chunkSize/island.cell);
+  const cells=terrainCells(island);
   const res=cells+1,waterRes=2*cells+1;
   let next=0,failed=false;
   async function buildTiles(){
@@ -258,7 +259,9 @@ async function load(presetId,seed,view='oblique',viewOpts){
     if(generation!==loadGen) return;
     island=loaded;
     town=new SettlementView(island);
-    island.deckHeight=town.decks.heightAt;
+    const deckHeight=town.decks.heightAt,pavement=renderedTerrainHeight(island);
+    island.deckHeight=deckHeight;
+    island.tireHeight=(x,z)=>deckHeight(x,z,pavement);
     scene.add(town.group);
     street=new Street(island,scene,camera,controls,town);
     await town.bindStreet(street,!params.has('shot'));

@@ -5,6 +5,31 @@ import {clamp} from './rng.js';
 // boundaries so both tiles use the same lighting normal at the shared vertex.
 const SKIRT=7;
 
+export function terrainCells(island) {
+  return island.chunkCells ?? Math.ceil(island.chunkSize / island.cell);
+}
+
+// Roads are drawn on the two triangles a,c,b and b,c,d in each terrain cell.
+// Cache their corner heights so nearby wheels can share the same four samples.
+export function renderedTerrainHeight(island) {
+  const step = island.chunkSize / terrainCells(island);
+  let prevX, prevZ, a, b, c, d;
+  return (x, z) => {
+    const ix = Math.floor(x / step), iz = Math.floor(z / step);
+    const x0 = ix * step, z0 = iz * step;
+    if (ix !== prevX || iz !== prevZ) {
+      prevX = ix; prevZ = iz;
+      a = Math.fround(island.sample(x0, z0));
+      b = Math.fround(island.sample(x0 + step, z0));
+      c = Math.fround(island.sample(x0, z0 + step));
+      d = Math.fround(island.sample(x0 + step, z0 + step));
+    }
+    const u = (x - x0) / step, v = (z - z0) / step;
+    return u + v <= 1 ? a + u * (b - a) + v * (c - a)
+      : d + (1 - u) * (c - d) + (1 - v) * (b - d);
+  };
+}
+
 export function buildTerrainChunk(island,cx,cz,res=33,{skirts=true}={}){
   const S=island.chunkSize,x0=cx*S,z0=cz*S,step=S/(res-1);
   const core=res*res,total=core+(skirts?4*res:0);

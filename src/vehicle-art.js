@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {Pieces} from './street-pieces.js';
+import {halfTrack,halfWheelbase} from '../packages/sim/src/road-contact.js';
 import {carSteerAngle,wheelbase} from '../packages/sim/src/roadster.js';
 
 const hoop=new THREE.TorusGeometry(1,.075,6,22),tire=new THREE.TorusGeometry(1,.18,7,20);
@@ -66,7 +67,7 @@ export function vehicleArt(kind){
       pedals.box(side*.11,side*.063,0,.035,.16,.038,chrome);pedals.box(side*.16,side*.14,0,.12,.038,.10,rubber);
     }pedals.finish();
   }else{
-    for(const x of [-.78,.78])for(const z of [-1.01,1.01])wheels.push(wheel(root,x,.33,z,.28,false));
+    for(const x of [-halfTrack,halfTrack])for(const z of [-halfWheelbase,halfWheelbase])wheels.push(wheel(root,x,.33,z,.28,false));
     p.box(0,.335,0,1.56,.16,2.98,'#465554');
     p.box(0,.51,0,1.66,.30,3.04,paint);
     for(const side of [-1,1]){
@@ -104,13 +105,15 @@ export function vehicleArt(kind){
     brakeLights.visible=false;
   }
   p.finish();let phase=0,previousSpeed=0;
-  root.updateRide=(speed,dt,steer,wheelPhase,braking,roll=0,pitch=0,frontAngle)=>{
+  root.updateRide=(speed,dt,steer,wheelPhase,braking,roll=0,pitch=0,frontAngle,travel)=>{
     phase=wheelPhase??phase+speed*dt/(bike?.323:.28);
     if(brakeLights)brakeLights.visible=braking??(dt>0&&Math.abs(previousSpeed)-Math.abs(speed)>dt*3);
     previousSpeed=speed;
     const angle=frontAngle??-carSteerAngle(steer,speed);
     if(!bike){chassis.rotation.z=roll;chassis.rotation.x=pitch;}
-    for(const {hub,spin} of wheels){
+    for(let i=0;i<wheels.length;i++){
+      const {hub,spin}=wheels[i];
+      if(!bike)hub.position.y=.33+(travel?.[i]??0);
       spin.rotation.x=phase;
       if(hub.position.z>0)hub.rotation.y=bike?-steer*.30:Math.atan2(wheelbase*Math.sin(angle),wheelbase*Math.cos(angle)-hub.position.x*Math.sin(angle));
     }

@@ -11,6 +11,7 @@ import {driveGamepad} from './drive-gamepad.js';
 import {RoadsterSound} from './roadster-sound.js';
 import {StreetTouch} from './street-touch.js';
 import {PianoMenu,pickPiano} from './piano-menu.js';
+import {roadContact} from '../packages/sim/src/road-contact.js';
 import {settleChassis,vehicleArt} from './vehicle-art.js';
 import {TerraceEditor} from './terrace-editor.js';
 import {HomeEditor} from './home-editor.js';
@@ -667,16 +668,17 @@ export class Street {
       mesh.setShirt(shirt);
       mesh.setFlower(a.profile?.flower);
       const pose=presentWalker(s,a,mesh.userData.motion??={},now,dt);
-      const y=floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
+      const contact=a.vehicle==='car'?roadContact(this.island.tireHeight,pose.x,pose.z,pose.yaw,pose.roadContact??={}):null;
+      const y=contact?.y??floorAt(this.island,this.plots,pose.x,pose.z,s.layout);
       mesh.position.set(pose.x,y,pose.z);mesh.rotation.y=pose.yaw;
-      mesh.rotation.x=a.vehicle==='car'?(id===s.id?pose.roadPitch:a.roadPitch)||0:0;
+      mesh.rotation.x=contact?.pitch??0;
       mesh.setStride(pose.distance,dt,!!a.activity,!!a.cup,a.outing==='chat'||!!a.invitedBy,a.tray);
       const watching=a.activity==='watch';
       const seated=['sit','dine','relax','piano','bathroom','eat','read','tablegame'].includes(a.activity)||watching;
       const flash=a.piano?this.music.takeKeyFlash(a.part,a.piano):0;
       if(a.piano)this.keyFlashes[a.part]=flash;
       mesh.setSeated(seated||a.vehicle==='car',a.part,s.time,a.piano,flash);mesh.scale.y=a.activity==='train'?.86+.14*Math.sin(s.time*4):1;
-      mesh.rotation.z=(a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0;
+      mesh.rotation.z=contact?.roll??((a.activity==='piano'||a.activity==='dance')?.09*Math.sin(s.time*6):0);
       mesh.setDomestic(a.activity,s.time,a.using,!!a.bowlFrom,watching?(s.layout.homeTV?.[a.using?.lot]||0):null);
       mesh.setGesture(a.gesture,a.gesture?gesturePhase(a,s.time):null,seated);
       if(mesh.userData.vehicle!==a.vehicle){
@@ -689,7 +691,7 @@ export class Street {
         const brake=(predicted?s.keys.brake:a.brakeHeld)||undefined;
         const drive=predicted?pose:a;
         if(a.vehicle==='car')settleChassis(pose,drive.lateralAccel||0,drive.longAccel||0,dt);
-        const phase=mesh.userData.ride.updateRide(drive.speed||0,dt,drive.steer||0,undefined,brake,pose.roll,pose.pitch);
+        const phase=mesh.userData.ride.updateRide(drive.speed||0,dt,drive.steer||0,undefined,brake,pose.roll,pose.pitch,undefined,contact?.travel);
         mesh.setRide(a.vehicle,phase,pose.roll,pose.pitch);
       }
     }
